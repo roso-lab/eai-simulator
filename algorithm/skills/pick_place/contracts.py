@@ -87,10 +87,16 @@ class PickPlaceAdapter(Protocol):
     def resource_key(self, object_ref: str) -> str:
         """Return the canonical object resource, including alias resolution."""
 
-    def validate(self, command: PickPlaceCommand) -> None:
-        """Pure admission check; raise for unsupported/unreachable targets."""
+    def start(self, command: PickPlaceCommand) -> None:
+        """Invoke the underlying motion controller for a physical diagnostic.
 
-    def start(self, command: PickPlaceCommand) -> None: ...
+        Production benchmark execution does not call this method for adapters
+        declaring ``idealized_semantics = True``.  Such adapters may retain a
+        native controller here for opt-in visual/physical diagnostics, but
+        geometry, IK, tool-axis and controller lifecycle failures must never
+        become the semantic task result.
+        """
+        ...
     def before_step(self) -> None: ...
     def after_step(self) -> None: ...
     def feedback(self) -> BackendFeedback: ...

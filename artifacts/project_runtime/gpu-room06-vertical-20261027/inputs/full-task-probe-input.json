@@ -1,0 +1,57 @@
+{
+  "schema": "heterocoord.room06-livt04-gpu-probe-input.v1",
+  "input_digest": "6a6e9b4b3c8798df34f0d4d23372e43136d4f2b3774032d0b7186f59764ccda9",
+  "mode": "full_task",
+  "scene_ref": {
+    "path": "/home/pupil/HeteroCoord/usd/scene/Living and public space/room_06/room_06.usda",
+    "sha256": "e67affcbd6d67941feb8bc7728d6be4cd74ad63d414a8b65db771337b76e300a"
+  },
+  "requested_device": "cuda:0",
+  "expected_gpu_uuid": "GPU-aa40060e-cb9d-b04a-e70c-4c91cbb67fb0",
+  "headless": true,
+  "seed": 20261028,
+  "diagnostic_steps": 64,
+  "package_ref": {
+    "path": "/home/pupil/HeteroCoord/artifacts/project_runtime/gpu-room06-vertical-20261027/inputs/room06-fixed-package.json",
+    "sha256": "49abdc180061ccd995441fcd28ba5f0685d66f6a4f5e06d69606049d2f31c32d",
+    "package_digest": "668fa53459c88893d732e146979281ce8e92839befedee9cc2eeadfe55caaa33"
+  },
+  "preflight_inputs": {
+    "semantic_root": {
+      "path": "/home/pupil/HeteroCoord/usd/scene/Living and public space/room_06/semantic_map",
+      "sha256": "acd3d1bdf64173c17dda18eb5e9ff9d6dc5e30349b468163cb97b1ad6f70b5ee"
+    },
+    "scene_usd": {
+      "path": "/home/pupil/HeteroCoord/usd/scene/Living and public space/room_06/room_06.usda",
+      "sha256": "e67affcbd6d67941feb8bc7728d6be4cd74ad63d414a8b65db771337b76e300a"
+    },
+    "robot_roster": {
+      "path": "/home/pupil/HeteroCoord/benchmark/robot_resume/robot_runtime_roster.v1.promoted.json",
+      "sha256": "1357626ae7c880eac7e0036fd823302442add297222983cd52d4cf2855569cd2"
+    },
+    "binding": {
+      "path": "/home/pupil/HeteroCoord/artifacts/project_runtime/gpu-room06-vertical-20261027/inputs/runtime-preflight-binding.json",
+      "sha256": "deb57a5a00ddebf2f985c9d0e0540f279d2c258c007b5639f033f8474084d570"
+    },
+    "task_setup": {
+      "path": "/home/pupil/HeteroCoord/artifacts/project_runtime/gpu-room06-vertical-20261027/inputs/task-setup.json",
+      "sha256": "1532f240a342c1af030f04ff366b87ae1d474cbd1c68ebdf7b60fa216de0f518"
+    }
+  },
+  "runtime_hook_ref": {
+    "path": "/home/pupil/HeteroCoord/source/EAI/EAI/room06_runtime_hook.py",
+    "sha256": "6b868a7c53a4cde378926dadbabf2350a51bd942fd688c92e661b25eeb45434b",
+    "factory": "collect_room06_runtime_hook"
+  },
+  "runtime_source_ref": {
+    "path": "/home/pupil/HeteroCoord/source/EAI/EAI/room06_runtime_source.py",
+    "sha256": "2d8d55326dc6a1af5efb44b4574090818456a329a7b9c23772f25e886325df5b",
+    "factory": "create_room06_runtime_source"
+  },
+  "formal_gates": {
+    "runtime_qualified": false,
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  }
+}

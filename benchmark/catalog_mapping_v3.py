@@ -24,8 +24,12 @@ from .task_catalog import TaskAnchor, validate_catalog
 SCHEMA = "heterocoord.catalog_contract_mapping.v1"
 RECEIPT_SCHEMA = "heterocoord.catalog_contract_mapping_receipt.v1"
 PROFILE = "prod-p4-01.catalog-contract.v1"
-DEFAULT_ROBOT_RESUME_PATH = Path(
-    "/home/pupil/HeteroCoord/benchmark/robot_resume/robot_pool_resume.v1.json"
+# Keep the default inside the checkout that owns this module.  A fixed host
+# path makes otherwise content-addressed catalog checks fail in clean
+# worktrees/CI and is unrelated to the mapping's semantic identity.
+DEFAULT_ROBOT_RESUME_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "benchmark/robot_resume/robot_pool_resume.v1.json"
 )
 MAX_INPUT_BYTES = 8 * 1024 * 1024
 
@@ -77,7 +81,10 @@ def _is_sha256(value: Any) -> bool:
 
 
 def _read(path: str | Path, root: Path) -> bytes:
-    resolved = Path(path).resolve(strict=True)
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    resolved = candidate.resolve(strict=True)
     if not resolved.is_relative_to(root):
         raise ValueError("mapping inputs must resolve inside the project")
     with resolved.open("rb") as stream:
@@ -85,6 +92,22 @@ def _read(path: str | Path, root: Path) -> bytes:
     if len(raw) > MAX_INPUT_BYTES:
         raise ValueError("mapping input exceeds byte limit")
     return raw
+
+
+def _project_directory(value: Any, root: Path, expected: Path, name: str) -> Path:
+    """Resolve a portable scenario root without admitting checkout escapes."""
+
+    if not isinstance(value, str) or not value or Path(value).is_absolute():
+        raise ValueError(f"scenario {name} must be a project-relative path")
+    try:
+        resolved = (root / value).resolve(strict=True)
+    except OSError as exc:
+        raise ValueError(f"scenario {name} must resolve to an existing directory") from exc
+    if not resolved.is_relative_to(root) or not resolved.is_dir():
+        raise ValueError(f"scenario {name} must resolve inside the project")
+    if resolved != expected.resolve(strict=True):
+        raise ValueError(f"scenario {name} must equal the project-local directory")
+    return resolved
 
 
 def _exact_keys(value: Any, keys: set[str], name: str) -> Mapping[str, Any]:
@@ -138,22 +161,14 @@ def _verify_scenario_semantics(
     """Verify static scenario bindings without claiming native qualification."""
     if not isinstance(scenario, Mapping):
         raise ValueError("scenario must be an object")
-    expected_source = (project_root / "source").resolve()
-    expected_usd = (project_root / "usd").resolve()
-    source_root = scenario.get("source_root")
-    usd_root = scenario.get("usd_root")
-    if (
-        not isinstance(source_root, str)
-        or not Path(source_root).is_absolute()
-        or Path(source_root).resolve() != expected_source
-    ):
-        raise ValueError("scenario source_root must equal the project source directory")
-    if (
-        not isinstance(usd_root, str)
-        or not Path(usd_root).is_absolute()
-        or Path(usd_root).resolve() != expected_usd
-    ):
-        raise ValueError("scenario usd_root must equal the project usd directory")
+    expected_source = (project_root / "source").resolve(strict=True)
+    expected_usd = (project_root / "usd").resolve(strict=True)
+    _project_directory(
+        scenario.get("source_root"), project_root, expected_source, "source_root"
+    )
+    _project_directory(
+        scenario.get("usd_root"), project_root, expected_usd, "usd_root"
+    )
 
     scene_identity = scenario.get("scene_identity")
     if not isinstance(scene_identity, Mapping):
@@ -166,13 +181,7 @@ def _verify_scenario_semantics(
         "hmrs_root": expected_source / "EAI_hmrs",
     }
     for field, expected in expected_scene_roots.items():
-        value = scene_identity.get(field)
-        if (
-            not isinstance(value, str)
-            or not Path(value).is_absolute()
-            or Path(value).resolve() != expected
-        ):
-            raise ValueError(f"scenario {field} must equal the project-local EAI directory")
+        _project_directory(scene_identity.get(field), project_root, expected, field)
     if scene_identity.get("scene_descriptor") != f"{anchor.scene_key}/{anchor.scene_anchor}":
         raise ValueError("scenario scene_descriptor differs from scene identity")
 

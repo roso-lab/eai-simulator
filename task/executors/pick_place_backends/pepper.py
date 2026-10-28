@@ -28,6 +28,10 @@ def read_pepper_base_pose(env, robot_id):
 
 
 class PepperPickPlaceAdapter:
+    # Keep the native bilateral controller available for diagnostics while the
+    # benchmark task result follows the idealized transport contract.
+    idealized_semantics = True
+
     def __init__(self, robot_id, env, *, controller_dict=None, base_pose=None,
                  resolve_object=lambda ref: ref, collision_filter_validator=None,
                  lift_m=.12, tolerance_m=.04, stable_steps=8, robot_name=None, env_id=0,

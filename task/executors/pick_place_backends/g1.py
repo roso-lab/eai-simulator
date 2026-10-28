@@ -18,6 +18,10 @@ from task.executors.g1_live import G1LiveHandle, G1LiveRuntime, pose_matrix
 
 
 class G1PickPlaceAdapter(G1LiveHandle):
+    # Geometry/IK and stationary-base checks are diagnostic for the benchmark
+    # contract; logical pick/place is admitted by semantic arrival + payload.
+    idealized_semantics = True
+
     _hold_active = False
 
     def __init__(self, robot_id, env, *, stage, robot_name, robot_path, objects,

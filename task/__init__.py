@@ -21,8 +21,12 @@ from .contracts import (
 from .runner import TaskRunner
 from .observation import WorldSnapshot
 from .resources import ResourceManager
+from .transport import (TRANSPORT_COMMAND_SCHEMA, TransportAdmissionResolver,
+                        TransportAdmissionResult, TransportCommand,
+                        compile_transport_command, execute_transport)
 from .executors import (BoundSkill, ExecutionReceipt, SkillTaskExecutor,
-                        CooperativeBinding, CooperativeBatchExecutor, CooperativeHandle)
+                        CooperativeBinding, CooperativeBatchExecutor, CooperativeHandle,
+                        TransportOrchestrationExecutor)
 
 __all__ = [
     "AlgorithmDecision",
@@ -44,4 +48,11 @@ __all__ = [
     "CooperativeBinding",
     "CooperativeBatchExecutor",
     "CooperativeHandle",
+    "TransportOrchestrationExecutor",
+    "TRANSPORT_COMMAND_SCHEMA",
+    "TransportCommand",
+    "TransportAdmissionResult",
+    "TransportAdmissionResolver",
+    "compile_transport_command",
+    "execute_transport",
 ]

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://heterocoord.local/schema/robot_runtime_qualification_receipt.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "receipt_id", "instance_id", "source_resume_id", "profile_id", "admission_class", "platform_type", "configuration_role", "asset_digest", "capability_digest", "initial_state_digest", "run", "checks", "manipulation", "cleanup", "evaluator_digest", "status", "runtime_qualified", "failure", "formal_gates", "receipt_digest"],
+  "properties": {
+    "schema": {"const": "heterocoord.robot_runtime_qualification_receipt.v1"},
+    "receipt_id": {"type": "string", "minLength": 1}, "instance_id": {"type": "string", "minLength": 1}, "source_resume_id": {"type": "string", "minLength": 1}, "profile_id": {"type": "string", "minLength": 1},
+    "admission_class": {"enum": ["pool", "independent_arm_immediate"]}, "platform_type": {"type": "string"}, "configuration_role": {"type": "string"},
+    "asset_digest": {"$ref": "#/$defs/digest"}, "capability_digest": {"$ref": "#/$defs/digest"}, "initial_state_digest": {"$ref": "#/$defs/digest"}, "evaluator_digest": {"$ref": "#/$defs/digest"}, "receipt_digest": {"$ref": "#/$defs/digest"},
+    "run": {"type": ["object", "null"]}, "checks": {"type": "object", "required": ["load", "basic_function", "sensor_readback"]}, "manipulation": {"type": ["object", "null"]}, "cleanup": {"type": ["object", "null"]},
+    "status": {"enum": ["qualified", "failed", "blocked_missing_evidence", "rejected"]}, "runtime_qualified": {"type": "boolean"}, "failure": {"type": ["object", "null"]},
+    "formal_gates": {"const": {"physical_qualified": false, "rankable": false, "paper_score_eligible": false}}
+  },
+  "$defs": {"digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

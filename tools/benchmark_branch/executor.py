@@ -59,7 +59,137 @@ def _supported_execution_scopes(adapter: Any) -> frozenset[str]:
     return frozenset(str(item) for item in raw)
 
 
-def _worker_main(adapter: Any, job: BranchJob, checkpoint: CheckpointArtifact, branch_dir: str, out: Any) -> None:
+def _seal_terminal_material(
+    adapter: Any,
+    runtime: Any,
+    job: BranchJob,
+    run_root: str | Path,
+    method_outcome: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Seal one explicit evaluator verdict and its terminal receipt material.
+
+    Finishing the worker method is not a scientific verdict.  The evaluator
+    hook supplies the terminal observations, while ``finish_episode`` supplies
+    the explicit verdict that is checked and sealed with those observations.
+    Evidence identity fields are always produced by the evidence writer and
+    never accepted from the method outcome.
+    """
+
+    from .receipt_material import (
+        ReceiptMaterialError,
+        collect_receipt_material,
+        write_terminal_receipt_evidence,
+    )
+
+    material = collect_receipt_material(adapter, runtime, job)
+    episode = dict(material["episode"])
+    expected_identity = {
+        "condition_id": job.condition_id,
+        "repeat_id": job.repeat_id,
+    }
+    for name, expected in expected_identity.items():
+        if episode.get(name) != expected:
+            raise ReceiptMaterialError(
+                f"receipt_material.episode.{name} disagrees with branch job"
+            )
+    for name, expected in (
+        ("system_id", job.system_id),
+        ("base_instance_id", job.base_instance_id),
+    ):
+        if name in episode and episode[name] != expected:
+            raise ReceiptMaterialError(
+                f"receipt_material.episode.{name} disagrees with branch job"
+            )
+        episode[name] = expected
+    material = {**material, "episode": episode}
+    evaluator_version = episode.get("evaluator_version")
+    if not isinstance(evaluator_version, str) or not evaluator_version.strip():
+        raise ReceiptMaterialError(
+            "receipt_material.episode.evaluator_version must be non-empty text"
+        )
+    declared_version = getattr(adapter, "evaluator_version", None)
+    if declared_version is not None and declared_version != evaluator_version:
+        raise ReceiptMaterialError(
+            "receipt material evaluator_version disagrees with adapter declaration"
+        )
+
+    # Reject malformed verdicts before the content-addressed writer creates an
+    # artifact.  Only the six explicit evaluator fields cross this boundary;
+    # caller scores, refs and arbitrary objects are neither scientific facts
+    # nor safe audit payloads.
+    required = {
+        "status", "completed", "physical_success", "terminal_predicate",
+        "safety_predicate", "feasibility_predicate",
+    }
+    missing = sorted(name for name in required if name not in method_outcome)
+    if missing:
+        raise ReceiptMaterialError(f"terminal evaluator verdict missing: {missing}")
+    result = {name: method_outcome[name] for name in required}
+    if result["status"] != episode.get("status"):
+        raise ReceiptMaterialError(
+            "terminal evaluator verdict status disagrees with receipt material"
+        )
+    if type(result["completed"]) is not bool:
+        raise ReceiptMaterialError("terminal evaluator completed must be boolean")
+    if result["physical_success"] is not None and type(result["physical_success"]) is not bool:
+        raise ReceiptMaterialError(
+            "terminal evaluator physical_success must be boolean or null"
+        )
+    if any(type(result[name]) is not bool for name in (
+        "terminal_predicate", "safety_predicate", "feasibility_predicate",
+    )):
+        raise ReceiptMaterialError("terminal evaluator predicates must be booleans")
+    if result["physical_success"] is True and not (
+        result["completed"]
+        and result["terminal_predicate"]
+        and result["safety_predicate"]
+        and result["feasibility_predicate"]
+    ):
+        raise ReceiptMaterialError(
+            "physical success contradicts terminal evaluator verdict"
+        )
+
+    envelope = write_terminal_receipt_evidence(
+        run_root,
+        job,
+        evaluator_version=evaluator_version,
+        result=result,
+        material=material,
+    )
+    return {
+        **envelope,
+        "evaluator_verdict": dict(envelope),
+        "method_diagnostic": _method_diagnostic(method_outcome),
+    }
+
+
+def _method_diagnostic(outcome: Any) -> dict[str, Any]:
+    """Return a bounded JSON-safe description of an untrusted method result."""
+
+    if not isinstance(outcome, Mapping):
+        return {"result_type": type(outcome).__name__}
+    diagnostic: dict[str, Any] = {"result_type": type(outcome).__name__}
+    status = outcome.get("status")
+    completed = outcome.get("completed")
+    if isinstance(status, str):
+        diagnostic["status"] = status
+    elif status is not None:
+        diagnostic["status_type"] = type(status).__name__
+    if type(completed) is bool:
+        diagnostic["completed"] = completed
+    elif completed is not None:
+        diagnostic["completed_type"] = type(completed).__name__
+    return diagnostic
+
+
+def _worker_main(
+    adapter: Any,
+    job: BranchJob,
+    checkpoint: CheckpointArtifact,
+    branch_dir: str,
+    run_root: str,
+    out: Any,
+) -> None:
     pid = os.getpid()
     instance_id = f"worker-{pid}"
     session_id = str(uuid.uuid4())
@@ -173,9 +303,52 @@ def _worker_main(adapter: Any, job: BranchJob, checkpoint: CheckpointArtifact, b
             if step > int(job.metadata.get("max_steps", 100000)):
                 raise TimeoutError("method timeout/max_steps")
         outcome = _call(adapter, "finish_episode", runtime, job, default={}) or {}
-        put("episodes", {"status": outcome.get("status", "valid_terminal"), "completed": True,
-                          "simulator_step": step, "outcome": dict(outcome),
-                          "ended_at_ns": time.time_ns()})
+        if job.execution_scope in MEASURED_SCOPES:
+            method_outcome = outcome if isinstance(outcome, Mapping) else {}
+            try:
+                outcome = _seal_terminal_material(
+                    adapter, runtime, job, run_root, method_outcome,
+                )
+            except Exception as exc:
+                # Evaluator evidence failure does not turn method completion
+                # into a worker crash, and never preserves a caller-provided
+                # success/evidence envelope as a scientific fact.
+                outcome = {
+                    "status": "not_evaluable",
+                    "completed": False,
+                    "physical_success": None,
+                    "evaluator_error": f"{type(exc).__name__}: {exc}",
+                    "method_diagnostic": _method_diagnostic(outcome),
+                }
+            episode = {
+                "status": outcome.get("status", "not_evaluable"),
+                "completed": outcome.get("completed", False),
+                "physical_success": outcome.get("physical_success"),
+                "simulator_step": step,
+                "outcome": dict(outcome),
+                "ended_at_ns": time.time_ns(),
+            }
+            for key in (
+                "evaluator_version", "evidence_hash", "evidence_refs",
+                "evidence_source", "terminal_predicate", "safety_predicate",
+                "feasibility_predicate", "evaluator_verdict", "evaluator_error",
+                "method_diagnostic",
+            ):
+                if key in outcome:
+                    episode[key] = outcome[key]
+        else:
+            # Preserve the historical protocol-synthetic episode shape.  In
+            # particular, DummyAdapter's dummy:// references stay nested in
+            # ``outcome`` and are never promoted into evaluator evidence.
+            outcome = dict(outcome)
+            episode = {
+                "status": outcome.get("status", "valid_terminal"),
+                "completed": True,
+                "simulator_step": step,
+                "outcome": dict(outcome),
+                "ended_at_ns": time.time_ns(),
+            }
+        put("episodes", episode)
         result = WorkerResult(job.branch_id, job.logical_branch_id, "completed", instance_id, session_id,
                               pid, started, first_heartbeat, first_tick, last_tick, time.time_ns())
         put("result", asdict(result))
@@ -966,8 +1139,22 @@ class BranchExecutor:
             )
             self.store.finish()
             raise ValueError(reason)
-        if requested_scope in MEASURED_SCOPES and (self.session_backend is None or self.scheduler is None):
-            reason = "measured execution requires an explicit session_backend and ReplayScheduler"
+        half_configured_session = (
+            (self.session_backend is None) != (self.scheduler is None)
+        )
+        if requested_scope in MEASURED_SCOPES and half_configured_session:
+            reason = (
+                "measured execution requires session_backend and ReplayScheduler "
+                "to be supplied together"
+            )
+            self.store.update_manifest(
+                status="rejected", collector_status="rejected",
+                inference_status="unsupported", rejection_reason=reason,
+            )
+            self.store.finish()
+            raise ValueError(reason)
+        if requested_scope == "measured" and self.session_backend is None:
+            reason = "formal measured execution requires an explicit session_backend and ReplayScheduler"
             self.store.update_manifest(
                 status="rejected", collector_status="rejected",
                 inference_status="unsupported", rejection_reason=reason,
@@ -1113,7 +1300,14 @@ class BranchExecutor:
             while pending and len(running) < admitted:
                 job = pending.pop(0)
                 branch_dir = self.store.root / "branches" / job.branch_id.replace("/", "_").replace("#", "_")
-                process = self.ctx.Process(target=_worker_main, args=(self.adapter, job, checkpoint, str(branch_dir), queue), daemon=False)
+                process = self.ctx.Process(
+                    target=_worker_main,
+                    args=(
+                        self.adapter, job, checkpoint, str(branch_dir),
+                        str(self.store.root), queue,
+                    ),
+                    daemon=False,
+                )
                 process.start()
                 running[process.pid] = (process, job)
                 parent_started_at[process.pid] = time.time_ns()
@@ -1213,14 +1407,27 @@ class BranchWorker:
     """Compatibility wrapper for running a single isolated branch."""
 
     def __init__(self, adapter: SceneAdapter, job: BranchJob, checkpoint: CheckpointArtifact,
-                 *, start_method: str = "spawn", branch_dir: str | Path | None = None) -> None:
+                 *, start_method: str = "spawn", branch_dir: str | Path | None = None,
+                 run_root: str | Path | None = None) -> None:
         self.adapter, self.job, self.checkpoint = adapter, job, checkpoint
         self.context = get_context(start_method)
         self.branch_dir = Path(branch_dir) if branch_dir else Path.cwd() / ".branch_worker" / job.branch_id.replace("/", "_")
+        if run_root is not None:
+            self.run_root = Path(run_root)
+        elif self.branch_dir.parent.name == "branches":
+            self.run_root = self.branch_dir.parent.parent
+        else:
+            self.run_root = self.branch_dir.parent
 
     def run(self) -> WorkerResult:
         queue = self.context.Queue()
-        process = self.context.Process(target=_worker_main, args=(self.adapter, self.job, self.checkpoint, str(self.branch_dir), queue))
+        process = self.context.Process(
+            target=_worker_main,
+            args=(
+                self.adapter, self.job, self.checkpoint, str(self.branch_dir),
+                str(self.run_root), queue,
+            ),
+        )
         process.start(); result = None
         while process.is_alive() or not queue.empty():
             try:

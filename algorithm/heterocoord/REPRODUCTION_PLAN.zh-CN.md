@@ -17,9 +17,10 @@
 
 ## 不进入复现结果的候选
 
-LiP-LLM、Robust Online Epistemic Replanning、Qrainbow 与 Gosrich 当前不在
-可运行算法目录中：本分支不把纸面推导或接口 fixture 当作复现。Qrainbow 与
-Gosrich 没有可核验的官方代码；LiP-LLM 没有作者代码；Epistemic Replanning
+LiP-LLM、Robust Online Epistemic Replanning、Qrainbow 与 SADCHER 当前不在
+可运行算法目录中：本分支不把纸面推导或接口 fixture 当作复现。SADCHER 当前
+没有可核验的官方代码登记（Gosrich 已退出主列，亦无可核验官方代码）；
+Qrainbow 没有可核验的官方代码；LiP-LLM 没有作者代码；Epistemic Replanning
 虽然有公开研究仓库，但尚未完成与本 EAI 版本的源码级接入，因此也不放入本轮
 运行矩阵。它们只在 `algorithm/heterocoord/registry.py` 保留来源和 `N/A`
 记录，不能用自写替代算法填入原论文结果。

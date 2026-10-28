@@ -1,0 +1,59 @@
+{
+  "schema": "heterocoord.room06-gpu-probe-run-manifest.v1",
+  "created_at": "2026-10-27T20:58:00+08:00",
+  "purpose": "diagnostic-only preflight and real CUDA scene-load evidence for room_06 × liv-t-04",
+  "source": {
+    "git_commit": "e5a95666e030d4abe1d30e5f1a340cd5754cc6ed",
+    "driver_sha256": "d4ff17fcdd31382f330b08c03c74784c005c84fbac4a7dfbc772c8b424dd3c3f",
+    "test_sha256": "69eb27299596c87a95d09a10f8fa9cc05b61f7ea153a5bafdefa3ef7d7b73100"
+  },
+  "gpu": {
+    "index": 0,
+    "name": "Quadro RTX 6000",
+    "uuid": "GPU-aa40060e-cb9d-b04a-e70c-4c91cbb67fb0",
+    "driver_version": "580.178.04",
+    "memory_total_mib": 24576,
+    "memory_used_before_mib": 2334,
+    "memory_free_before_mib": 21666,
+    "compute_app_inventory_before": []
+  },
+  "host_before": {
+    "root_filesystem_used_percent": 43,
+    "root_filesystem_available_gib": 509,
+    "memory_available_gib": 232,
+    "telemetry_processes": []
+  },
+  "co_resident_policy": {
+    "display_processes_are_not_admission_blockers": true,
+    "todesk_must_not_be_killed": true,
+    "telemetry_cleanup_target": "omni.telemetry.transmitter"
+  },
+  "inputs": {
+    "scene_usd_sha256": "e67affcbd6d67941feb8bc7728d6be4cd74ad63d414a8b65db771337b76e300a",
+    "semantic_artifact_sha256": "e067759e135ca99eb633de08772b7bdd8350aad8f9b5531eb3e233868d4caae4",
+    "topology_sha256": "1b7a0081289a0726dc8bfcf07763e986ff0992f2d6a0208c34b8cbc167bf8176",
+    "robot_roster_sha256": "1357626ae7c880eac7e0036fd823302442add297222983cd52d4cf2855569cd2",
+    "full_task_input_file_sha256": "a9f70acadb2384053a4ac63cc391a49833e6e31405c7f539b6efe8b743bc5b0d",
+    "scene_input_file_sha256": "685a0b623acc14328243b401c39aff17c314ce59fb66e36296715711d6ae93b5"
+  },
+  "runs": [
+    {
+      "run_id": "run-01-full-task-preflight",
+      "expected": "exit 2 before AppLauncher with missing real cross-floor edge",
+      "command_sha256": "c7197042bb6b164017daba82d3a8e18c88a5d6d55752a6228718c50ce3ed0bf2",
+      "command": "/home/pupil/miniconda3/envs/env_isaaclab/bin/python tools/project_runtime.py exec -- /home/pupil/miniconda3/envs/env_isaaclab/bin/python -u tools/validation/room06_livt04_gpu_probe.py --input /tmp/heterocoord-room06-real-gpu-MTFYKn/artifacts/project_runtime/gpu-room06-vertical-20261027/inputs/full-task-preflight-probe-input.json --input-sha256 a9f70acadb2384053a4ac63cc391a49833e6e31405c7f539b6efe8b743bc5b0d --output-dir /tmp/heterocoord-room06-real-gpu-MTFYKn/artifacts/project_runtime/gpu-room06-vertical-20261027/run-01-full-task-preflight"
+    },
+    {
+      "run_id": "run-02-scene-load-diagnostic",
+      "expected": "real CUDA scene load, 64 finite steps and finite time readback; diagnostic-only",
+      "command_sha256": "b9f49cba9396888845a50fba5ec7d93170dce16001b733f19282bf99cfb91ff0",
+      "command": "/home/pupil/miniconda3/envs/env_isaaclab/bin/python tools/project_runtime.py exec -- /home/pupil/miniconda3/envs/env_isaaclab/bin/python -u tools/validation/room06_livt04_gpu_probe.py --input /tmp/heterocoord-room06-real-gpu-MTFYKn/artifacts/project_runtime/gpu-room06-vertical-20261027/inputs/scene-load-probe-input.json --input-sha256 685a0b623acc14328243b401c39aff17c314ce59fb66e36296715711d6ae93b5 --output-dir /tmp/heterocoord-room06-real-gpu-MTFYKn/artifacts/project_runtime/gpu-room06-vertical-20261027/run-02-scene-load-diagnostic --scene-load-diagnostic-only"
+    }
+  ],
+  "formal_gates": {
+    "runtime_qualified": false,
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  }
+}

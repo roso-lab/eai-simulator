@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import math
 from typing import Mapping
 from .records_v3 import canonical_digest
-from .scorebook_v3 import PAPER_COMMIT
+from .scorebook_v3 import PAPER_COMMIT, default_scorebook_v3
 
 
 @dataclass(frozen=True)
@@ -15,6 +15,8 @@ class StatisticalEvidenceV3:
     def __post_init__(self):
         if not self.source_commit or not self.scorebook_digest or {r.get("score_id") for r in self.reports} != {f"D{i}" for i in range(1,7)} or len(self.reports) != 6:
             raise ValueError("six unique dimension reports and source identity required")
+        if self.scorebook_digest != default_scorebook_v3().digest():
+            raise ValueError("statistical evidence scorebook is stale")
         for r in self.reports:
             if r.get("paper_commit") != PAPER_COMMIT or r.get("scorebook_digest") != self.scorebook_digest or not r.get("input_digest") or r.get("scheduled_runs", 0) <= 0:
                 raise ValueError("statistical report provenance mismatch")

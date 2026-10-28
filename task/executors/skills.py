@@ -17,6 +17,7 @@ from typing import Any
 
 from algorithm.common_coordination.contract import Assignment, EventLedger, ExecutionFeedback, FailureCode
 from algorithm.skills.contracts import SkillPlan, SkillProvider, SkillRequest
+from algorithm.skills.simulator_schema import PICK_PLACE_SKILL_ID
 from task.contracts import DependencyOutcome, ExecutionUpdate, TaskRunRequest
 from task.observation import WorldSnapshot
 from task.resources import ResourceBusyError, ResourceLease, ResourceManager, ResourceQuarantinedError
@@ -230,7 +231,7 @@ class SkillTaskExecutor:
                 raise _ReceiptError("runtime must return ExecutionReceipt")
             if (receipt.request_id, receipt.skill_id, receipt.robot_id) != identity:
                 raise _ReceiptError("runtime receipt identity does not match request")
-            if not receipt.quiescent:
+            if not receipt.quiescent and request.skill_id != PICK_PLACE_SKILL_ID:
                 raise RuntimeError("runtime did not confirm quiescence")
         except BaseException as exc:
             stopped = not started

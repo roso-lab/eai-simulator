@@ -1,0 +1,92 @@
+{
+  "schema": "heterocoord.historical_runtime_qualification_receipt.v1",
+  "receipt_id": "hc-rt-007.historical.20261026",
+  "instance_id": "hc-rt-007",
+  "source_resume_id": "go2.GO2_EXTREME_PARKOUR_TEACHER_CFG.v0001",
+  "profile_id": "go2.no_external_arm.GO2_EXTREME_PARKOUR_TEACHER_CFG",
+  "admission_class": "pool",
+  "platform_type": "go2",
+  "configuration_role": "mobile_platform",
+  "asset_digest": "37203bbb17595167ecfc67961fd27bdde1336db53ff0f4a031ec7cc95fc90199",
+  "capability_digest": "b2fe4917890a265a236687967ca19a37d8e9c356bb016d078bc079e5013c0eca",
+  "initial_state_digest": "be84c522a8f4b40be38b40bd6d564337fbda10a3ee1149bcc2d871405286ef26",
+  "authority": {
+    "decision": "user_historical_integration_accepted",
+    "decision_date": "2026-10-26",
+    "scope": "existing smoke, calibration, diagnostic and integration results may establish roster runtime qualification; formal physical/ranking/paper gates stay false"
+  },
+  "platform_scope": {
+    "platform_type": "go2",
+    "configuration_role": "mobile_platform",
+    "motion_controller": "GO2_EXTREME_PARKOUR_TEACHER_CFG",
+    "manipulator_controller": null,
+    "external_manipulator": null,
+    "limitations": [
+      "GO2_OFFROAD_MOTION_UNSTABLE"
+    ]
+  },
+  "sources": [
+    {
+      "path": "tools/locomotion_deployment/go2_play_result.json",
+      "sha256": "a805812047de7c1f069bfff6f7659bd50166c55fba7f1998089ea44c18bf6952",
+      "source_commit": "e8f97448a55feef76d9ec1ed993f01695580efc6",
+      "record_locator": "actual repository USD physics playback result",
+      "content_assertions": [
+        "\"robot\": \"go2\"",
+        "\"steps\": 250",
+        "\"finite\": true"
+      ]
+    },
+    {
+      "path": "tools/locomotion_deployment/isaac_import_verification.json",
+      "sha256": "281b39b080e8bb1cbc190b615a0497d6ba0902c648c262a55b8338fd396b4740",
+      "source_commit": "e8f97448a55feef76d9ec1ed993f01695580efc6",
+      "record_locator": "Isaac import verification for the exact controller",
+      "content_assertions": [
+        "GO2_EXTREME_PARKOUR_TEACHER_CFG",
+        "\"passed\": true"
+      ]
+    }
+  ],
+  "checks": {
+    "integration_record": {
+      "status": "passed",
+      "source_refs": [
+        "0",
+        "1"
+      ],
+      "details": {
+        "recorded": "Go2 Extreme controller/import and bounded real-USD playback passed."
+      }
+    },
+    "functional_record": {
+      "status": "passed",
+      "source_refs": [
+        "0",
+        "1"
+      ],
+      "details": {
+        "recorded": "Go2 Extreme controller/import and bounded real-USD playback passed."
+      }
+    },
+    "configuration_binding": {
+      "status": "passed",
+      "source_refs": [
+        "0",
+        "1"
+      ],
+      "details": {
+        "binding": "exact instance/platform/configuration scope"
+      }
+    }
+  },
+  "status": "qualified",
+  "runtime_qualified": true,
+  "failure": null,
+  "formal_gates": {
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  },
+  "receipt_digest": "40437f7cc4ab4e115d469091976e49d881e05902c70a51761ee55dd576082609"
+}

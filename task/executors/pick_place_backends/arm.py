@@ -19,6 +19,12 @@ DEFAULT_MOTION_SPEED_SCALE = {"ur5": 6.0, "z1": 5.0}
 
 
 class ArmPickPlaceAdapter:
+    # The benchmark's default manipulation path is logical attachment after
+    # semantic-point arrival and transport admission.  ``start`` remains
+    # available as an opt-in physical diagnostic path; PickPlaceExecutor does
+    # not invoke it for task success.
+    idealized_semantics = True
+
     def __init__(self, robot_id, runtime, *, resolve_object=lambda ref: ref,
                  position_tolerance_m=.035, robot_name=None, env_id=0,
                  reachable_cartesian=None, motion_speed_scale=None):

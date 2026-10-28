@@ -1,0 +1,37 @@
+{
+  "schema_version": "heterocoord-pilot-candidate-set.v1",
+  "status": "candidate_only",
+  "selection_rule": "cover all three domains and P1/P2/P3-J/P3-S/P4 without changing certification status",
+  "source_catalog": "benchmark/task_catalog.json",
+  "source_catalog_status": "all source anchors remain planned/not_yet_certified",
+  "paper_sha": "72b6a3b975ae83743dc1d447b99edd728cb1dcdc",
+  "candidates": [
+    {"anchor_id": "prod-p1-01", "domain": "production", "relation": "P1", "p3_subtype": null, "reason": "production P1 representative"},
+    {"anchor_id": "svc-p2-02", "domain": "service", "relation": "P2", "p3_subtype": null, "reason": "service P2 handoff/chain-of-custody representative"},
+    {"anchor_id": "liv-p3-01", "domain": "living_public", "relation": "P3", "p3_subtype": "P3-J", "reason": "living/public joint-action representative"},
+    {"anchor_id": "prod-t-02", "domain": "production", "relation": "P3", "p3_subtype": "P3-S", "reason": "production continuous-service representative"},
+    {"anchor_id": "svc-t-01", "domain": "service", "relation": "P4", "p3_subtype": null, "reason": "service shared-resource exclusion representative"},
+    {"anchor_id": "liv-p4-01", "domain": "living_public", "relation": "P4", "p3_subtype": null, "reason": "living/public resource contention representative"}
+  ],
+  "coverage": {
+    "domains": ["production", "service", "living_public"],
+    "relations": ["P1", "P2", "P3", "P4"],
+    "p3_subtypes": ["P3-J", "P3-S"],
+    "candidate_count": 6
+  },
+  "next_validation_required": [
+    "robot capability evidence",
+    "role and obligation contract",
+    "resource/lock contract",
+    "fixed tick and milestone semantics",
+    "independent infrastructure feasibility validation",
+    "physical skill validation",
+    "canonical oracle certification"
+  ],
+  "provenance": {
+    "generated_by": "main-codex",
+    "generated_at": "2026-10-22",
+    "evidence_class": "planning_candidate",
+    "does_not_claim": ["case_certified", "oracle_certified", "paper_score_eligible"]
+  }
+}

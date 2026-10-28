@@ -1,5 +1,26 @@
 # 当前论文与工程对齐进展
 
+> **当前权威覆盖（2026-10-27）**：冻结论文 ref 已更新为
+> `overleaf-old/main@0ffd470fecdf5b4bdad82dbd9c23c439198b43d3`。scorebook、composite、
+> task catalog、31 锚点合同、map-ready 编排以及 P4 package/mapping/receipt 的当前发布面
+> 均使用该身份，并显式拒绝旧 `383acc1…` 及更早身份。论文主结果列现固定为
+> FMC-ATA、BT capabilities、SADCHER、HARL:HAPPO、TeamWeaver、EMOS；Qrainbow
+> 保留为非主列候选。论文新增的八个 contract-only difficulty
+> 原始量、固定分箱、外部冻结 roster/common-pair registry 和可重算 pilot/fresh 认证契约
+> 已在代码中实现；生产 certification registry 工件、真实 pilot/fresh 观测、物理资格和
+> GPU 运行尚未形成，因此所有目录 difficulty 状态仍为
+> `difficulty_certification_pending`，所有正式资格门保持 `false`。
+>
+> 下文保留 2026-10-21 至 2026-10-24 的阶段记录，用于解释演进过程；其中旧 SHA、旧测试
+> 数和当时的 pending 结论均是历史证据，不是当前身份权威。
+
+> **基线说明（2026-10-24）**：本文档原按 `1f329494e755523692f5f96c8e0889c6cec15a82`
+> 编写，仅保留为历史差异记录。当前冻结的权威 Overleaf ref 是
+> 当时的 `overleaf-old/main@0b006d4efcd25d5160d4b0a6e75cddd9e5265e44`；本地论文工作树仍在
+> `72b6a3b975ae83743dc1d447b99edd728cb1dcdc`，不得把它误称为最新权威基线。
+> 当前语义迁移状态仍为 `migrated_identity_semantics_pending`，详见
+> [论文语义迁移审计](PAPER_SEMANTIC_MIGRATION_AUDIT_20261024.zh-CN.md)。
+
 论文基准：`1f329494e755523692f5f96c8e0889c6cec15a82`（Overleaf old remote 于 2026-10-21 15:45 更新）。此前工程基线 `75ceff6`、`bb82b7b` 与 `af12f6d` 已过时。
 工程目录：`/home/pupil/HeteroCoord`。日期：2026-10-21。
 

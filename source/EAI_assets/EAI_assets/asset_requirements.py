@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Any, Iterable, Mapping
 
 from EAI_assets.scene_maps import SCENE_MAP_PATHS
+from EAI_assets.room06_asset import ROOM06_USD_RELATIVE_PATH
 
 
 class RequirementState(str, Enum):
@@ -96,6 +97,7 @@ _SCENE_PATHS = {
     # Converted HSSD room lives outside the provider tree by absolute local
     # path; no provider download is declared for it.
     "hssd_room1": (),
+    "room_06": (ROOM06_USD_RELATIVE_PATH,),
 }
 
 _ROBOT_PATHS = {

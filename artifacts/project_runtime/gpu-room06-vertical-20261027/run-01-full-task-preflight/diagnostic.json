@@ -1,0 +1,81 @@
+{
+  "details": {
+    "exception_type": "Room06GpuProbeError",
+    "preflight_report": {
+      "failures": [
+        "ground topology has no real cross-floor edge"
+      ],
+      "formal_gates": {
+        "paper_score_eligible": false,
+        "physical_qualified": false,
+        "rankable": false,
+        "runtime_qualified": false
+      },
+      "preflight_passed": false,
+      "robot_roster_digest": "1357626ae7c880eac7e0036fd823302442add297222983cd52d4cf2855569cd2",
+      "robots": [
+        {
+          "cross_floor_role": true,
+          "historical_runtime_qualified": true,
+          "instance_id": "hc-rt-006",
+          "motion_controller": "GO2_MIXED_STAIRS_CFG",
+          "required_skills": [
+            "eai.manipulation.pick_place",
+            "eai.navigation.node_route"
+          ],
+          "restrictions": [],
+          "room_specific_feasibility": false
+        },
+        {
+          "cross_floor_role": false,
+          "historical_runtime_qualified": true,
+          "instance_id": "hc-rt-020",
+          "motion_controller": "PEGASUS_IRIS_POSITION_CFG",
+          "required_skills": [
+            "eai.manipulation.pick_place",
+            "eai.navigation.node_route"
+          ],
+          "restrictions": [],
+          "room_specific_feasibility": false
+        },
+        {
+          "cross_floor_role": false,
+          "historical_runtime_qualified": true,
+          "instance_id": "hc-rt-021",
+          "motion_controller": "PEGASUS_X4_POSITION_CFG",
+          "required_skills": [
+            "eai.manipulation.pick_place",
+            "eai.navigation.node_route"
+          ],
+          "restrictions": [],
+          "room_specific_feasibility": false
+        }
+      ],
+      "room_specific_feasibility": false,
+      "runtime_binding_digest": "aa7f0347b7753fde574bf6d87f6a5654b0b547e379029440592f442f784eaca1",
+      "scene": {
+        "scene_asset_digest": "e67affcbd6d67941feb8bc7728d6be4cd74ad63d414a8b65db771337b76e300a",
+        "usd_path": "/tmp/heterocoord-room06-real-gpu-MTFYKn/artifacts/project_runtime/gpu-room06-vertical-20261027/inputs/room_06.usda"
+      },
+      "scene_key": "living_room_06",
+      "scene_smoke_may_start": false,
+      "schema": "heterocoord.room06-runtime-preflight.v1",
+      "scope": "static_cpu_preflight_only",
+      "task_id": "liv-t-04"
+    },
+    "traceback": "Traceback (most recent call last):\n  File \"/tmp/heterocoord-room06-real-gpu-MTFYKn/tools/validation/room06_livt04_gpu_probe.py\", line 1068, in execute\n    else prepare_full_task(request)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/heterocoord-room06-real-gpu-MTFYKn/tools/validation/room06_livt04_gpu_probe.py\", line 579, in prepare_full_task\n    paths, fresh = _fresh_preflight(request[\"preflight_inputs\"])\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/heterocoord-room06-real-gpu-MTFYKn/tools/validation/room06_livt04_gpu_probe.py\", line 552, in _fresh_preflight\n    raise Room06GpuProbeError(\nRoom06GpuProbeError: fresh room06 preflight blocked: ground topology has no real cross-floor edge\n"
+  },
+  "device_identity": null,
+  "formal_gates": {
+    "paper_score_eligible": false,
+    "physical_qualified": false,
+    "rankable": false,
+    "runtime_qualified": false
+  },
+  "input_digest": "6bd22f1c59e420863ebcf2b227e462faddfcdc80d765a86940d9a6616c24c590",
+  "mode": "full_task",
+  "phase": "pre_simulation",
+  "reason": "fresh room06 preflight blocked: ground topology has no real cross-floor edge",
+  "schema": "heterocoord.room06-livt04-gpu-probe-report.v1",
+  "status": "diagnostic_failure"
+}

@@ -1,0 +1,38 @@
+{
+  "schema": "heterocoord.room06-task-setup.v1",
+  "task_id": "liv-t-04",
+  "objects": [
+    {
+      "entity_id": "book_batch_01",
+      "definition": {
+        "kind": "book_batch",
+        "count": 6,
+        "book_ids": [
+          "book_01",
+          "book_02",
+          "book_03",
+          "book_04",
+          "book_05",
+          "book_06"
+        ],
+        "source_semantic_point": "floor1-bookshelf",
+        "destination_semantic_points": [
+          "floor2-bookshelf-1",
+          "floor2-bookshelf-2",
+          "floor2-bookshelf-3"
+        ]
+      }
+    },
+    {
+      "entity_id": "heavy_object",
+      "definition": {
+        "kind": "logical_load",
+        "size_xyz_m": [0.8, 0.5, 0.4],
+        "mass_kg": 24.0,
+        "source_semantic_point": "floor1-coffee_table",
+        "destination_semantic_point": "floor2-coffee_table",
+        "minimum_holders": 2
+      }
+    }
+  ]
+}

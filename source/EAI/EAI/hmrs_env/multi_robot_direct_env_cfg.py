@@ -38,6 +38,12 @@ class MultiRobotDirectEnvCfg(DirectMARLEnvCfg):
     post_apply_action: Optional[Any] = None
     after_reset_idx_hook: Optional[Any] = None
 
+    # Heterogeneous multi-robot scenes model robot↔scene contacts, while
+    # contacts between different robot entities are ignored by default for
+    # coordination studies. A mounted arm/sensor belongs to its host entity;
+    # this does not change per-articulation self-collision settings.
+    ignore_robot_robot_collisions: bool = True
+
     # Unified controllers configuration
     controllers: Dict[str, Any] = {}
     """统一控制器配置字典，键为机器人资产名字，值为对应的控制器配置。
@@ -124,4 +130,3 @@ class MultiRobotDirectEnvCfg(DirectMARLEnvCfg):
         if self.scene is not None and hasattr(self.scene, 'terrain') and self.scene.terrain is not None:
             if hasattr(self.scene.terrain, 'terrain_generator'):
                 self.scene.terrain.terrain_generator = None
-

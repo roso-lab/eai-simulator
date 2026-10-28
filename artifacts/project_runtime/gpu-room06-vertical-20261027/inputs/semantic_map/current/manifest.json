@@ -1,0 +1,52 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 2,
+  "revision": "d9872563938c42fd85f43efa3dab3c0b",
+  "scene_key": "living_room_06",
+  "levels": [
+    {
+      "level_id": "1F",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -8.9,
+        13.500000000000002,
+        -7.3,
+        7.600000000000001
+      ]
+    },
+    {
+      "level_id": "2F",
+      "grid": "level-001-semantic-grid.npz",
+      "preview": "level-001-semantic-map.png",
+      "layer": "level-001-layer.png",
+      "extent_xy": [
+        -8.9,
+        13.500000000000002,
+        -7.3,
+        7.600000000000001
+      ]
+    }
+  ],
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "semantic_point_product": "semantic-points.json",
+  "semantic_binding_digest": "4b47e8a2bbdf4ac4dac9519c550eb793c3c6269edfc1f3b2a16170c09a97fb01",
+  "files": {
+    "level-000-layer.png": "896e103d53aa3d00fa56c6af6d522ce86dedacba60612cfb0150ee8b6f34cd7e",
+    "level-000-semantic-grid.npz": "4a75770749210b1c3ffc98ea438de9bde755c4f28c9079c482595dbc528673af",
+    "level-000-semantic-map.png": "d578d8e5e2391016fb09ffd44bd3a7b7da151d49edbe20dadf7a455c69311bfa",
+    "level-001-layer.png": "875a25374647d4967c6dec728140ab548572968d6607381749b9025d8a84a2e2",
+    "level-001-semantic-grid.npz": "6be019d06028587e4663b09df9df3e360137d45de76b9e50a3b732babf0bb86b",
+    "level-001-semantic-map.png": "5ca7830649e1243f39ce72bc457b374cae5d15c8c89ee901056a2dbb1e601b79",
+    "semantic-footprints.geojson": "896b88e59efb6bb2a1a23c97c19c60830cfd7a55f1715d1260d91545c4efae3f",
+    "semantic-footprints.json": "22c1a34efa110d321fd539f594e48c61e1f8d3ccfd1ff3f1e94e672a320aca79",
+    "semantic-points.json": "c1f37f63bd86c71ee698120ed062b1434fe2022e346788886e4b3d66b4d51653",
+    "topology-aerial.json": "cb85d89817c8b76b9ed146448fe68c2f367938d554d061d4fe552e72be7617a6",
+    "topology.json": "1b7a0081289a0726dc8bfcf07763e986ff0992f2d6a0208c34b8cbc167bf8176"
+  },
+  "robot_validated": false
+}

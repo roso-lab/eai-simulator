@@ -1,4 +1,9 @@
-# 最新论文下的 GPU / shared-session 阶段重排
+# GPU / shared-session 阶段重排（历史记录）
+
+> **基线说明（2026-10-22）**：本文档按 `1f329494e755523692f5f96c8e0889c6cec15a82`
+> 编写，保留其 GPU/shared-session 分析但不再作为当前论文依据。当前唯一有效论文基线是
+> Overleaf `72b6a3b975ae83743dc1d447b99edd728cb1dcdc`；执行顺序已并入
+> [后续任务规划与阶段性收尾](FOLLOWUP_TASK_PLAN_20261022.zh-CN.md)。
 
 日期：2026-10-21
 论文基准：`1f329494e755523692f5f96c8e0889c6cec15a82`

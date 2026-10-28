@@ -1,0 +1,25 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {"type": "camera"},
+        {"type": "realsense_d455"},
+        {"type": "d1", "controller": {"cfg": "D1_IK_CFG", "mode": "default"}}
+      ],
+      "controller": {"cfg": "GO2_VELOCITY_RSL_CFG", "mode": "default"},
+      "type": "go2",
+      "spawn_pose": {"position": [-3.0, 0.0, 0.4], "rotation": [1.0, 0.0, 0.0, 0.0]},
+      "visual": {"x": 0.0, "y": 0.0}
+    },
+    {
+      "attachments": [],
+      "controller": {"cfg": "PEPPER_HOLONOMIC_CFG", "mode": "default"},
+      "type": "pepper",
+      "spawn_pose": {"position": [0.0, -3.0, 0.0], "rotation": [0.70710678, 0.0, 0.0, 0.70710678]},
+      "visual": {"x": 0.0, "y": 0.0}
+    }
+  ],
+  "scene_key": "plane",
+  "task_name": "collision_demo_go2_pepper_plane",
+  "version": 1
+}

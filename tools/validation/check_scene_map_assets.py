@@ -77,6 +77,7 @@ def _check_scene_resource_api() -> None:
 
         resolver = SimpleNamespace(
             usd_root=lambda: usd_root,
+            resolve_local_asset_path=lambda relative_path: usd_root / relative_path,
             ensure_usd_files_for_paths=ensure_paths,
         )
         paths = ensure_scene_resource(

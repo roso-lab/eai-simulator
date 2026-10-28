@@ -15,6 +15,7 @@ from isaaclab.envs import DirectMARLEnv
 from .multi_robot_direct_env_cfg import MultiRobotDirectEnvCfg
 from EAI.controllers import ControllerCfg, load_all_controllers
 from EAI.controllers.base import normalize_controller_entry
+from .slot_state import zero_reset_rows as _zero_reset_rows
 
 
 class MultiRobotDirectEnv(DirectMARLEnv):
@@ -28,6 +29,10 @@ class MultiRobotDirectEnv(DirectMARLEnv):
     
     def __init__(self, cfg: MultiRobotDirectEnvCfg, render_mode: str | None = None, **kwargs):
         """Initialize the multi-robot DirectMARL environment."""
+        # _setup_scene() is invoked by DirectMARLEnv.__init__; initialize the
+        # report before that callback so the pre-play collision policy is not
+        # overwritten after scene construction.
+        self._robot_robot_collision_filter_report: Dict[str, Any] | None = None
         super().__init__(cfg, render_mode, **kwargs)
         self._capture_attached_articulation_defaults()
         
@@ -64,6 +69,98 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             robot_name: 1 for robot_name in cfg.controllers
         }
         self._benchmark_park_poses: Dict[str, torch.Tensor] = {}
+        # The shared-session replay runtime arms exactly one active-slot set
+        # before each native vector step.  Ordinary A/B execution never arms
+        # this contract and therefore retains the normal DirectMARLEnv path.
+        self._factory_native_active_slot_contract_enabled = False
+        self._factory_native_pending_active_slots: tuple[int, ...] | None = None
+        self._factory_native_active_slots_in_step: tuple[int, ...] | None = None
+        self._factory_native_success_step_hook = None
+
+    def factory_native_register_success_step_hook(self, hook) -> None:
+        """Register the sole post-success hook for shared-slot bookkeeping.
+
+        The hook is invoked while ``factory_native_current_active_slots`` still
+        names the slots advanced by the just-completed native step.  It receives
+        ``(active_slots, global_clock_before, global_clock_after)``.  The global
+        clock snapshots are observations of the real simulator; a hook may use
+        their deltas to advance separate per-slot *logical* replay clocks, but
+        must not present the process-global clock as independently restorable.
+        """
+
+        if not callable(hook) or getattr(hook, "__self__", None) is None:
+            raise ValueError("Factory native success hook must be a bound method")
+        if self._factory_native_success_step_hook is not None:
+            raise RuntimeError("Factory native success step hook is already registered")
+        if (self._factory_native_pending_active_slots is not None
+                or self._factory_native_active_slots_in_step is not None):
+            raise RuntimeError("Factory native success hook cannot change during a step")
+        self._factory_native_success_step_hook = hook
+
+    def _factory_native_global_clock_snapshot(self) -> dict[str, int | float]:
+        sim = getattr(self, "sim", None)
+        if sim is None:
+            raise RuntimeError("Factory native step has no simulator clock")
+        common = getattr(self, "common_step_counter", None)
+        sim_step = getattr(sim, "current_time_step_index", None)
+        sim_time = getattr(sim, "current_time", None)
+        if (type(common) is not int or common < 0
+                or type(sim_step) is not int or sim_step < 0
+                or type(sim_time) not in (int, float)
+                or not torch.isfinite(torch.tensor(float(sim_time))).item()
+                or float(sim_time) < 0):
+            raise RuntimeError("Factory native global simulator clock is invalid")
+        return {
+            "common_step_counter": common,
+            "sim_current_time_step_index": sim_step,
+            "sim_current_time": float(sim_time),
+        }
+
+    def factory_native_set_active_slots(self, slots: Sequence[int]) -> None:
+        """Arm one single-use active-slot declaration for the next step."""
+
+        if (not isinstance(slots, Sequence) or isinstance(slots, (str, bytes))):
+            raise ValueError("Factory native active slots must be a sequence")
+        normalized = tuple(slots)
+        if (not normalized or tuple(sorted(set(normalized))) != normalized
+                or any(type(slot) is not int or not 0 <= slot < self.num_envs
+                       for slot in normalized)):
+            raise ValueError("Factory native active slots are duplicate, unordered, or out of range")
+        if (self._factory_native_pending_active_slots is not None
+                or self._factory_native_active_slots_in_step is not None):
+            raise RuntimeError("Factory native active slots are already armed or in use")
+        self._factory_native_active_slot_contract_enabled = True
+        self._factory_native_pending_active_slots = normalized
+
+    @property
+    def factory_native_current_active_slots(self) -> tuple[int, ...] | None:
+        """Slots owned by the currently executing native replay step."""
+
+        return self._factory_native_active_slots_in_step
+
+    def step(self, actions: dict[str, torch.Tensor]):
+        if not self._factory_native_active_slot_contract_enabled:
+            return super().step(actions)
+        pending = self._factory_native_pending_active_slots
+        if pending is None:
+            raise RuntimeError(
+                "Factory native step requires a fresh active-slot declaration"
+            )
+        self._factory_native_pending_active_slots = None
+        self._factory_native_active_slots_in_step = pending
+        try:
+            before_clock = self._factory_native_global_clock_snapshot()
+            result = super().step(actions)
+            after_clock = self._factory_native_global_clock_snapshot()
+            hook = self._factory_native_success_step_hook
+            if hook is not None:
+                hook(pending, before_clock, after_clock)
+            return result
+        finally:
+            # Both success and simulator exceptions consume the declaration;
+            # callers must explicitly arm the next native step.
+            self._factory_native_pending_active_slots = None
+            self._factory_native_active_slots_in_step = None
 
     def _setup_scene(self) -> None:
         from isaaclab.sim import find_matching_prim_paths
@@ -75,6 +172,19 @@ class MultiRobotDirectEnv(DirectMARLEnv):
                 root_pattern = robot.cfg.prim_path + (robot.cfg.articulation_root_prim_path or "")
                 paths = find_matching_prim_paths(root_pattern)
                 self._attached_spawn_poses.update(capture_root_poses(self.sim.get_initial_stage(), paths))
+
+        # Author collision groups while the stage is assembled and before
+        # Isaac Lab starts PhysX.  Writing them from reset() is too late for
+        # the running physics scene and leaves robot↔robot contacts active.
+        if bool(getattr(self.cfg, "ignore_robot_robot_collisions", True)):
+            from EAI.physics.robot_collision import install_robot_robot_collision_filter
+            self._robot_robot_collision_filter_report = install_robot_robot_collision_filter(self)
+        else:
+            self._robot_robot_collision_filter_report = {
+                "enabled": False,
+                "robot_count": len(self.scene.articulations),
+                "filtered_robot_pairs": 0,
+            }
 
     def _capture_attached_articulation_defaults(self) -> None:
         from EAI.physics.articulation_reset import set_spawn_root_defaults
@@ -94,9 +204,15 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             self._load_controllers()
             self._update_spaces_with_actual_dims()
             self._controllers_loaded = True
-        
+
         # Call parent reset
         return super().reset(seed, options)
+
+    @property
+    def robot_robot_collision_filter_report(self) -> Dict[str, Any] | None:
+        """Readback of the default robot↔robot collision policy."""
+        return None if self._robot_robot_collision_filter_report is None else dict(
+            self._robot_robot_collision_filter_report)
     
     def _load_controllers(self):
         """Load all controllers using controller loaders."""
@@ -654,7 +770,28 @@ class MultiRobotDirectEnv(DirectMARLEnv):
                 from EAI.controllers.scalar_manipulation_controller import reset_scalar_controller
                 reset_scalar_controller(controller_cfg, self, robot_name, controller_dict, env_ids)
 
-        self.actions_dict = {}
+        if len(reset_rows) == self.num_envs:
+            self.actions_dict = {}
+            self._last_computed_actions = {}
+            self._replay_precomputed_actions = None
+            if hasattr(self, "_commands_dict"):
+                self._commands_dict = {}
+        else:
+            self.actions_dict = _zero_reset_rows(
+                self.actions_dict, env_ids, self.num_envs,
+            )
+            self._last_computed_actions = _zero_reset_rows(
+                self._last_computed_actions, env_ids, self.num_envs,
+            )
+            if self._replay_precomputed_actions is not None:
+                self._replay_precomputed_actions = _zero_reset_rows(
+                    self._replay_precomputed_actions, env_ids, self.num_envs,
+                )
+            if hasattr(self, "_commands_dict"):
+                self._commands_dict = {
+                    robot_name: _zero_reset_rows(commands, env_ids, self.num_envs)
+                    for robot_name, commands in self._commands_dict.items()
+                }
         for robot_name in self._controller_configs:
             if not self._benchmark_control_enabled(robot_name):
                 robot = self.scene.articulations[robot_name]

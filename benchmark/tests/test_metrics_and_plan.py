@@ -42,5 +42,6 @@ def test_plan_freezes_tick_repeats_and_strict_d5_pair() -> None:
 def test_plan_expands_d6_only_over_typical_anchors() -> None:
     plan = default_experiment_plan()
     d6 = next(item for item in plan.phases if item.ordinal == 6)
-    assert len(plan.anchors_for(d6)) == 9
+    assert len(plan.anchors_for(d6)) == 10
+    assert "liv-t-04" in plan.anchors_for(d6)
     assert all(item.anchor_id.startswith(("prod-t-", "svc-t-", "liv-t-")) for item in plan.catalog if item.typical_or_common == "typical")

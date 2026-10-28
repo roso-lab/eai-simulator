@@ -1,0 +1,76 @@
+{
+  "schema": "heterocoord.historical_runtime_qualification_receipt.v1",
+  "receipt_id": "hc-rt-009.historical.20261026",
+  "instance_id": "hc-rt-009",
+  "source_resume_id": "b2.B2_MIXED_STAIRS_CFG.v0001",
+  "profile_id": "b2.no_external_arm.B2_MIXED_STAIRS_CFG",
+  "admission_class": "pool",
+  "platform_type": "b2",
+  "configuration_role": "mobile_platform",
+  "asset_digest": "7b69eb6fead2b6e1303a13113529f33ef76022f97795c7934c142944eb0ba790",
+  "capability_digest": "bb12a98af17e8a1282c25594143d57525d93d21e40122f37fe892722c52dbc81",
+  "initial_state_digest": "3a391ac954ad16490228b88b820b2fe7a2fbbf9165eadde35f60094b137c678f",
+  "authority": {
+    "decision": "user_historical_integration_accepted",
+    "decision_date": "2026-10-26",
+    "scope": "existing smoke, calibration, diagnostic and integration results may establish roster runtime qualification; formal physical/ranking/paper gates stay false"
+  },
+  "platform_scope": {
+    "platform_type": "b2",
+    "configuration_role": "mobile_platform",
+    "motion_controller": "B2_MIXED_STAIRS_CFG",
+    "manipulator_controller": null,
+    "external_manipulator": null,
+    "limitations": []
+  },
+  "sources": [
+    {
+      "path": "tools/scenario_generation/ARM_DEPLOYMENT_ROADMAP.zh-CN.md",
+      "sha256": "2507d2e562825f64dcf0b0cb7fe831aca87eec03fc6f8efe0fa90fed6a903591",
+      "source_commit": "c840ac1a35a901a998f197d60ad9ff00de4afc1d",
+      "record_locator": "runtime mount/base matrices, lines 115-180",
+      "content_assertions": [
+        "B2 的空载和 Z1 挂载静止站姿",
+        "B2 | 74.5803 / 96.4992 | pass | pass"
+      ]
+    }
+  ],
+  "checks": {
+    "integration_record": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "recorded": "B2 bare-host and mounted stationary diagnostics are recorded as passed."
+      }
+    },
+    "functional_record": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "recorded": "B2 bare-host and mounted stationary diagnostics are recorded as passed."
+      }
+    },
+    "configuration_binding": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "binding": "exact instance/platform/configuration scope"
+      }
+    }
+  },
+  "status": "qualified",
+  "runtime_qualified": true,
+  "failure": null,
+  "formal_gates": {
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  },
+  "receipt_digest": "98419d2e3ae37fc7a327263d199e58074911608f7253c77a23d5f262df303557"
+}

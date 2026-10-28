@@ -1,0 +1,88 @@
+{
+  "schema": "heterocoord.historical_runtime_qualification_receipt.v1",
+  "receipt_id": "hc-rt-015.user-ruling.20261026",
+  "instance_id": "hc-rt-015",
+  "source_resume_id": "scout.SCOUT_DIFF_CFG.v0002",
+  "profile_id": "scout.z1.SCOUT_DIFF_CFG",
+  "admission_class": "pool",
+  "platform_type": "scout",
+  "configuration_role": "mobile_platform",
+  "asset_digest": "7c0ea7518107cd41c2db6c9f476af5f2b01b273fbd3183b5951c7322a79fee89",
+  "capability_digest": "0e4d5bbdb69d042c4d366b6be2fedb191fd77a09026a0151050170242c40ebfd",
+  "initial_state_digest": "626eab0d56a42b6f6b6ce1663a74419e40a2399d51dc7d45d4218e050c82506b",
+  "authority": {
+    "decision": "user_runtime_unknown_ruling_accepted",
+    "decision_date": "2026-10-26",
+    "scope": "user final ruling grants runtime qualification only for the twelve listed instances; no platform artifact is claimed and formal physical/ranking/paper gates stay false"
+  },
+  "platform_scope": {
+    "platform_type": "scout",
+    "configuration_role": "mobile_platform",
+    "motion_controller": "SCOUT_DIFF_CFG",
+    "manipulator_controller": "Z1_IK_CFG",
+    "external_manipulator": "z1",
+    "limitations": []
+  },
+  "sources": [
+    {
+      "path": "benchmark/robot_resume/RUNTIME_RULING_20261026.zh-CN.md",
+      "sha256": "8d97115a9dc99a05b1f6d1b79618cd490efad0393ea0d525d30f4730b25448c2",
+      "source_commit": "d3403edd365f0aa9e5ca8f301e9e8fc99da2c315",
+      "record_locator": "「批准名单（12 台，逐字 instance_id）」表格：全部批准 runtime qualification",
+      "content_assertions": [
+        "hc-rt-002",
+        "hc-rt-003",
+        "hc-rt-008",
+        "hc-rt-011",
+        "hc-rt-013",
+        "hc-rt-015",
+        "hc-rt-016",
+        "hc-rt-017",
+        "hc-rt-019",
+        "hc-rt-022",
+        "hc-rt-023",
+        "hc-rt-024"
+      ]
+    }
+  ],
+  "checks": {
+    "integration_record": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "basis": "user final ruling 2026-10-26",
+        "recorded": "no recorded integration result; user ruling accepted in lieu"
+      }
+    },
+    "functional_record": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "basis": "user final ruling 2026-10-26",
+        "recorded": "no platform run claimed; the ruling record is the sole source"
+      }
+    },
+    "configuration_binding": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "binding": "exact instance id enumerated verbatim in the ruling record"
+      }
+    }
+  },
+  "status": "qualified",
+  "runtime_qualified": true,
+  "failure": null,
+  "formal_gates": {
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  },
+  "receipt_digest": "93bbea8a09ab4985341f06ed2fe71118603d6eb4bb6cc6957e720ce5f0230bc9"
+}
