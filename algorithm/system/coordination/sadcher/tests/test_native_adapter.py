@@ -376,6 +376,11 @@ def test_full_coalition_is_retained_and_current_runner_scope_is_explicit():
     assert decision.provenance["coalitions"] == {"t0": ["r0", "r1"]}
     assert len(decision.assignments) == 2
     assert not decision.provenance["task_runner_compatible"]
+    assert decision.provenance["scope_rejection"] == {
+        "status": "N/A",
+        "reason": "benchmark_contract_cannot_represent_native_coalition",
+    }
+    assert exc.value.na_reason == "benchmark_contract_cannot_represent_native_coalition"
     with pytest.raises(ValueError, match="assigns a task more than once"):
         TaskRunner().run(TaskRunRequest(task), lambda *_: decision)
 

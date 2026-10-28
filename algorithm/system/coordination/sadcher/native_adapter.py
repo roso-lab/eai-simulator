@@ -50,9 +50,12 @@ class CheckpointCompatibilityError(RuntimeError):
 class NativeCoalitionScopeError(ContractError):
     """A lossless native decision that the current TaskRunner cannot dispatch."""
 
+    NA_REASON = "benchmark_contract_cannot_represent_native_coalition"
+
     def __init__(self, decision: AlgorithmDecision):
         self.decision = decision
         self.native_assignments = decision.provenance["native_assignments"]
+        self.na_reason = self.NA_REASON
         super().__init__("native SADCHER coalition cannot map to single-owner TaskRunner; full decision retained on exception.decision")
 
 
@@ -383,6 +386,10 @@ class NativeSadcherAdapter:
                 "unselected_robot_ids": [robot.capability.robot_id for i, robot in enumerate(robots) if str(i) not in raw],
                 "task_adjacency": sim.task_adjacency.tolist(),
                 "task_runner_compatible": all(len(team) == 1 for team in coalitions.values()),
+                "scope_rejection": (
+                    {"status": "N/A", "reason": NativeCoalitionScopeError.NA_REASON}
+                    if any(len(team) > 1 for team in coalitions.values()) else None
+                ),
                 "evidence": {"contract": "translated", "native": "executed_complete_checkpoint", "simulation": "not_executed", "physical": "N/A"},
                 "normalization": {"duration": float(sim.duration_normalization), "location": float(sim.location_normalization)},
             },

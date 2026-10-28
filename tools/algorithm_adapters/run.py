@@ -82,6 +82,10 @@ def main() -> None:
         # No substituted decision and no successful receipt on an error.
         status = "blocked" if type(exc).__name__ == "NativeEmosUnavailable" else "not_passed"
         report.update(status=status, error_type=type(exc).__name__, error=str(exc))
+        na_reason = getattr(exc, "na_reason", None)
+        if na_reason is not None:
+            report["N/A_reason"] = str(na_reason)
+            report["evidence_scope"] = "native_decision_scope_rejected"
         # Preserve rejected native outputs (e.g. coalitions) without inventing
         # an executable single-robot assignment.
         rejected = getattr(exc, "decision", None)
