@@ -1,0 +1,19 @@
+{
+  "schema": "heterocoord.endpoint_connectivity.v1",
+  "date": "2026-10-28",
+  "credential_source": "user-authorized ~/.bashrc DONGLI_* variables",
+  "requested_model": "gpt-5.6-luna",
+  "reasoning_effort": "low",
+  "http_status": 200,
+  "response_model": "gpt-5.6-luna",
+  "response_content": "dongli_ready",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 7,
+    "total_tokens": 19
+  },
+  "native_algorithm_executed": false,
+  "evidence_scope": "connectivity_only",
+  "secrets_persisted": false
+}

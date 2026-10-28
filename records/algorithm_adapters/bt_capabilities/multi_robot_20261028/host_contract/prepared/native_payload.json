@@ -1,0 +1,53 @@
+{
+  "task_id": "bt-two-ur5-dag",
+  "scene_id": "single-isaac-two-ur5-workbenches",
+  "tasks": [
+    {
+      "task_id": "move_left",
+      "description": "Move the left carton",
+      "required_capabilities": [
+        "manipulate"
+      ],
+      "target_ref": "/World/ObjectLeft",
+      "bids": {
+        "ur5_1": 0.45,
+        "ur5_2": 2.5401771591761078
+      },
+      "prerequisites": []
+    },
+    {
+      "task_id": "move_right",
+      "description": "Move the right carton",
+      "required_capabilities": [
+        "manipulate"
+      ],
+      "target_ref": "/World/ObjectRight",
+      "bids": {
+        "ur5_1": 2.5401771591761078,
+        "ur5_2": 0.45
+      },
+      "prerequisites": []
+    },
+    {
+      "task_id": "inspect_join",
+      "description": "Measure both released cartons for one second",
+      "required_capabilities": [
+        "inspect"
+      ],
+      "target_ref": "/World",
+      "bids": {
+        "ur5_1": 1.3202745926510895,
+        "ur5_2": 1.3202745926510895
+      },
+      "prerequisites": [
+        "move_left",
+        "move_right"
+      ]
+    }
+  ],
+  "robot_ids": [
+    "ur5_1",
+    "ur5_2"
+  ],
+  "graph_mode": "dag"
+}

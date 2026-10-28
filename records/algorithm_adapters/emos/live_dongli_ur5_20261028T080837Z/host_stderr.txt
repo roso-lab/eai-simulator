@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/home/airs/hetrocoord/tools/algorithm_adapters/isaac_pick_place.py", line 199, in main
+    result = TaskRunner(executor=Executor(), evaluator=Evaluator()).run(TaskRunRequest(task), provider)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/task/runner.py", line 197, in run
+    output = provider(task, task.robots)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/tools/algorithm_adapters/isaac_pick_place.py", line 148, in provider
+    raise RuntimeError(f"native adapter failed (exit {process.returncode}); no skill dispatched")
+RuntimeError: native adapter failed (exit 1); no skill dispatched

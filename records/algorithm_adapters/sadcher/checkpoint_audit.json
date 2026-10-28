@@ -1,0 +1,961 @@
+{
+  "source_receipt": {
+    "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+    "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+    "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+    "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+    "code_files": 57
+  },
+  "checkpoints": [
+    {
+      "path": "imitation_learning/checkpoints/8t3r3s_models/model_0/best_checkpoint.pt",
+      "compatible": false,
+      "audit": {
+        "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/8t3r3s_models/model_0/best_checkpoint.pt",
+        "sha256": "5b9bc9354869e1e0f0342a0d979ef395aae2cb9996f64e35b9aa955f80c0617b",
+        "expected_keys": 116,
+        "checkpoint_keys": 184,
+        "missing_keys": [
+          "robot_GATN.layers.0.heads.4.W.weight",
+          "robot_GATN.layers.0.heads.4.a.weight",
+          "robot_GATN.layers.0.heads.5.W.weight",
+          "robot_GATN.layers.0.heads.5.a.weight",
+          "robot_GATN.layers.0.heads.6.W.weight",
+          "robot_GATN.layers.0.heads.6.a.weight",
+          "robot_GATN.layers.0.heads.7.W.weight",
+          "robot_GATN.layers.0.heads.7.a.weight",
+          "task_GATN.layers.0.heads.4.W.weight",
+          "task_GATN.layers.0.heads.4.a.weight",
+          "task_GATN.layers.0.heads.5.W.weight",
+          "task_GATN.layers.0.heads.5.a.weight",
+          "task_GATN.layers.0.heads.6.W.weight",
+          "task_GATN.layers.0.heads.6.a.weight",
+          "task_GATN.layers.0.heads.7.W.weight",
+          "task_GATN.layers.0.heads.7.a.weight"
+        ],
+        "unexpected_keys": [
+          "robot_GATN.layers.1.heads.0.W.weight",
+          "robot_GATN.layers.1.heads.0.a.weight",
+          "robot_GATN.layers.1.heads.1.W.weight",
+          "robot_GATN.layers.1.heads.1.a.weight",
+          "robot_GATN.layers.1.heads.2.W.weight",
+          "robot_GATN.layers.1.heads.2.a.weight",
+          "robot_GATN.layers.1.heads.3.W.weight",
+          "robot_GATN.layers.1.heads.3.a.weight",
+          "robot_GATN.layers.1.norm.bias",
+          "robot_GATN.layers.1.norm.weight",
+          "robot_transformer_encoder.layers.2.ffn.0.bias",
+          "robot_transformer_encoder.layers.2.ffn.0.weight",
+          "robot_transformer_encoder.layers.2.ffn.2.bias",
+          "robot_transformer_encoder.layers.2.ffn.2.weight",
+          "robot_transformer_encoder.layers.2.key_proj.bias",
+          "robot_transformer_encoder.layers.2.key_proj.weight",
+          "robot_transformer_encoder.layers.2.norm1.bias",
+          "robot_transformer_encoder.layers.2.norm1.weight",
+          "robot_transformer_encoder.layers.2.norm2.bias",
+          "robot_transformer_encoder.layers.2.norm2.weight",
+          "robot_transformer_encoder.layers.2.out_proj.bias",
+          "robot_transformer_encoder.layers.2.out_proj.weight",
+          "robot_transformer_encoder.layers.2.query_proj.bias",
+          "robot_transformer_encoder.layers.2.query_proj.weight",
+          "robot_transformer_encoder.layers.2.value_proj.bias",
+          "robot_transformer_encoder.layers.2.value_proj.weight",
+          "robot_transformer_encoder.layers.3.ffn.0.bias",
+          "robot_transformer_encoder.layers.3.ffn.0.weight",
+          "robot_transformer_encoder.layers.3.ffn.2.bias",
+          "robot_transformer_encoder.layers.3.ffn.2.weight",
+          "robot_transformer_encoder.layers.3.key_proj.bias",
+          "robot_transformer_encoder.layers.3.key_proj.weight",
+          "robot_transformer_encoder.layers.3.norm1.bias",
+          "robot_transformer_encoder.layers.3.norm1.weight",
+          "robot_transformer_encoder.layers.3.norm2.bias",
+          "robot_transformer_encoder.layers.3.norm2.weight",
+          "robot_transformer_encoder.layers.3.out_proj.bias",
+          "robot_transformer_encoder.layers.3.out_proj.weight",
+          "robot_transformer_encoder.layers.3.query_proj.bias",
+          "robot_transformer_encoder.layers.3.query_proj.weight",
+          "robot_transformer_encoder.layers.3.value_proj.bias",
+          "robot_transformer_encoder.layers.3.value_proj.weight",
+          "task_GATN.layers.1.heads.0.W.weight",
+          "task_GATN.layers.1.heads.0.a.weight",
+          "task_GATN.layers.1.heads.1.W.weight",
+          "task_GATN.layers.1.heads.1.a.weight",
+          "task_GATN.layers.1.heads.2.W.weight",
+          "task_GATN.layers.1.heads.2.a.weight",
+          "task_GATN.layers.1.heads.3.W.weight",
+          "task_GATN.layers.1.heads.3.a.weight",
+          "task_GATN.layers.1.norm.bias",
+          "task_GATN.layers.1.norm.weight",
+          "task_transformer_encoder.layers.2.ffn.0.bias",
+          "task_transformer_encoder.layers.2.ffn.0.weight",
+          "task_transformer_encoder.layers.2.ffn.2.bias",
+          "task_transformer_encoder.layers.2.ffn.2.weight",
+          "task_transformer_encoder.layers.2.key_proj.bias",
+          "task_transformer_encoder.layers.2.key_proj.weight",
+          "task_transformer_encoder.layers.2.norm1.bias",
+          "task_transformer_encoder.layers.2.norm1.weight",
+          "task_transformer_encoder.layers.2.norm2.bias",
+          "task_transformer_encoder.layers.2.norm2.weight",
+          "task_transformer_encoder.layers.2.out_proj.bias",
+          "task_transformer_encoder.layers.2.out_proj.weight",
+          "task_transformer_encoder.layers.2.query_proj.bias",
+          "task_transformer_encoder.layers.2.query_proj.weight",
+          "task_transformer_encoder.layers.2.value_proj.bias",
+          "task_transformer_encoder.layers.2.value_proj.weight",
+          "task_transformer_encoder.layers.3.ffn.0.bias",
+          "task_transformer_encoder.layers.3.ffn.0.weight",
+          "task_transformer_encoder.layers.3.ffn.2.bias",
+          "task_transformer_encoder.layers.3.ffn.2.weight",
+          "task_transformer_encoder.layers.3.key_proj.bias",
+          "task_transformer_encoder.layers.3.key_proj.weight",
+          "task_transformer_encoder.layers.3.norm1.bias",
+          "task_transformer_encoder.layers.3.norm1.weight",
+          "task_transformer_encoder.layers.3.norm2.bias",
+          "task_transformer_encoder.layers.3.norm2.weight",
+          "task_transformer_encoder.layers.3.out_proj.bias",
+          "task_transformer_encoder.layers.3.out_proj.weight",
+          "task_transformer_encoder.layers.3.query_proj.bias",
+          "task_transformer_encoder.layers.3.query_proj.weight",
+          "task_transformer_encoder.layers.3.value_proj.bias",
+          "task_transformer_encoder.layers.3.value_proj.weight"
+        ],
+        "shape_mismatches": {
+          "idle_mlp.0.bias": {
+            "expected": [
+              512
+            ],
+            "checkpoint": [
+              256
+            ]
+          },
+          "idle_mlp.0.weight": {
+            "expected": [
+              512,
+              1025
+            ],
+            "checkpoint": [
+              256,
+              513
+            ]
+          },
+          "idle_mlp.2.weight": {
+            "expected": [
+              1,
+              512
+            ],
+            "checkpoint": [
+              1,
+              256
+            ]
+          },
+          "reward_mlp.0.bias": {
+            "expected": [
+              512
+            ],
+            "checkpoint": [
+              256
+            ]
+          },
+          "reward_mlp.0.weight": {
+            "expected": [
+              512,
+              1025
+            ],
+            "checkpoint": [
+              256,
+              513
+            ]
+          },
+          "reward_mlp.2.weight": {
+            "expected": [
+              1,
+              512
+            ],
+            "checkpoint": [
+              1,
+              256
+            ]
+          },
+          "robot_GATN.layers.0.heads.0.W.weight": {
+            "expected": [
+              32,
+              256
+            ],
+            "checkpoint": [
+              32,
+              128
+            ]
+          },
+          "robot_GATN.layers.0.heads.1.W.weight": {
+            "expected": [
+              32,
+              256
+            ],
+            "checkpoint": [
+              32,
+              128
+            ]
+          },
+          "robot_GATN.layers.0.heads.2.W.weight": {
+            "expected": [
+              32,
+              256
+            ],
+            "checkpoint": [
+              32,
+              128
+            ]
+          },
+          "robot_GATN.layers.0.heads.3.W.weight": {
+            "expected": [
+              32,
+              256
+            ],
+            "checkpoint": [
+              32,
+              128
+            ]
+          },
+          "robot_GATN.layers.0.norm.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_GATN.layers.0.norm.weight": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_embedding.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_embedding.weight": {
+            "expected": [
+              256,
+              7
+            ],
+            "checkpoint": [
+              128,
+              7
+            ]
+          },
+          "robot_transformer_encoder.layers.0.ffn.0.bias": {
+            "expected": [
+              512
+            ],
+            "checkpoint": [
+              256
+            ]
+          },
+          "robot_transformer_encoder.layers.0.ffn.0.weight": {
+            "expected": [
+              512,
+              256
+            ],
+            "checkpoint": [
+              256,
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.ffn.2.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.ffn.2.weight": {
+            "expected": [
+              256,
+              512
+            ],
+            "checkpoint": [
+              128,
+              256
+            ]
+          },
+          "robot_transformer_encoder.layers.0.key_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.key_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.norm1.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.norm1.weight": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.norm2.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.norm2.weight": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.out_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.out_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.query_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.query_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.value_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.0.value_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.ffn.0.bias": {
+            "expected": [
+              512
+            ],
+            "checkpoint": [
+              256
+            ]
+          },
+          "robot_transformer_encoder.layers.1.ffn.0.weight": {
+            "expected": [
+              512,
+              256
+            ],
+            "checkpoint": [
+              256,
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.ffn.2.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.ffn.2.weight": {
+            "expected": [
+              256,
+              512
+            ],
+            "checkpoint": [
+              128,
+              256
+            ]
+          },
+          "robot_transformer_encoder.layers.1.key_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.key_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.norm1.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.norm1.weight": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.norm2.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.norm2.weight": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.out_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.out_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.query_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.query_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.value_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "robot_transformer_encoder.layers.1.value_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "task_GATN.layers.0.heads.0.W.weight": {
+            "expected": [
+              32,
+              256
+            ],
+            "checkpoint": [
+              32,
+              128
+            ]
+          },
+          "task_GATN.layers.0.heads.1.W.weight": {
+            "expected": [
+              32,
+              256
+            ],
+            "checkpoint": [
+              32,
+              128
+            ]
+          },
+          "task_GATN.layers.0.heads.2.W.weight": {
+            "expected": [
+              32,
+              256
+            ],
+            "checkpoint": [
+              32,
+              128
+            ]
+          },
+          "task_GATN.layers.0.heads.3.W.weight": {
+            "expected": [
+              32,
+              256
+            ],
+            "checkpoint": [
+              32,
+              128
+            ]
+          },
+          "task_GATN.layers.0.norm.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_GATN.layers.0.norm.weight": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_embedding.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_embedding.weight": {
+            "expected": [
+              256,
+              9
+            ],
+            "checkpoint": [
+              128,
+              9
+            ]
+          },
+          "task_transformer_encoder.layers.0.ffn.0.bias": {
+            "expected": [
+              512
+            ],
+            "checkpoint": [
+              256
+            ]
+          },
+          "task_transformer_encoder.layers.0.ffn.0.weight": {
+            "expected": [
+              512,
+              256
+            ],
+            "checkpoint": [
+              256,
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.ffn.2.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.ffn.2.weight": {
+            "expected": [
+              256,
+              512
+            ],
+            "checkpoint": [
+              128,
+              256
+            ]
+          },
+          "task_transformer_encoder.layers.0.key_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.key_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.norm1.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.norm1.weight": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.norm2.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.norm2.weight": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.out_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.out_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.query_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.query_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.value_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.0.value_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.ffn.0.bias": {
+            "expected": [
+              512
+            ],
+            "checkpoint": [
+              256
+            ]
+          },
+          "task_transformer_encoder.layers.1.ffn.0.weight": {
+            "expected": [
+              512,
+              256
+            ],
+            "checkpoint": [
+              256,
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.ffn.2.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.ffn.2.weight": {
+            "expected": [
+              256,
+              512
+            ],
+            "checkpoint": [
+              128,
+              256
+            ]
+          },
+          "task_transformer_encoder.layers.1.key_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.key_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.norm1.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.norm1.weight": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.norm2.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.norm2.weight": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.out_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.out_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.query_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.query_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.value_proj.bias": {
+            "expected": [
+              256
+            ],
+            "checkpoint": [
+              128
+            ]
+          },
+          "task_transformer_encoder.layers.1.value_proj.weight": {
+            "expected": [
+              256,
+              256
+            ],
+            "checkpoint": [
+              128,
+              128
+            ]
+          }
+        },
+        "nonfinite_keys": []
+      },
+      "upstream_loader_stdout": "Loaded 14 matching layers from checkpoint.\nSkipped 170 layers.\n"
+    },
+    {
+      "path": "imitation_learning/checkpoints/hyperparam_0_8t3r3s/best_checkpoint.pt",
+      "compatible": false,
+      "audit": {
+        "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_0_8t3r3s/best_checkpoint.pt",
+        "sha256": "89449b2863718baa4460ddbcc216d219547e8184fde712e0a284f4a7ae8c7cbd",
+        "expected_keys": 116,
+        "checkpoint_keys": 152,
+        "missing_keys": [],
+        "unexpected_keys": [
+          "robot_GATN.layers.1.heads.0.W.weight",
+          "robot_GATN.layers.1.heads.0.a.weight",
+          "robot_GATN.layers.1.heads.1.W.weight",
+          "robot_GATN.layers.1.heads.1.a.weight",
+          "robot_GATN.layers.1.heads.2.W.weight",
+          "robot_GATN.layers.1.heads.2.a.weight",
+          "robot_GATN.layers.1.heads.3.W.weight",
+          "robot_GATN.layers.1.heads.3.a.weight",
+          "robot_GATN.layers.1.heads.4.W.weight",
+          "robot_GATN.layers.1.heads.4.a.weight",
+          "robot_GATN.layers.1.heads.5.W.weight",
+          "robot_GATN.layers.1.heads.5.a.weight",
+          "robot_GATN.layers.1.heads.6.W.weight",
+          "robot_GATN.layers.1.heads.6.a.weight",
+          "robot_GATN.layers.1.heads.7.W.weight",
+          "robot_GATN.layers.1.heads.7.a.weight",
+          "robot_GATN.layers.1.norm.bias",
+          "robot_GATN.layers.1.norm.weight",
+          "task_GATN.layers.1.heads.0.W.weight",
+          "task_GATN.layers.1.heads.0.a.weight",
+          "task_GATN.layers.1.heads.1.W.weight",
+          "task_GATN.layers.1.heads.1.a.weight",
+          "task_GATN.layers.1.heads.2.W.weight",
+          "task_GATN.layers.1.heads.2.a.weight",
+          "task_GATN.layers.1.heads.3.W.weight",
+          "task_GATN.layers.1.heads.3.a.weight",
+          "task_GATN.layers.1.heads.4.W.weight",
+          "task_GATN.layers.1.heads.4.a.weight",
+          "task_GATN.layers.1.heads.5.W.weight",
+          "task_GATN.layers.1.heads.5.a.weight",
+          "task_GATN.layers.1.heads.6.W.weight",
+          "task_GATN.layers.1.heads.6.a.weight",
+          "task_GATN.layers.1.heads.7.W.weight",
+          "task_GATN.layers.1.heads.7.a.weight",
+          "task_GATN.layers.1.norm.bias",
+          "task_GATN.layers.1.norm.weight"
+        ],
+        "shape_mismatches": {},
+        "nonfinite_keys": []
+      },
+      "upstream_loader_stdout": "Loaded 116 matching layers from checkpoint.\nSkipped 36 layers.\n"
+    },
+    {
+      "path": "imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+      "compatible": true,
+      "audit": {
+        "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+        "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+        "expected_keys": 116,
+        "checkpoint_keys": 116,
+        "missing_keys": [],
+        "unexpected_keys": [],
+        "shape_mismatches": {},
+        "nonfinite_keys": [],
+        "strict_complete": true
+      },
+      "upstream_loader_stdout": "Loaded 116 matching layers from checkpoint.\nSkipped 0 layers.\n"
+    }
+  ]
+}

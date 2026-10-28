@@ -1,5 +1,11 @@
 # TeamWeaver：LLM + MIQP 协作规划
 
+**2026-10-28 原生 Benchmark 接入更新**：请先阅读
+[`NATIVE_ADAPTER_REPORT.zh-CN.md`](NATIVE_ADAPTER_REPORT.zh-CN.md)。统一入口是
+`benchmark.native_algorithms.build_native_adapter("teamweaver")`；已有原生分配器两批逻辑闭环及
+原生完整语义规划单批执行证据。下文描述历史 `eai_adapter` 管道，其自定义分解/分配及
+Hungarian fallback 与原生路径不同，不能混为同一个实验条件。
+
 TeamWeaver 将大语言模型的语义任务分解与混合整数二次规划（MIQP）分配结合，用于异构多机器人团队的任务分解、分配、阶段调度和动态重规划。在 EAI 中它是外部规划器：输入自然语言任务和符号化世界状态，输出任务 DAG 与机器人分配，再交给 EAI、Nav2 或 cmd_vel 执行。它不构建仿真场景，也不直接驱动机器人。
 
 本目录是上游研究代码的 EAI 适配层。上游的 Habitat-Sim、PARTNR、PyTorch、Hydra 运行时不属于当前 EAI 边界；包内统一使用 TeamWeaver 命名空间，不需要 habitat_llm shim。

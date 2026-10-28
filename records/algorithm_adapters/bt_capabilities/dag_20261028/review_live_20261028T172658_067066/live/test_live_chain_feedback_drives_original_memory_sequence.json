@@ -1,0 +1,870 @@
+{
+  "evidence_scope": "native_protocol_only_not_simulation",
+  "native": {
+    "ok": true,
+    "mission_id": "0387f8a475934243a1ad7ab1c1199eaf",
+    "task_contract_sha256": "46a69d686b6330c1356e07a54db4af385819db0e1e86b0873a03de326de27119",
+    "native_algorithm": "ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager",
+    "native_tree": "ros_bt_py.nodes.sequence.MemorySequence",
+    "graph_mode": "linear",
+    "prerequisites": {
+      "inspect": [],
+      "verify": [
+        "inspect"
+      ]
+    },
+    "endpoint_adapter_sha256": "08f5ed366c55e1d7a249c93e7020b0e787f2f2d1a29606d99251dc0f2af78502",
+    "source_commit": "5438f6e8d7599e39ec12104c0a9f0a8f1543838d",
+    "source_sha256": {
+      "ros_bt_py/src/ros_bt_py/assignment_manager/parallel_auction_manager.py": "4c45e7b99c44a66454cd07725bd1ce554633f4e4128b87ce4096c2fa4d32860d",
+      "ros_bt_py/src/ros_bt_py/nodes/sequence.py": "b963b33aee84fdcb2262c10fd481a009084456629ae9609d037b427cd49e9ccb",
+      "ros_bt_py/src/ros_bt_py/nodes/parallel.py": "81e72b496d4ac232c96f0390c169f8d3623885b8556102e2dc8ff930e0aa5f4e"
+    },
+    "tree_state": "SUCCEEDED",
+    "assignments": [],
+    "cancelled_assignments": [],
+    "unassigned_tasks": [],
+    "leaf_states": [
+      {
+        "task_id": "inspect",
+        "state": "SUCCEEDED",
+        "feedback": {
+          "task_id": "inspect",
+          "robot_id": "robot_b",
+          "succeeded": true,
+          "outcome": "protocol_ack",
+          "failure_code": "none"
+        },
+        "auction_error": null,
+        "waiting_for_slot": false
+      },
+      {
+        "task_id": "verify",
+        "state": "SUCCEEDED",
+        "feedback": {
+          "task_id": "verify",
+          "robot_id": "robot_a",
+          "succeeded": true,
+          "outcome": "protocol_ack",
+          "failure_code": "none"
+        },
+        "auction_error": null,
+        "waiting_for_slot": false
+      }
+    ],
+    "auction_messages": [
+      {
+        "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+        "sender_id": "/heterocoord_dag/dispatcher/",
+        "type": "ANNOUNCEMENT",
+        "bid": 0.0,
+        "executors": 0,
+        "result_id": "",
+        "implementation": ""
+      },
+      {
+        "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+        "sender_id": "/heterocoord_dag/robot_0/",
+        "type": "BID",
+        "bid": 9.0,
+        "executors": 1,
+        "result_id": "",
+        "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+      },
+      {
+        "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+        "sender_id": "/heterocoord_dag/robot_1/",
+        "type": "BID",
+        "bid": 2.0,
+        "executors": 1,
+        "result_id": "",
+        "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+      },
+      {
+        "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+        "sender_id": "/heterocoord_dag/dispatcher/",
+        "type": "CLOSE",
+        "bid": 0.0,
+        "executors": 0,
+        "result_id": "",
+        "implementation": ""
+      },
+      {
+        "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+        "sender_id": "/heterocoord_dag/dispatcher/",
+        "type": "RESULT",
+        "bid": 2.4,
+        "executors": 0,
+        "result_id": "/heterocoord_dag/robot_1/",
+        "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+      },
+      {
+        "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+        "sender_id": "/heterocoord_dag/dispatcher/",
+        "type": "ANNOUNCEMENT",
+        "bid": 0.0,
+        "executors": 0,
+        "result_id": "",
+        "implementation": ""
+      },
+      {
+        "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+        "sender_id": "/heterocoord_dag/robot_0/",
+        "type": "BID",
+        "bid": 1.0,
+        "executors": 1,
+        "result_id": "",
+        "implementation": "0387f8a475934243a1ad7ab1c1199eaf_1"
+      },
+      {
+        "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+        "sender_id": "/heterocoord_dag/robot_1/",
+        "type": "BID",
+        "bid": 8.0,
+        "executors": 1,
+        "result_id": "",
+        "implementation": "0387f8a475934243a1ad7ab1c1199eaf_1"
+      },
+      {
+        "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+        "sender_id": "/heterocoord_dag/dispatcher/",
+        "type": "CLOSE",
+        "bid": 0.0,
+        "executors": 0,
+        "result_id": "",
+        "implementation": ""
+      },
+      {
+        "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+        "sender_id": "/heterocoord_dag/dispatcher/",
+        "type": "RESULT",
+        "bid": 1.2,
+        "executors": 0,
+        "result_id": "/heterocoord_dag/robot_0/",
+        "implementation": "0387f8a475934243a1ad7ab1c1199eaf_1"
+      }
+    ],
+    "evidence_scope": "native_ros_protocol_and_bt_feedback_only",
+    "simulation_evidence": "not_evaluated",
+    "physical_evidence": "not_evaluated"
+  },
+  "task_runner": {
+    "task_id": "native_bt_fixture",
+    "scene_id": "protocol_fixture",
+    "branch_id": "fact",
+    "checkpoint": null,
+    "repeat_id": "",
+    "condition": {
+      "algorithm_id": "BT-capabilities-native",
+      "source_reference": "5438f6e8d7599e39ec12104c0a9f0a8f1543838d",
+      "implementation": "original_ros_bt_py_via_ros1_endpoint",
+      "execution_scope": "native_auction_and_linear_memory_sequence",
+      "planner": "ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager",
+      "model_or_api": "not_applicable",
+      "checkpoint": "not_applicable_no_learned_weights",
+      "prompt_revision": "not_applicable",
+      "supported_primitives": [
+        "native_auction",
+        "linear_mission",
+        "dag_mission",
+        "execution_feedback"
+      ],
+      "unsupported_dimensions": [
+        "automatic_reauction_after_failure",
+        "physical_success_without_evaluator"
+      ],
+      "physical_executor_owner": "eai_runtime",
+      "serial_action_loop": false,
+      "notes": ""
+    },
+    "decisions": [
+      {
+        "assignments": [
+          {
+            "task_id": "inspect",
+            "robot_id": "robot_b",
+            "source": "BT-capabilities-native",
+            "plan_version": "0387f8a475934243a1ad7ab1c1199eaf"
+          }
+        ],
+        "unassigned_tasks": [
+          "verify"
+        ],
+        "provenance": {
+          "contract_evidence": "validated_linear_and_explicit_costs",
+          "native_evidence": {
+            "ok": true,
+            "mission_id": "0387f8a475934243a1ad7ab1c1199eaf",
+            "task_contract_sha256": "46a69d686b6330c1356e07a54db4af385819db0e1e86b0873a03de326de27119",
+            "native_algorithm": "ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager",
+            "native_tree": "ros_bt_py.nodes.sequence.MemorySequence",
+            "graph_mode": "linear",
+            "prerequisites": {
+              "inspect": [],
+              "verify": [
+                "inspect"
+              ]
+            },
+            "endpoint_adapter_sha256": "08f5ed366c55e1d7a249c93e7020b0e787f2f2d1a29606d99251dc0f2af78502",
+            "source_commit": "5438f6e8d7599e39ec12104c0a9f0a8f1543838d",
+            "source_sha256": {
+              "ros_bt_py/src/ros_bt_py/assignment_manager/parallel_auction_manager.py": "4c45e7b99c44a66454cd07725bd1ce554633f4e4128b87ce4096c2fa4d32860d",
+              "ros_bt_py/src/ros_bt_py/nodes/sequence.py": "b963b33aee84fdcb2262c10fd481a009084456629ae9609d037b427cd49e9ccb",
+              "ros_bt_py/src/ros_bt_py/nodes/parallel.py": "81e72b496d4ac232c96f0390c169f8d3623885b8556102e2dc8ff930e0aa5f4e"
+            },
+            "tree_state": "RUNNING",
+            "assignments": [
+              {
+                "task_id": "inspect",
+                "robot_id": "robot_b",
+                "implementation_name": "0387f8a475934243a1ad7ab1c1199eaf_0",
+                "executor_namespace": "/heterocoord_dag/robot_1"
+              }
+            ],
+            "cancelled_assignments": [],
+            "unassigned_tasks": [
+              "verify"
+            ],
+            "leaf_states": [
+              {
+                "task_id": "inspect",
+                "state": "RUNNING",
+                "feedback": null,
+                "auction_error": null,
+                "waiting_for_slot": false
+              },
+              {
+                "task_id": "verify",
+                "state": "IDLE",
+                "feedback": null,
+                "auction_error": null,
+                "waiting_for_slot": false
+              }
+            ],
+            "auction_messages": [
+              {
+                "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                "sender_id": "/heterocoord_dag/dispatcher/",
+                "type": "ANNOUNCEMENT",
+                "bid": 0.0,
+                "executors": 0,
+                "result_id": "",
+                "implementation": ""
+              },
+              {
+                "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                "sender_id": "/heterocoord_dag/robot_0/",
+                "type": "BID",
+                "bid": 9.0,
+                "executors": 1,
+                "result_id": "",
+                "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+              },
+              {
+                "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                "sender_id": "/heterocoord_dag/robot_1/",
+                "type": "BID",
+                "bid": 2.0,
+                "executors": 1,
+                "result_id": "",
+                "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+              },
+              {
+                "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                "sender_id": "/heterocoord_dag/dispatcher/",
+                "type": "CLOSE",
+                "bid": 0.0,
+                "executors": 0,
+                "result_id": "",
+                "implementation": ""
+              },
+              {
+                "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                "sender_id": "/heterocoord_dag/dispatcher/",
+                "type": "RESULT",
+                "bid": 2.4,
+                "executors": 0,
+                "result_id": "/heterocoord_dag/robot_1/",
+                "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+              }
+            ],
+            "evidence_scope": "native_ros_protocol_and_bt_feedback_only",
+            "simulation_evidence": "not_evaluated",
+            "physical_evidence": "not_evaluated"
+          },
+          "simulation_evidence": "not_evaluated",
+          "physical_evidence": "not_evaluated",
+          "source_root": "/home/airs/.cache/heterocoord/upstream/bt-capabilities"
+        }
+      },
+      {
+        "assignments": [
+          {
+            "task_id": "verify",
+            "robot_id": "robot_a",
+            "source": "BT-capabilities-native",
+            "plan_version": "0387f8a475934243a1ad7ab1c1199eaf"
+          }
+        ],
+        "unassigned_tasks": [],
+        "provenance": {
+          "contract_evidence": "validated_linear_and_explicit_costs",
+          "native_evidence": {
+            "ok": true,
+            "mission_id": "0387f8a475934243a1ad7ab1c1199eaf",
+            "task_contract_sha256": "46a69d686b6330c1356e07a54db4af385819db0e1e86b0873a03de326de27119",
+            "native_algorithm": "ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager",
+            "native_tree": "ros_bt_py.nodes.sequence.MemorySequence",
+            "graph_mode": "linear",
+            "prerequisites": {
+              "inspect": [],
+              "verify": [
+                "inspect"
+              ]
+            },
+            "endpoint_adapter_sha256": "08f5ed366c55e1d7a249c93e7020b0e787f2f2d1a29606d99251dc0f2af78502",
+            "source_commit": "5438f6e8d7599e39ec12104c0a9f0a8f1543838d",
+            "source_sha256": {
+              "ros_bt_py/src/ros_bt_py/assignment_manager/parallel_auction_manager.py": "4c45e7b99c44a66454cd07725bd1ce554633f4e4128b87ce4096c2fa4d32860d",
+              "ros_bt_py/src/ros_bt_py/nodes/sequence.py": "b963b33aee84fdcb2262c10fd481a009084456629ae9609d037b427cd49e9ccb",
+              "ros_bt_py/src/ros_bt_py/nodes/parallel.py": "81e72b496d4ac232c96f0390c169f8d3623885b8556102e2dc8ff930e0aa5f4e"
+            },
+            "tree_state": "RUNNING",
+            "assignments": [
+              {
+                "task_id": "verify",
+                "robot_id": "robot_a",
+                "implementation_name": "0387f8a475934243a1ad7ab1c1199eaf_1",
+                "executor_namespace": "/heterocoord_dag/robot_0"
+              }
+            ],
+            "cancelled_assignments": [],
+            "unassigned_tasks": [],
+            "leaf_states": [
+              {
+                "task_id": "inspect",
+                "state": "SUCCEEDED",
+                "feedback": {
+                  "task_id": "inspect",
+                  "robot_id": "robot_b",
+                  "succeeded": true,
+                  "outcome": "protocol_ack",
+                  "failure_code": "none"
+                },
+                "auction_error": null,
+                "waiting_for_slot": false
+              },
+              {
+                "task_id": "verify",
+                "state": "RUNNING",
+                "feedback": null,
+                "auction_error": null,
+                "waiting_for_slot": false
+              }
+            ],
+            "auction_messages": [
+              {
+                "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                "sender_id": "/heterocoord_dag/dispatcher/",
+                "type": "ANNOUNCEMENT",
+                "bid": 0.0,
+                "executors": 0,
+                "result_id": "",
+                "implementation": ""
+              },
+              {
+                "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                "sender_id": "/heterocoord_dag/robot_0/",
+                "type": "BID",
+                "bid": 9.0,
+                "executors": 1,
+                "result_id": "",
+                "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+              },
+              {
+                "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                "sender_id": "/heterocoord_dag/robot_1/",
+                "type": "BID",
+                "bid": 2.0,
+                "executors": 1,
+                "result_id": "",
+                "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+              },
+              {
+                "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                "sender_id": "/heterocoord_dag/dispatcher/",
+                "type": "CLOSE",
+                "bid": 0.0,
+                "executors": 0,
+                "result_id": "",
+                "implementation": ""
+              },
+              {
+                "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                "sender_id": "/heterocoord_dag/dispatcher/",
+                "type": "RESULT",
+                "bid": 2.4,
+                "executors": 0,
+                "result_id": "/heterocoord_dag/robot_1/",
+                "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+              },
+              {
+                "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+                "sender_id": "/heterocoord_dag/dispatcher/",
+                "type": "ANNOUNCEMENT",
+                "bid": 0.0,
+                "executors": 0,
+                "result_id": "",
+                "implementation": ""
+              },
+              {
+                "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+                "sender_id": "/heterocoord_dag/robot_0/",
+                "type": "BID",
+                "bid": 1.0,
+                "executors": 1,
+                "result_id": "",
+                "implementation": "0387f8a475934243a1ad7ab1c1199eaf_1"
+              },
+              {
+                "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+                "sender_id": "/heterocoord_dag/robot_1/",
+                "type": "BID",
+                "bid": 8.0,
+                "executors": 1,
+                "result_id": "",
+                "implementation": "0387f8a475934243a1ad7ab1c1199eaf_1"
+              },
+              {
+                "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+                "sender_id": "/heterocoord_dag/dispatcher/",
+                "type": "CLOSE",
+                "bid": 0.0,
+                "executors": 0,
+                "result_id": "",
+                "implementation": ""
+              },
+              {
+                "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+                "sender_id": "/heterocoord_dag/dispatcher/",
+                "type": "RESULT",
+                "bid": 1.2,
+                "executors": 0,
+                "result_id": "/heterocoord_dag/robot_0/",
+                "implementation": "0387f8a475934243a1ad7ab1c1199eaf_1"
+              }
+            ],
+            "evidence_scope": "native_ros_protocol_and_bt_feedback_only",
+            "simulation_evidence": "not_evaluated",
+            "physical_evidence": "not_evaluated"
+          },
+          "simulation_evidence": "not_evaluated",
+          "physical_evidence": "not_evaluated",
+          "source_root": "/home/airs/.cache/heterocoord/upstream/bt-capabilities"
+        }
+      }
+    ],
+    "feedback": [
+      {
+        "task_id": "inspect",
+        "robot_id": "robot_b",
+        "outcome": "protocol_ack",
+        "failure_code": "none",
+        "message": "fixture acknowledgement; no physical execution",
+        "timestamp_s": 0.0,
+        "world_changes": {}
+      },
+      {
+        "task_id": "verify",
+        "robot_id": "robot_a",
+        "outcome": "protocol_ack",
+        "failure_code": "none",
+        "message": "fixture acknowledgement; no physical execution",
+        "timestamp_s": 0.0,
+        "world_changes": {}
+      }
+    ],
+    "task_states": {
+      "inspect": "completed",
+      "verify": "completed"
+    },
+    "termination_reason": "all_dependencies_completed",
+    "rounds": 2,
+    "dispatch_count": 2,
+    "verdict": {
+      "status": "N/A",
+      "reason": "physical_evidence_required",
+      "scheduler_termination": "all_dependencies_completed",
+      "task_states": {
+        "inspect": "completed",
+        "verify": "completed"
+      }
+    },
+    "ledger": {
+      "schema_version": "task.orchestration.v1",
+      "events": [
+        {
+          "sequence": 0,
+          "kind": "algorithm_decision",
+          "payload": {
+            "algorithm_id": "BT-capabilities-native",
+            "assignments": [
+              {
+                "task_id": "inspect",
+                "robot_id": "robot_b",
+                "source": "BT-capabilities-native",
+                "plan_version": "0387f8a475934243a1ad7ab1c1199eaf"
+              }
+            ],
+            "unassigned_tasks": [
+              "verify"
+            ],
+            "provenance": {
+              "contract_evidence": "validated_linear_and_explicit_costs",
+              "native_evidence": {
+                "ok": true,
+                "mission_id": "0387f8a475934243a1ad7ab1c1199eaf",
+                "task_contract_sha256": "46a69d686b6330c1356e07a54db4af385819db0e1e86b0873a03de326de27119",
+                "native_algorithm": "ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager",
+                "native_tree": "ros_bt_py.nodes.sequence.MemorySequence",
+                "graph_mode": "linear",
+                "prerequisites": {
+                  "inspect": [],
+                  "verify": [
+                    "inspect"
+                  ]
+                },
+                "endpoint_adapter_sha256": "08f5ed366c55e1d7a249c93e7020b0e787f2f2d1a29606d99251dc0f2af78502",
+                "source_commit": "5438f6e8d7599e39ec12104c0a9f0a8f1543838d",
+                "source_sha256": {
+                  "ros_bt_py/src/ros_bt_py/assignment_manager/parallel_auction_manager.py": "4c45e7b99c44a66454cd07725bd1ce554633f4e4128b87ce4096c2fa4d32860d",
+                  "ros_bt_py/src/ros_bt_py/nodes/sequence.py": "b963b33aee84fdcb2262c10fd481a009084456629ae9609d037b427cd49e9ccb",
+                  "ros_bt_py/src/ros_bt_py/nodes/parallel.py": "81e72b496d4ac232c96f0390c169f8d3623885b8556102e2dc8ff930e0aa5f4e"
+                },
+                "tree_state": "RUNNING",
+                "assignments": [
+                  {
+                    "task_id": "inspect",
+                    "robot_id": "robot_b",
+                    "implementation_name": "0387f8a475934243a1ad7ab1c1199eaf_0",
+                    "executor_namespace": "/heterocoord_dag/robot_1"
+                  }
+                ],
+                "cancelled_assignments": [],
+                "unassigned_tasks": [
+                  "verify"
+                ],
+                "leaf_states": [
+                  {
+                    "task_id": "inspect",
+                    "state": "RUNNING",
+                    "feedback": null,
+                    "auction_error": null,
+                    "waiting_for_slot": false
+                  },
+                  {
+                    "task_id": "verify",
+                    "state": "IDLE",
+                    "feedback": null,
+                    "auction_error": null,
+                    "waiting_for_slot": false
+                  }
+                ],
+                "auction_messages": [
+                  {
+                    "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                    "sender_id": "/heterocoord_dag/dispatcher/",
+                    "type": "ANNOUNCEMENT",
+                    "bid": 0.0,
+                    "executors": 0,
+                    "result_id": "",
+                    "implementation": ""
+                  },
+                  {
+                    "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                    "sender_id": "/heterocoord_dag/robot_0/",
+                    "type": "BID",
+                    "bid": 9.0,
+                    "executors": 1,
+                    "result_id": "",
+                    "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+                  },
+                  {
+                    "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                    "sender_id": "/heterocoord_dag/robot_1/",
+                    "type": "BID",
+                    "bid": 2.0,
+                    "executors": 1,
+                    "result_id": "",
+                    "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+                  },
+                  {
+                    "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                    "sender_id": "/heterocoord_dag/dispatcher/",
+                    "type": "CLOSE",
+                    "bid": 0.0,
+                    "executors": 0,
+                    "result_id": "",
+                    "implementation": ""
+                  },
+                  {
+                    "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                    "sender_id": "/heterocoord_dag/dispatcher/",
+                    "type": "RESULT",
+                    "bid": 2.4,
+                    "executors": 0,
+                    "result_id": "/heterocoord_dag/robot_1/",
+                    "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+                  }
+                ],
+                "evidence_scope": "native_ros_protocol_and_bt_feedback_only",
+                "simulation_evidence": "not_evaluated",
+                "physical_evidence": "not_evaluated"
+              },
+              "simulation_evidence": "not_evaluated",
+              "physical_evidence": "not_evaluated",
+              "source_root": "/home/airs/.cache/heterocoord/upstream/bt-capabilities"
+            },
+            "round_index": 0
+          }
+        },
+        {
+          "sequence": 1,
+          "kind": "assignment_applied",
+          "payload": {
+            "round_index": 0,
+            "task_id": "inspect",
+            "robot_id": "robot_b"
+          }
+        },
+        {
+          "sequence": 2,
+          "kind": "execution_update",
+          "payload": {
+            "round_index": 1,
+            "task_id": "inspect",
+            "robot_id": "robot_b",
+            "dependency_outcome": "completed",
+            "feedback_outcome": "protocol_ack",
+            "failure_code": "none"
+          }
+        },
+        {
+          "sequence": 3,
+          "kind": "algorithm_decision",
+          "payload": {
+            "algorithm_id": "BT-capabilities-native",
+            "assignments": [
+              {
+                "task_id": "verify",
+                "robot_id": "robot_a",
+                "source": "BT-capabilities-native",
+                "plan_version": "0387f8a475934243a1ad7ab1c1199eaf"
+              }
+            ],
+            "unassigned_tasks": [],
+            "provenance": {
+              "contract_evidence": "validated_linear_and_explicit_costs",
+              "native_evidence": {
+                "ok": true,
+                "mission_id": "0387f8a475934243a1ad7ab1c1199eaf",
+                "task_contract_sha256": "46a69d686b6330c1356e07a54db4af385819db0e1e86b0873a03de326de27119",
+                "native_algorithm": "ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager",
+                "native_tree": "ros_bt_py.nodes.sequence.MemorySequence",
+                "graph_mode": "linear",
+                "prerequisites": {
+                  "inspect": [],
+                  "verify": [
+                    "inspect"
+                  ]
+                },
+                "endpoint_adapter_sha256": "08f5ed366c55e1d7a249c93e7020b0e787f2f2d1a29606d99251dc0f2af78502",
+                "source_commit": "5438f6e8d7599e39ec12104c0a9f0a8f1543838d",
+                "source_sha256": {
+                  "ros_bt_py/src/ros_bt_py/assignment_manager/parallel_auction_manager.py": "4c45e7b99c44a66454cd07725bd1ce554633f4e4128b87ce4096c2fa4d32860d",
+                  "ros_bt_py/src/ros_bt_py/nodes/sequence.py": "b963b33aee84fdcb2262c10fd481a009084456629ae9609d037b427cd49e9ccb",
+                  "ros_bt_py/src/ros_bt_py/nodes/parallel.py": "81e72b496d4ac232c96f0390c169f8d3623885b8556102e2dc8ff930e0aa5f4e"
+                },
+                "tree_state": "RUNNING",
+                "assignments": [
+                  {
+                    "task_id": "verify",
+                    "robot_id": "robot_a",
+                    "implementation_name": "0387f8a475934243a1ad7ab1c1199eaf_1",
+                    "executor_namespace": "/heterocoord_dag/robot_0"
+                  }
+                ],
+                "cancelled_assignments": [],
+                "unassigned_tasks": [],
+                "leaf_states": [
+                  {
+                    "task_id": "inspect",
+                    "state": "SUCCEEDED",
+                    "feedback": {
+                      "task_id": "inspect",
+                      "robot_id": "robot_b",
+                      "succeeded": true,
+                      "outcome": "protocol_ack",
+                      "failure_code": "none"
+                    },
+                    "auction_error": null,
+                    "waiting_for_slot": false
+                  },
+                  {
+                    "task_id": "verify",
+                    "state": "RUNNING",
+                    "feedback": null,
+                    "auction_error": null,
+                    "waiting_for_slot": false
+                  }
+                ],
+                "auction_messages": [
+                  {
+                    "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                    "sender_id": "/heterocoord_dag/dispatcher/",
+                    "type": "ANNOUNCEMENT",
+                    "bid": 0.0,
+                    "executors": 0,
+                    "result_id": "",
+                    "implementation": ""
+                  },
+                  {
+                    "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                    "sender_id": "/heterocoord_dag/robot_0/",
+                    "type": "BID",
+                    "bid": 9.0,
+                    "executors": 1,
+                    "result_id": "",
+                    "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+                  },
+                  {
+                    "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                    "sender_id": "/heterocoord_dag/robot_1/",
+                    "type": "BID",
+                    "bid": 2.0,
+                    "executors": 1,
+                    "result_id": "",
+                    "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+                  },
+                  {
+                    "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                    "sender_id": "/heterocoord_dag/dispatcher/",
+                    "type": "CLOSE",
+                    "bid": 0.0,
+                    "executors": 0,
+                    "result_id": "",
+                    "implementation": ""
+                  },
+                  {
+                    "auction_id": "30829115-9d3c-4a4a-81ec-279f3148cb2d",
+                    "sender_id": "/heterocoord_dag/dispatcher/",
+                    "type": "RESULT",
+                    "bid": 2.4,
+                    "executors": 0,
+                    "result_id": "/heterocoord_dag/robot_1/",
+                    "implementation": "0387f8a475934243a1ad7ab1c1199eaf_0"
+                  },
+                  {
+                    "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+                    "sender_id": "/heterocoord_dag/dispatcher/",
+                    "type": "ANNOUNCEMENT",
+                    "bid": 0.0,
+                    "executors": 0,
+                    "result_id": "",
+                    "implementation": ""
+                  },
+                  {
+                    "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+                    "sender_id": "/heterocoord_dag/robot_0/",
+                    "type": "BID",
+                    "bid": 1.0,
+                    "executors": 1,
+                    "result_id": "",
+                    "implementation": "0387f8a475934243a1ad7ab1c1199eaf_1"
+                  },
+                  {
+                    "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+                    "sender_id": "/heterocoord_dag/robot_1/",
+                    "type": "BID",
+                    "bid": 8.0,
+                    "executors": 1,
+                    "result_id": "",
+                    "implementation": "0387f8a475934243a1ad7ab1c1199eaf_1"
+                  },
+                  {
+                    "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+                    "sender_id": "/heterocoord_dag/dispatcher/",
+                    "type": "CLOSE",
+                    "bid": 0.0,
+                    "executors": 0,
+                    "result_id": "",
+                    "implementation": ""
+                  },
+                  {
+                    "auction_id": "32af9687-b14f-40e3-a184-003aea91a875",
+                    "sender_id": "/heterocoord_dag/dispatcher/",
+                    "type": "RESULT",
+                    "bid": 1.2,
+                    "executors": 0,
+                    "result_id": "/heterocoord_dag/robot_0/",
+                    "implementation": "0387f8a475934243a1ad7ab1c1199eaf_1"
+                  }
+                ],
+                "evidence_scope": "native_ros_protocol_and_bt_feedback_only",
+                "simulation_evidence": "not_evaluated",
+                "physical_evidence": "not_evaluated"
+              },
+              "simulation_evidence": "not_evaluated",
+              "physical_evidence": "not_evaluated",
+              "source_root": "/home/airs/.cache/heterocoord/upstream/bt-capabilities"
+            },
+            "round_index": 1
+          }
+        },
+        {
+          "sequence": 4,
+          "kind": "assignment_applied",
+          "payload": {
+            "round_index": 1,
+            "task_id": "verify",
+            "robot_id": "robot_a"
+          }
+        },
+        {
+          "sequence": 5,
+          "kind": "execution_update",
+          "payload": {
+            "round_index": 2,
+            "task_id": "verify",
+            "robot_id": "robot_a",
+            "dependency_outcome": "completed",
+            "feedback_outcome": "protocol_ack",
+            "failure_code": "none"
+          }
+        },
+        {
+          "sequence": 6,
+          "kind": "scheduler_terminated",
+          "payload": {
+            "reason": "all_dependencies_completed",
+            "rounds": 2,
+            "dispatch_count": 2,
+            "task_states": {
+              "inspect": "completed",
+              "verify": "completed"
+            }
+          }
+        },
+        {
+          "sequence": 7,
+          "kind": "verdict",
+          "payload": {
+            "status": "N/A",
+            "reason": "physical_evidence_required"
+          }
+        }
+      ],
+      "digest": "a879ce8a58be418b4316c217941d6c57eff671c1e996337b31ea223e2a987959"
+    }
+  }
+}

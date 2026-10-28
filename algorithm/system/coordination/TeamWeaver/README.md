@@ -1,5 +1,10 @@
 # TeamWeaver: LLM + MIQP Cooperative Planning
 
+For the source-backed Benchmark path and the October 28, 2026 compatibility repairs,
+see [NATIVE_ADAPTER_REPORT.zh-CN.md](NATIVE_ADAPTER_REPORT.zh-CN.md).
+The legacy `eai_adapter` pipeline described below is a separate experimental condition;
+its custom planner and Hungarian fallback are not evidence for the original HRCS solver.
+
 TeamWeaver combines LLM-based semantic task decomposition with mixed-integer quadratic programming (MIQP) allocation for heterogeneous multi-robot teams. In EAI it is an external planner: it consumes a natural-language instruction and symbolic world state, returns a task DAG and robot assignments, and leaves execution to EAI, Nav2, or cmd_vel. It does not build simulator scenes or drive robots directly.
 
 This directory contains the EAI adapter from the upstream research code. Habitat-Sim, PARTNR, PyTorch, and Hydra are outside the current EAI runtime boundary. The package uses the single TeamWeaver namespace and no habitat_llm compatibility shim.

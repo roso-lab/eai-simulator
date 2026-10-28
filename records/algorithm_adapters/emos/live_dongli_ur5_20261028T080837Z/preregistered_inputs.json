@@ -1,0 +1,16 @@
+{
+  "registered_before_inference_utc": "2026-10-28T08:08:37.807849+00:00",
+  "accepted_exact_native_texts": {
+    "move_carton": [
+      "move_carton"
+    ],
+    "Pick and place the workbench carton": [
+      "move_carton"
+    ]
+  },
+  "posthoc_bindings_allowed": false,
+  "input_hashes": {
+    "config.json": "0d124b2cc7bd682d828bbc9bfeaa6451ab40a88c6f92f25c56ed3e7ad00582cf",
+    "task.json": "c000cac71242b96f5be76db903d7cf2240af6098855bb49247284d27b4cb0fc2"
+  }
+}

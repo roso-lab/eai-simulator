@@ -1,0 +1,61 @@
+{
+  "schema": "heterocoord.emos_live_evidence.v1",
+  "recorded_at_utc": "2026-10-28T08:10:56.832777+00:00",
+  "status": "not_passed",
+  "source_report": "native_decision.json",
+  "requested_model": "gpt-5.6-luna",
+  "returned_models": [
+    "gpt-5.6-luna"
+  ],
+  "reasoning_effort": "low",
+  "model_requests": 2,
+  "failed_requests": 0,
+  "usage": {
+    "prompt_tokens": 1308,
+    "completion_tokens": 212,
+    "total_tokens": 1520
+  },
+  "finish_reasons": [
+    "stop"
+  ],
+  "endpoint_trace": "native_logs/endpoint_trace_c69d02a2ef2a4629a1a3461cf16676aa.json",
+  "input_hashes": {
+    "task.json": "c000cac71242b96f5be76db903d7cf2240af6098855bb49247284d27b4cb0fc2",
+    "config.json": "0d124b2cc7bd682d828bbc9bfeaa6451ab40a88c6f92f25c56ed3e7ad00582cf"
+  },
+  "input_hashes_still_match": true,
+  "files_sha256": {
+    "algorithm/system/coordination/emos/native_adapter.py": "226b98e11268fc6a4b223d769d1588e2dc32baedf1e8796e97aa2ffc784ad157",
+    "algorithm/system/coordination/emos/tests/test_native_adapter.py": "3ccf560a2e43de25d743e21a13a00564d8648d0e05d999febe170a58f778d281",
+    "tools/algorithm_adapters/emos_config.py": "be2e4325a67d7bab0144bfcbde89f40429c05d5f845bd23b603d4c39515029ac",
+    "tools/algorithm_adapters/run.py": "5b0281bd35e01c506e53c3dc0dbcac61543570d09067ddc47400a7f33addc172",
+    "tools/algorithm_adapters/isaac_pick_place.py": "a4108d261019313baecb116ca5943c49215c1fc4eda0e40f81658f2fa1da72f0"
+  },
+  "native_subtasks": {
+    "ur5_1": "Pick the workbench carton object /World/Object at native coordinates [0.45, 0.475, 0] using the Cartesian pick skill, then place it at the destination [0.425, 0.475, 0.01]. Goal condition: the carton is successfully placed at the specified destination."
+  },
+  "scope": "real original native discussion and strict IO mapping; TaskRunner entered; no accepted decision; no skill dispatched",
+  "physical_execution_performed": false,
+  "algorithm_acceptance_passed": false,
+  "fallback_used": false,
+  "posthoc_bindings_added": false,
+  "secret_scan": {
+    "key_and_base_url_absent_from_artifacts": true,
+    "scanned_files": 12
+  },
+  "native_source_provenance": {
+    "paper_algorithm": "emos",
+    "source_integrity": {
+      "root": "/tmp/emos-1793068059",
+      "commit": "e9501db45d634b087bf5d1a14228266685e8feeb",
+      "tree": "1d32ac13f304288776627f8027ff34c3c289a557",
+      "code_sha256": "fb1bd342d4e3de36a1081554c026078db03b53cdd7d2a85e14178243d5106e86",
+      "code_files": 778
+    },
+    "adapter_source_sha256": "226b98e11268fc6a4b223d769d1588e2dc32baedf1e8796e97aa2ffc784ad157",
+    "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+    "decision_is_physical_evidence": false
+  },
+  "preregistered_inputs_unchanged": true,
+  "host_integration_report": "integration.json"
+}

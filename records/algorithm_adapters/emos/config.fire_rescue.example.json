@@ -1,0 +1,388 @@
+{
+  "schema": "heterocoord.emos_native_config.v1",
+  "input_kind": "synthetic_input_example_not_algorithm_acceptance",
+  "source_root": "/tmp/emos-1793068059",
+  "log_dir": "cli_fire_rescue_logs",
+  "endpoint": {
+    "api_key_env": "EMOS_API_KEY",
+    "base_url_env": "EMOS_BASE_URL",
+    "model_env": "EMOS_MODEL",
+    "max_calls": 16,
+    "timeout": 30
+  },
+  "request": {
+    "kind": "fire_rescue",
+    "task_description": "Inspect, relay, open the rescue channel and deliver the extinguisher.",
+    "scenario": {
+      "scenario_id": "task-fixture-fire-rescue",
+      "scene_title": "Fire Rescue symbolic task fixture",
+      "anchor_label": "hazard",
+      "task_description": "Inspect, relay, open the rescue channel and deliver the extinguisher.",
+      "subtasks": {
+        "red": {
+          "id": "red",
+          "name": "hazard inspection",
+          "description": "inspect the hazard",
+          "match_keywords": []
+        },
+        "green": {
+          "id": "green",
+          "name": "rescue channel",
+          "description": "press the rescue channel button",
+          "match_keywords": []
+        },
+        "blue": {
+          "id": "blue",
+          "name": "sensor relay",
+          "description": "establish a sensor relay",
+          "match_keywords": []
+        },
+        "yellow": {
+          "id": "yellow",
+          "name": "extinguisher delivery",
+          "description": "carry and deliver the extinguisher",
+          "match_keywords": []
+        }
+      },
+      "position_rules": {
+        "red": {
+          "kind": "fixed",
+          "xy": [
+            -4.5,
+            -4.0
+          ],
+          "dx": 0.0,
+          "dy": 0.0
+        },
+        "green": {
+          "kind": "fixed",
+          "xy": [
+            10.5,
+            1.0
+          ],
+          "dx": 0.0,
+          "dy": 0.0
+        },
+        "blue": {
+          "kind": "fixed",
+          "xy": [
+            -7.5,
+            -4.0
+          ],
+          "dx": 0.0,
+          "dy": 0.0
+        },
+        "yellow": {
+          "kind": "fixed",
+          "xy": [
+            1.8,
+            -9.4
+          ],
+          "dx": 0.0,
+          "dy": 0.0
+        }
+      },
+      "robot_profiles": {
+        "m20_1": {
+          "robot_type": "M20",
+          "capabilities": [
+            "quadruped",
+            "terrain",
+            "extinguisher"
+          ]
+        },
+        "m20_2": {
+          "robot_type": "M20",
+          "capabilities": [
+            "quadruped",
+            "terrain",
+            "extinguisher"
+          ]
+        },
+        "carter_1": {
+          "robot_type": "Carter",
+          "capabilities": [
+            "sensor",
+            "camera",
+            "relay"
+          ]
+        },
+        "scout_1": {
+          "robot_type": "Scout arm",
+          "capabilities": [
+            "arm",
+            "button"
+          ]
+        }
+      },
+      "preferred_fallback": {
+        "m20_1": "red",
+        "m20_2": "yellow",
+        "carter_1": "blue",
+        "scout_1": "green"
+      },
+      "yellow_subtask_id": "yellow",
+      "yellow_robot_prefix": "m20",
+      "green_subtask_id": "green",
+      "green_robot_name": "scout_1",
+      "subtask_constraints": [],
+      "parse_keyword_overrides": null
+    },
+    "hazard_id": 1,
+    "hazard_pos": [
+      -6.0,
+      -4.0,
+      0.0
+    ],
+    "robot_positions": {
+      "m20_1": [
+        -3.0,
+        5.0,
+        0.0
+      ],
+      "m20_2": [
+        3.0,
+        1.0,
+        0.0
+      ],
+      "carter_1": [
+        -7.6,
+        -8.0,
+        0.0
+      ],
+      "scout_1": [
+        6.0,
+        5.5,
+        0.0
+      ]
+    },
+    "subtask_positions": {
+      "red": [
+        -4.5,
+        -4.0
+      ],
+      "green": [
+        10.5,
+        1.0
+      ],
+      "blue": [
+        -7.5,
+        -4.0
+      ],
+      "yellow": [
+        1.8,
+        -9.4
+      ]
+    },
+    "completed_extinguisher": [],
+    "completed_rescue": [],
+    "rescue_constraints": null,
+    "excluded_subtask_ids": [],
+    "position_source": "task.fixture.symbolic"
+  },
+  "robot_resume": {
+    "m20_1": {
+      "robot_type": "M20",
+      "mobility": {
+        "summary": "Synthetic contract fixture only, not measured capability"
+      }
+    },
+    "m20_2": {
+      "robot_type": "M20",
+      "mobility": {
+        "summary": "Synthetic contract fixture only, not measured capability"
+      }
+    },
+    "carter_1": {
+      "robot_type": "Carter",
+      "mobility": {
+        "summary": "Synthetic contract fixture only, not measured capability"
+      }
+    },
+    "scout_1": {
+      "robot_type": "Scout arm",
+      "mobility": {
+        "summary": "Synthetic contract fixture only, not measured capability"
+      }
+    }
+  },
+  "observation": {
+    "robot_positions": {
+      "m20_1": [
+        -3.0,
+        5.0,
+        0.0
+      ],
+      "m20_2": [
+        3.0,
+        1.0,
+        0.0
+      ],
+      "carter_1": [
+        -7.6,
+        -8.0,
+        0.0
+      ],
+      "scout_1": [
+        6.0,
+        5.5,
+        0.0
+      ]
+    },
+    "scene_description": "Synthetic Fire Rescue configuration example only; native [x,z,y] coordinates (height second). No physical execution or measured robot capability is asserted. Objects: hazard, extinguisher, sensor relay, rescue channel button."
+  },
+  "history": {},
+  "task_package": {
+    "task_id": "task-fixture-fire-rescue",
+    "scene_id": "fire_rescue",
+    "metadata": {
+      "algorithm_input": "emos.AssignmentRequest",
+      "scenario_id": "task-fixture-fire-rescue",
+      "position_source": "task.fixture.symbolic",
+      "subtask_positions": {
+        "red": [
+          -4.5,
+          -4.0
+        ],
+        "green": [
+          10.5,
+          1.0
+        ],
+        "blue": [
+          -7.5,
+          -4.0
+        ],
+        "yellow": [
+          1.8,
+          -9.4
+        ]
+      },
+      "completed_extinguisher": [],
+      "completed_rescue": []
+    },
+    "tasks": [
+      {
+        "task_id": "red",
+        "description": "inspect the hazard",
+        "required_capabilities": [
+          "terrain"
+        ],
+        "prerequisites": [],
+        "target_ref": "red",
+        "metadata": {
+          "subtask_id": "red",
+          "decomposable": false
+        }
+      },
+      {
+        "task_id": "green",
+        "description": "press the rescue channel button",
+        "required_capabilities": [
+          "button"
+        ],
+        "prerequisites": [],
+        "target_ref": "green",
+        "metadata": {
+          "subtask_id": "green",
+          "decomposable": false
+        }
+      },
+      {
+        "task_id": "blue",
+        "description": "establish a sensor relay",
+        "required_capabilities": [
+          "sensor"
+        ],
+        "prerequisites": [],
+        "target_ref": "blue",
+        "metadata": {
+          "subtask_id": "blue",
+          "decomposable": false
+        }
+      },
+      {
+        "task_id": "yellow",
+        "description": "carry and deliver the extinguisher",
+        "required_capabilities": [
+          "carry_extinguisher",
+          "terrain"
+        ],
+        "prerequisites": [],
+        "target_ref": "yellow",
+        "metadata": {
+          "subtask_id": "yellow",
+          "decomposable": false
+        }
+      }
+    ],
+    "robots": [
+      {
+        "robot_id": "carter_1",
+        "capabilities": [
+          "navigate",
+          "sensor"
+        ],
+        "active": true,
+        "position": [
+          -7.6,
+          -8.0,
+          0.0
+        ],
+        "metadata": {
+          "position_source": "task.fixture.symbolic"
+        }
+      },
+      {
+        "robot_id": "m20_1",
+        "capabilities": [
+          "carry_extinguisher",
+          "navigate",
+          "terrain"
+        ],
+        "active": true,
+        "position": [
+          -3.0,
+          5.0,
+          0.0
+        ],
+        "metadata": {
+          "position_source": "task.fixture.symbolic"
+        }
+      },
+      {
+        "robot_id": "m20_2",
+        "capabilities": [
+          "carry_extinguisher",
+          "navigate",
+          "terrain"
+        ],
+        "active": true,
+        "position": [
+          3.0,
+          1.0,
+          0.0
+        ],
+        "metadata": {
+          "position_source": "task.fixture.symbolic"
+        }
+      },
+      {
+        "robot_id": "scout_1",
+        "capabilities": [
+          "button",
+          "carry_extinguisher",
+          "navigate"
+        ],
+        "active": true,
+        "position": [
+          6.0,
+          5.5,
+          0.0
+        ],
+        "metadata": {
+          "position_source": "task.fixture.symbolic"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "status": "scope_rejected",
+  "native_assignments": {
+    "0": 1,
+    "1": 1
+  },
+  "coalitions": {
+    "t0": [
+      "r0",
+      "r1"
+    ]
+  },
+  "assignments": [
+    {
+      "task_id": "t0",
+      "robot_id": "r0",
+      "source": "native_sadcher",
+      "plan_version": ""
+    },
+    {
+      "task_id": "t0",
+      "robot_id": "r1",
+      "source": "native_sadcher",
+      "plan_version": ""
+    }
+  ],
+  "dispatch_count": 0
+}

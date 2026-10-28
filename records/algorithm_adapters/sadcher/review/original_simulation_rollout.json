@@ -1,0 +1,79 @@
+{
+  "scope": "original_SADCHER_2D_simulation_only",
+  "physical_success": "N/A",
+  "decision_trace": [
+    {
+      "timestep": 0,
+      "assignments": {
+        "0": 1,
+        "1": 2,
+        "2": 4
+      }
+    },
+    {
+      "timestep": 1,
+      "assignments": {
+        "2": 4
+      }
+    },
+    {
+      "timestep": 19,
+      "assignments": {
+        "2": 3
+      }
+    },
+    {
+      "timestep": 20,
+      "assignments": {
+        "0": 4
+      }
+    },
+    {
+      "timestep": 24,
+      "assignments": {
+        "0": 5,
+        "1": 5
+      }
+    },
+    {
+      "timestep": 29,
+      "assignments": {
+        "2": 5
+      }
+    }
+  ],
+  "makespan": 51,
+  "worst_case_makespan": 178.4977647648455,
+  "task_statuses_including_sentinels": [
+    "DONE",
+    "DONE",
+    "DONE",
+    "DONE",
+    "DONE",
+    "DONE"
+  ],
+  "all_robots_at_exit": true,
+  "robot_schedules": {
+    "0": [
+      [
+        1,
+        14,
+        18
+      ]
+    ],
+    "1": [
+      [
+        2,
+        18,
+        23
+      ]
+    ],
+    "2": [
+      [
+        3,
+        22,
+        28
+      ]
+    ]
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "task_id": "fmc-ata-unified-6-tasks",
+  "scene_id": "native-only-no-physical-scene",
+  "metadata": {
+    "fmc_ata": {
+      "domain": "independent_single_mission_single_player"
+    }
+  },
+  "robots": [
+    {
+      "robot_id": "r0",
+      "capabilities": [
+        "work"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "metadata": {
+        "fmc_ata": {
+          "speed": 1,
+          "productivity": 1,
+          "status": "idle"
+        }
+      }
+    },
+    {
+      "robot_id": "r1",
+      "capabilities": [
+        "work"
+      ],
+      "position": [
+        1000000,
+        0,
+        0
+      ],
+      "metadata": {
+        "fmc_ata": {
+          "speed": 1,
+          "productivity": 1,
+          "status": "idle"
+        }
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "t0",
+      "description": "Independent native mission 0",
+      "required_capabilities": [
+        "work"
+      ],
+      "metadata": {
+        "fmc_ata": {
+          "position": [
+            1000,
+            0,
+            0
+          ],
+          "workload": 17,
+          "importance": 1000,
+          "max_players": 1
+        }
+      }
+    },
+    {
+      "task_id": "t1",
+      "description": "Independent native mission 1",
+      "required_capabilities": [
+        "work"
+      ],
+      "metadata": {
+        "fmc_ata": {
+          "position": [
+            999000,
+            0,
+            0
+          ],
+          "workload": 23,
+          "importance": 900,
+          "max_players": 1
+        }
+      }
+    },
+    {
+      "task_id": "t2",
+      "description": "Independent native mission 2",
+      "required_capabilities": [
+        "work"
+      ],
+      "metadata": {
+        "fmc_ata": {
+          "position": [
+            2000,
+            0,
+            0
+          ],
+          "workload": 29,
+          "importance": 800,
+          "max_players": 1
+        }
+      }
+    },
+    {
+      "task_id": "t3",
+      "description": "Independent native mission 3",
+      "required_capabilities": [
+        "work"
+      ],
+      "metadata": {
+        "fmc_ata": {
+          "position": [
+            998000,
+            0,
+            0
+          ],
+          "workload": 35,
+          "importance": 700,
+          "max_players": 1
+        }
+      }
+    },
+    {
+      "task_id": "t4",
+      "description": "Independent native mission 4",
+      "required_capabilities": [
+        "work"
+      ],
+      "metadata": {
+        "fmc_ata": {
+          "position": [
+            3000,
+            0,
+            0
+          ],
+          "workload": 41,
+          "importance": 600,
+          "max_players": 1
+        }
+      }
+    },
+    {
+      "task_id": "t5",
+      "description": "Independent native mission 5",
+      "required_capabilities": [
+        "work"
+      ],
+      "metadata": {
+        "fmc_ata": {
+          "position": [
+            997000,
+            0,
+            0
+          ],
+          "workload": 47,
+          "importance": 500,
+          "max_players": 1
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,167 @@
+{
+  "condition": "locally_trained_macro_smoke",
+  "source_commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+  "contract": {
+    "schema": "heterocoord.happo.two_actor_macro.v1",
+    "scene_id": "happo-symbolic-macro-smoke",
+    "actors": [
+      {
+        "actor_index": 0,
+        "robot_id": "ground",
+        "task_id": "inspect_ground",
+        "capabilities": [
+          "ground_inspect"
+        ]
+      },
+      {
+        "actor_index": 1,
+        "robot_id": "air",
+        "task_id": "inspect_air",
+        "capabilities": [
+          "air_inspect"
+        ]
+      }
+    ],
+    "observation_features": [
+      "active",
+      "own_completed",
+      "peer_completed",
+      "robot_x",
+      "robot_y",
+      "target_x",
+      "target_y",
+      "last_feedback_completed",
+      "step_fraction"
+    ],
+    "coordinate_domain": [
+      0.0,
+      1.0
+    ],
+    "action_schema": {
+      "0": "wait",
+      "1": "dispatch_actor_owned_inspection"
+    },
+    "horizon": 4,
+    "completion_feedback": "macro_completed",
+    "reward": "new_completions - 0.05 + 0.5 * all_completed",
+    "semantics": "symbolic_instant_macro_completion; no physical simulator"
+  },
+  "updates": 64,
+  "environment_steps": 4096,
+  "train_seeds": [
+    11,
+    12,
+    13,
+    14
+  ],
+  "holdout_seeds": [
+    10011,
+    10012
+  ],
+  "actors": [
+    {
+      "actor_index": 0,
+      "initial_hash": "6f35baa291b441e7e7ef442967d2124d1a3daf2ad97a604ab04fd875ee7cf4bc",
+      "final_hash": "a5f6e27667043a6a70103cabd96d4b253544283df96eaa16d78327c551a7a0ed",
+      "optimizer_steps": 320,
+      "checkpoint_sha256": "483979bdce4e2041126683b2501a39013da9107c5d46fb808be7e5c7c09f37ec"
+    },
+    {
+      "actor_index": 1,
+      "initial_hash": "fd574a7af14524fa40b0d83e73ea5697cbaf91f228a86449a397a3e97d88d66d",
+      "final_hash": "e59882e8bc5f23101f6adbbec6dfae7ce397cbb68b2a8a49618577d5b7a2cc7b",
+      "optimizer_steps": 320,
+      "checkpoint_sha256": "ae1d1bcd71fdc86a75285b4a17ff8bc795f9205fe0cc64a7ab5693499c7f334e"
+    }
+  ],
+  "original_runner_methods": {
+    "run": true,
+    "collect": true,
+    "insert": true,
+    "compute": true,
+    "train": true,
+    "after_update": true,
+    "save": true
+  },
+  "algorithm_config": {
+    "seed": {
+      "seed_specify": true,
+      "seed": 11
+    },
+    "device": {
+      "cuda": false,
+      "cuda_deterministic": true,
+      "torch_threads": 1
+    },
+    "train": {
+      "n_rollout_threads": 4,
+      "num_env_steps": 4096,
+      "episode_length": 16,
+      "log_interval": 16,
+      "eval_interval": 64,
+      "use_valuenorm": true,
+      "use_linear_lr_decay": false,
+      "use_proper_time_limits": true,
+      "model_dir": null
+    },
+    "eval": {
+      "use_eval": false,
+      "n_eval_rollout_threads": 10,
+      "eval_episodes": 20
+    },
+    "render": {
+      "use_render": false,
+      "render_episodes": 10
+    },
+    "model": {
+      "hidden_sizes": [
+        32,
+        32
+      ],
+      "activation_func": "relu",
+      "use_feature_normalization": true,
+      "initialization_method": "orthogonal_",
+      "gain": 0.01,
+      "use_naive_recurrent_policy": false,
+      "use_recurrent_policy": true,
+      "recurrent_n": 1,
+      "data_chunk_length": 4,
+      "lr": 0.0005,
+      "critic_lr": 0.0005,
+      "opti_eps": 1e-05,
+      "weight_decay": 0,
+      "std_x_coef": 1,
+      "std_y_coef": 0.5
+    },
+    "algo": {
+      "ppo_epoch": 5,
+      "critic_epoch": 5,
+      "use_clipped_value_loss": true,
+      "clip_param": 0.2,
+      "actor_num_mini_batch": 1,
+      "critic_num_mini_batch": 1,
+      "entropy_coef": 0.01,
+      "value_loss_coef": 1,
+      "use_max_grad_norm": true,
+      "max_grad_norm": 10.0,
+      "use_gae": true,
+      "gamma": 0.99,
+      "gae_lambda": 0.95,
+      "use_huber_loss": true,
+      "use_policy_active_masks": true,
+      "huber_delta": 10.0,
+      "action_aggregation": "prod",
+      "share_param": false,
+      "fixed_order": false
+    },
+    "logger": {
+      "log_dir": "./results"
+    }
+  },
+  "physical_evidence": "N/A",
+  "benchmark_performance": "not_evaluable",
+  "dependencies": {
+    "torch": "2.9.1+cu128",
+    "numpy": "1.23.5"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "schema": "heterocoord.native_adapter_run.v1",
+  "algorithm": "emos",
+  "started_at_utc": "2026-10-28T08:09:37.294260+00:00",
+  "evidence_scope": "native_decision_only",
+  "physical_success": null,
+  "simulation_acceptance_passed": false,
+  "task_sha256": "27949b2c7d8a8c6ff84e0593ae8916777166f01d6287096585c97ec232922d8c",
+  "config_sha256": "3e797b3c725ab7a7b39712bb048f027a9d246d2ffda55d78454d9b86526f0660",
+  "status": "not_passed",
+  "error_type": "NativeOutputScopeError",
+  "error": "native subtask has no unambiguous exact task binding",
+  "rejected_native_subtasks": {
+    "ur5_1": "Move objects: the workbench carton at [0.45,0,0.475] to its declared target at [0.425,0,0.475], completing task ID move_carton."
+  },
+  "model_requests": 2,
+  "endpoint_receipt": {
+    "model": "gpt-5.6-luna",
+    "completion_attempts": 2,
+    "failed_attempts": 0,
+    "total_tokens": 1306,
+    "max_calls": 4,
+    "reasoning_effort": "low",
+    "protocol_only": false
+  },
+  "native_source_provenance": {
+    "paper_algorithm": "emos",
+    "source_integrity": {
+      "root": "/home/airs/.cache/heterocoord/upstream/emos",
+      "commit": "e9501db45d634b087bf5d1a14228266685e8feeb",
+      "tree": "1d32ac13f304288776627f8027ff34c3c289a557",
+      "code_sha256": "fb1bd342d4e3de36a1081554c026078db03b53cdd7d2a85e14178243d5106e86",
+      "code_files": 778
+    },
+    "adapter_source_sha256": "226b98e11268fc6a4b223d769d1588e2dc32baedf1e8796e97aa2ffc784ad157",
+    "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+    "decision_is_physical_evidence": false
+  },
+  "elapsed_wall_s": 32.684665690059774
+}

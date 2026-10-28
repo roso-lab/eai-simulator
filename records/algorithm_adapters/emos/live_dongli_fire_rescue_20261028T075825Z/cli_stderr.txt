@@ -1,0 +1,19 @@
+Traceback (most recent call last):
+  File "/home/airs/hetrocoord/tools/algorithm_adapters/run.py", line 50, in main
+    result = TaskRunner().run(TaskRunRequest(task), adapter)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/task/runner.py", line 197, in run
+    output = provider(task, task.robots)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/benchmark/native_algorithms.py", line 92, in __call__
+    return self._run(self.provider, task, robots)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/benchmark/native_algorithms.py", line 61, in _run
+    decision = callback(*args)
+               ^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/algorithm/system/coordination/emos/native_adapter.py", line 404, in __call__
+    return self._decide(task, robots)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/algorithm/system/coordination/emos/native_adapter.py", line 480, in _decide
+    raise NativeOutputScopeError(
+algorithm.system.coordination.emos.native_adapter.NativeOutputScopeError: native subtask has no unambiguous exact task binding

@@ -1,0 +1,26 @@
+{
+  "timestamp_utc": "2026-10-28T06:55:45.225668+00:00",
+  "command": [
+    "/usr/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "/home/airs/hetrocoord/algorithm/system/coordination/bt_capabilities/tests/test_native_adapter.py",
+    "-p",
+    "no:cacheprovider",
+    "--tb=short",
+    "--junitxml=/home/airs/hetrocoord/algorithm/system/coordination/bt_capabilities/evidence/native_20261028/pytest.xml"
+  ],
+  "exit_code": 0,
+  "source": {
+    "root": "/tmp/heterocoord-algorithms-20261028/bt-capabilities",
+    "commit": "5438f6e8d7599e39ec12104c0a9f0a8f1543838d",
+    "tree": "74456a4d6c5c4254833c6217a6522b182af5ebcf",
+    "code_sha256": "b130e4665a99f40475df3950cad1a5b5c1ec29722e51169db792e8fdd4a3d621",
+    "code_files": 335
+  },
+  "contract_tests": 10,
+  "native_runtime_tests": 4,
+  "simulation_evidence": "not_evaluated",
+  "physical_evidence": "not_evaluated"
+}

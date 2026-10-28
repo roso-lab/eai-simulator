@@ -13,9 +13,9 @@ roster, symbolic world state, and feedback ledger. It returns an assignment or
 coordination decision. It must not read PhysX or joint state, call an EAI
 controller, produce a velocity tensor, or claim physical success.
 
-## Tested system algorithms
+## System algorithm inventory
 
-The implementation paths below are the tested algorithm locations. Their
+The paths below include native adapters and historical implementations. Their
 classification is recorded in `algorithm/system/coordination/registry.py` and
 their paper/checkpoint provenance is recorded in
 `algorithm/heterocoord/registry.py`:
@@ -27,10 +27,24 @@ their paper/checkpoint provenance is recorded in
 | centralized PEFA assignment | `algorithm/system/coordination/coherent/` |
 | Fisher market allocation | `algorithm/system/coordination/fmc_ata/` |
 | capability auction | `algorithm/system/coordination/bt_capabilities/` |
+| SADCHER network scheduling and matching | `algorithm/system/coordination/sadcher/` |
+| RobotFleet DAG/allocation/feedback boundary | `algorithm/system/coordination/robot_fleet/` |
+| LaMMA-P dependency ordering and skill allocation | `algorithm/system/coordination/lammap/` |
+| HARL/HAPPO checkpoint boundary | `algorithm/system/coordination/harl/` |
 | deterministic heterogeneous MRTA | `algorithm/system/coordination/mrta_heuristic/` |
 | Hybrid SUSD market/search | `algorithm/system/coordination/hybrid_susd/` |
-| checkpoint decision adapters | `algorithm/system/coordination/dcmrta/`, `algorithm/system/coordination/heteromrta/` |
+| checkpoint decision adapter | `algorithm/system/coordination/dcmrta/` |
 | benchmark decision/provenance bridge | `algorithm/heterocoord/` |
+
+The original-algorithm entry point is `benchmark/native_algorithms.py`, with
+frozen sources in `algorithm/heterocoord/paper_algorithms.json` and per-method
+`native_adapter.py` files. It covers FMC-ATA, BT capabilities, SADCHER,
+HARL:HAPPO, TeamWeaver and EMOS. Runtime acceptance is recorded separately in
+`algorithm/heterocoord/NATIVE_ALGORITHM_ADAPTATION_REPORT_20261028.zh-CN.md`.
+`benchmark/external_algorithms.py` is a historical diagnostic interface; its
+rewritten/fixed policies are not eligible as original paper methods.
+HeteroMRTA is retained in historical provenance records but is excluded from
+the current adaptation and execution matrix.
 
 All listed paper adapters now live in the canonical
 `algorithm.system.coordination` namespace. There are no top-level compatibility

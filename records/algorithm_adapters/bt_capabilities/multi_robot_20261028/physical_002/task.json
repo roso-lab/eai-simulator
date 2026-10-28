@@ -1,0 +1,136 @@
+{
+  "task_id": "bt-two-ur5-dag",
+  "scene_id": "single-isaac-two-ur5-workbenches",
+  "robots": [
+    {
+      "robot_id": "ur5_1",
+      "capabilities": [
+        "manipulate",
+        "inspect"
+      ],
+      "position": [
+        0.0,
+        -1.25,
+        0.45
+      ],
+      "metadata": {
+        "yaw_rad": 0.0
+      }
+    },
+    {
+      "robot_id": "ur5_2",
+      "capabilities": [
+        "manipulate",
+        "inspect"
+      ],
+      "position": [
+        0.0,
+        1.25,
+        0.45
+      ],
+      "metadata": {
+        "yaw_rad": 0.0
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "move_left",
+      "description": "Move the left carton",
+      "required_capabilities": [
+        "manipulate"
+      ],
+      "prerequisites": [],
+      "target_ref": "/World/ObjectLeft",
+      "metadata": {
+        "position": [
+          0.45,
+          -1.25,
+          0.475
+        ],
+        "pick_place": {
+          "object_position_world_m": [
+            0.45,
+            -1.25,
+            0.475
+          ],
+          "target_position": [
+            0.425,
+            -1.24,
+            0.475
+          ],
+          "mode": "cartesian_pose",
+          "approach_degrees": 15.0
+        },
+        "bt_native": {
+          "bids": {
+            "ur5_1": 0.45,
+            "ur5_2": 2.5401771591761078
+          }
+        }
+      }
+    },
+    {
+      "task_id": "move_right",
+      "description": "Move the right carton",
+      "required_capabilities": [
+        "manipulate"
+      ],
+      "prerequisites": [],
+      "target_ref": "/World/ObjectRight",
+      "metadata": {
+        "position": [
+          0.45,
+          1.25,
+          0.475
+        ],
+        "pick_place": {
+          "object_position_world_m": [
+            0.45,
+            1.25,
+            0.475
+          ],
+          "target_position": [
+            0.425,
+            1.26,
+            0.475
+          ],
+          "mode": "cartesian_pose",
+          "approach_degrees": 15.0
+        },
+        "bt_native": {
+          "bids": {
+            "ur5_1": 2.5401771591761078,
+            "ur5_2": 0.45
+          }
+        }
+      }
+    },
+    {
+      "task_id": "inspect_join",
+      "description": "Measure both released cartons for one second",
+      "required_capabilities": [
+        "inspect"
+      ],
+      "prerequisites": [
+        "move_left",
+        "move_right"
+      ],
+      "target_ref": "/World",
+      "metadata": {
+        "inspection": "simulator_ground_truth_position_velocity_and_release; not onboard vision",
+        "bt_native": {
+          "bids": {
+            "ur5_1": 1.3202745926510895,
+            "ur5_2": 1.3202745926510895
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "attachment_semantics": "idealized_follow_proxy_pick_place; not contact grasp",
+    "bids_source": "declared_fixture_Euclidean_XY_distance_m; native_auction_selects_robot",
+    "inspection_scope": "assigned_robot_executes_host_ground_truth_query; no_vision_or_sensor_motion"
+  }
+}

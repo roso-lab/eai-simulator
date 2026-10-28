@@ -1,0 +1,24 @@
+{
+  "schema": "heterocoord.native_physical_integration.v1",
+  "algorithm": "bt_capabilities",
+  "passed": false,
+  "benchmark_scores_available": false,
+  "error_type": "NativeBTError",
+  "error": "native endpoint /state: {\"ok\": false, \"error\": \"'7722c8f7500f403fb78c71ad3db8dfff'\"}",
+  "native_feedback": null,
+  "physical_parameters_from_task": {
+    "object_position_world_m": [
+      0.45,
+      0.0,
+      0.475
+    ],
+    "place_position_world_m": [
+      0.425,
+      0.01,
+      0.475
+    ],
+    "approach_degrees": 15.0,
+    "timeout_s": 100.0,
+    "mode": "cartesian_pose"
+  }
+}

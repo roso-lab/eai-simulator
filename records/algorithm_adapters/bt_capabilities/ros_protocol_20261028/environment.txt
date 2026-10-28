@@ -1,0 +1,6 @@
+catkin	0.8.10-7
+python3-jsonpickle	2.0.0+dfsg1-1
+python3-roslaunch	1.15.14+ds-2build2
+python3-rosmaster	1.15.14+ds-2build2
+python3-rospy	1.15.14+ds-2build2
+Python 3.10.12

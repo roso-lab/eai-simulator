@@ -1,0 +1,18 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "algorithm/system/coordination/bt_capabilities/tests",
+    "task/tests/test_runner.py",
+    "-k",
+    "not live",
+    "--junitxml=records/algorithm_adapters/bt_capabilities/dag_20261028/review_green_20261028T172619_842698/pytest.xml"
+  ],
+  "file_sha256": {
+    "algorithm/system/coordination/bt_capabilities/native_adapter.py": "d2128f51a3d06c9bd02a09ac0e4564d2038366d9c300fd0e94f282407ce6a6b0",
+    "algorithm/system/coordination/bt_capabilities/tests/test_native_adapter.py": "3293e2a16289d4d92fa4f0891195394aeeeb6e7aec84406055fb96a0cb559194",
+    "algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py": "f95e2a35273e0c994e9d47f9a3cb66dea6a5927ea9a893ce9b8aab930ce16aa4"
+  }
+}

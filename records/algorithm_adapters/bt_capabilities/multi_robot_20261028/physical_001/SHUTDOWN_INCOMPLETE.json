@@ -1,0 +1,7 @@
+{
+  "status": "shutdown_incomplete",
+  "accepted": false,
+  "reason": "Native BT and all three measured receipts completed; standalone Kit close blocked before aggregate receipt was persisted. Main agent terminated only this host process. Retain raw data; use subsequent physical_002 for full acceptance.",
+  "native_tree_state": "SUCCEEDED",
+  "aggregate_receipt_available": false
+}

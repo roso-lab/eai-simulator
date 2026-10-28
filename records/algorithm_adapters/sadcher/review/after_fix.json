@@ -1,0 +1,53 @@
+{
+  "scope": "read-only native-call observation plus owned adapter audit fixes",
+  "source": {
+    "root": "/home/airs/.cache/heterocoord/upstream/sadcher",
+    "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+    "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+    "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+    "code_files": 57
+  },
+  "native_call_trace": [
+    {
+      "function": "calculate_robot_assignment",
+      "file": "/home/airs/.cache/heterocoord/upstream/sadcher/schedulers/sadcher.py",
+      "line": 42
+    },
+    {
+      "function": "solve",
+      "file": "/home/airs/.cache/heterocoord/upstream/sadcher/schedulers/bipartite_matching.py",
+      "line": 53,
+      "n_threads": 6,
+      "gap": 0.0
+    },
+    {
+      "function": "filter_redundant_assignments",
+      "file": "/home/airs/.cache/heterocoord/upstream/sadcher/schedulers/filtering_assignments.py",
+      "line": 26
+    },
+    {
+      "function": "filter_overassignments",
+      "file": "/home/airs/.cache/heterocoord/upstream/sadcher/schedulers/filtering_assignments.py",
+      "line": 54
+    }
+  ],
+  "checkpoint_audit": {
+    "checkpoint": "/home/airs/.cache/heterocoord/upstream/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+    "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+    "expected_keys": 116,
+    "checkpoint_keys": 116,
+    "missing_keys": [],
+    "unexpected_keys": [],
+    "shape_mismatches": {},
+    "nonfinite_keys": [],
+    "strict_complete": true,
+    "audit_mutates_model": false
+  },
+  "shared_code_sha256": {
+    "benchmark/native_algorithms.py": "bb6d66ad1c39e2e3cc84202088556eacb6a115b7070d0e582a2cfd6e94e0473b",
+    "tools/algorithm_adapters/run.py": "73150923ef90c4e956c0b140a86776339c28b5db6e03f401ebde889747d06df7",
+    "task/runner.py": "4738c07d63f77b9d86d58fe7a0147f1974b6962ec0cdc16aaced97363c7f0b9f"
+  },
+  "physical_success": null,
+  "tests_passed": 32
+}

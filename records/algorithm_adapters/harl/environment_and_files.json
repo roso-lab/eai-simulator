@@ -1,0 +1,47 @@
+{
+  "python": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]",
+  "executable": "/home/airs/.cache/heterocoord/envs/harl/bin/python",
+  "venv_system_site_packages": true,
+  "packages": {
+    "torch": "2.9.1+cu128",
+    "numpy": "1.23.5",
+    "gymnasium": "0.29.1",
+    "setproctitle": "1.3.7",
+    "tensorboardX": "2.6.4",
+    "absl-py": "2.3.1",
+    "PyYAML": "5.4.1",
+    "pytest": "6.2.5"
+  },
+  "changed_files": [
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/native_adapter.py",
+      "sha256": "caac7ff83b902bc59123dceada0206a8a9a9b1faf29f183eef493e3b9b12215b"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/macro_environment.py",
+      "sha256": "13c5f486512f88fbdcf57941903ae8a3f25b4530d615cea3375a598230edb7e1"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/train_native_smoke.py",
+      "sha256": "e605b848b86a96279a99e1d3b5aaade42f51c649392e3d3363bc906bcd1337fa"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/infer_native_smoke.py",
+      "sha256": "ac9ec087c0b42f1edf51f15355ec4257efec89e4c35c6b5fdfb87bb9a7415a55"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/requirements-native.txt",
+      "sha256": "1f16260bf4921231f6a7f0a31621dec5635be93ef72e8cd462aad5e3977827de"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/NATIVE_ADAPTER.md",
+      "sha256": "20bd070cb50be21764d0b07a3b88271e5f5a02aed112c643dc0ea070b2e41b64"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/tests/test_native_adapter.py",
+      "sha256": "0b4e62300ad5d8edb2ee20a21cb6e2866360766f82c6885002d32960e47dee9e"
+    }
+  ],
+  "checkpoint_manifest_sha256": "b716350d724c57d310f1881d53b1d663ab0ab837c845f11b9b3c67d5925f6bf8",
+  "upstream_tracked_status": ""
+}

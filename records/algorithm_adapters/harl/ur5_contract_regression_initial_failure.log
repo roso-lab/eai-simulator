@@ -1,0 +1,45 @@
+....................................................................F... [ 81%]
+................                                                         [100%]
+=================================== FAILURES ===================================
+______ test_cli_keeps_scope_error_raw_outputs_without_editing_shared_cli _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x79ceb6b75d50>
+tmp_path = PosixPath('/tmp/pytest-of-airs/pytest-63/test_cli_keeps_scope_error_raw0')
+package = EaiTaskPackage(task_id='test-holdout-20021-1', scene_id='happo-symbolic-macro-smoke', graph=TaskGraph(tasks=(Coordinat...5 * all_completed', 'semantics': 'symbolic_instant_macro_completion; no physical simulator'}, 'split': 'test-holdout'})
+
+    def test_cli_keeps_scope_error_raw_outputs_without_editing_shared_cli(monkeypatch, tmp_path, package):
+        # Pure protocol negative fixture, never native acceptance. Invoke actual
+        # CLI failure serialization while replacing only its external input seam.
+        from tools.algorithm_adapters import run
+        output = [{"actor_index": 0, "action": 1}, {"actor_index": 1, "action": 1}]
+        class RejectingProvider:
+            def __call__(self, *_):
+                raise NativeHAPPOScopeError("coalition cannot map", output)
+        monkeypatch.setattr(run, "build_native_adapter", lambda *a, **k: RejectingProvider())
+        monkeypatch.setattr(run.EaiTaskPackage, "from_json", lambda _: package)
+        report = tmp_path/"report.json"
+        monkeypatch.setattr(sys, "argv", ["run", "--algorithm", "harl_happo", "--task", str(tmp_path/"task.json"),
+                                        "--report", str(report)])
+        with pytest.raises(SystemExit) as exc:
+            run.main()
+        assert exc.value.code == 1
+        data = json.loads(report.read_text())
+        assert data["status"] == "not_passed"
+>       assert data["rejected_native_result"]["actor_outputs"] == output
+E       KeyError: 'rejected_native_result'
+
+algorithm/system/coordination/harl/tests/test_review.py:183: KeyError
+----------------------------- Captured stdout call -----------------------------
+{"status": "not_passed", "report": "/tmp/pytest-of-airs/pytest-63/test_cli_keeps_scope_error_raw0/report.json"}
+----------------------------- Captured stderr call -----------------------------
+Traceback (most recent call last):
+  File "/home/airs/hetrocoord/tools/algorithm_adapters/run.py", line 39, in main
+    report["task_sha256"] = sha256_file(args.task)
+  File "/home/airs/hetrocoord/algorithm/system/coordination/native_runtime.py", line 20, in sha256_file
+    with Path(path).open("rb") as stream:
+  File "/usr/lib/python3.10/pathlib.py", line 1119, in open
+    return self._accessor.open(self, mode, buffering, encoding, errors,
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-airs/pytest-63/test_cli_keeps_scope_error_raw0/task.json'
+=========================== short test summary info ============================
+FAILED algorithm/system/coordination/harl/tests/test_review.py::test_cli_keeps_scope_error_raw_outputs_without_editing_shared_cli
+1 failed, 87 passed in 8.01s

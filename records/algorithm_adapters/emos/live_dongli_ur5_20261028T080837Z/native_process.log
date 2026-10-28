@@ -1,0 +1,37 @@
+===============Scene Description==============
+Declared isolated UR5 workbench fixture, before physics execution. Coordinates are native [x,z,y], height second. UR5 arm base is [0,0.45,0]. The workbench carton object /World/Object is at [0.45,0.475,0]; its place destination is [0.425,0.475,0.01]. The host provides its Cartesian pick and place skill with idealized follow-proxy attachment. Physical success has not been measured.
+===============Task Description==============
+Pick and place the workbench carton
+===============Leader Response==============
+{ur5_1||Pick the workbench carton object /World/Object at native coordinates [0.45, 0.475, 0] using the Cartesian pick skill, then place it at the destination [0.425, 0.475, 0.01]. Goal condition: the carton is successfully placed at the specified destination.}
+===========================================
+===============Robot Response==============
+Robot ur5_1 response: {{yes}}
+===========================================
+===============Task Assignment Result==============
+{'ur5_1': 'Pick the workbench carton object /World/Object at native coordinates [0.45, 0.475, 0] using the Cartesian pick skill, then place it at the destination [0.425, 0.475, 0.01]. Goal condition: the carton is successfully placed at the specified destination.'}
+===============group discussion token usage========================
+Leader token usage: 610
+Robots token usage: 910
+Total token usage: 1520
+========================================================
+{"status": "not_passed", "report": "/home/airs/hetrocoord/records/algorithm_adapters/emos/live_dongli_ur5_20261028T080837Z/native_decision.json"}
+Traceback (most recent call last):
+  File "/home/airs/hetrocoord/tools/algorithm_adapters/run.py", line 50, in main
+    result = TaskRunner().run(TaskRunRequest(task), adapter)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/task/runner.py", line 197, in run
+    output = provider(task, task.robots)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/benchmark/native_algorithms.py", line 92, in __call__
+    return self._run(self.provider, task, robots)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/benchmark/native_algorithms.py", line 61, in _run
+    decision = callback(*args)
+               ^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/algorithm/system/coordination/emos/native_adapter.py", line 404, in __call__
+    return self._decide(task, robots)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/algorithm/system/coordination/emos/native_adapter.py", line 480, in _decide
+    raise NativeOutputScopeError(
+algorithm.system.coordination.emos.native_adapter.NativeOutputScopeError: native subtask has no unambiguous exact task binding

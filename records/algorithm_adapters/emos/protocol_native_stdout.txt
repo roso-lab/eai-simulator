@@ -1,0 +1,29 @@
+===============Scene Description==============
+Synthetic fixture with no physical execution. Native [x,z,y] coordinates: object one at [1,0,0], object two at [2,0,0]. Both objects are visible.
+===============Task Description==============
+Inspect object one and object two.
+===============Leader Response==============
+{r1||Inspect object one}{r2||Inspect object two}
+===========================================
+===============Robot Response==============
+Robot r1 response: {no||Protocol fixture rejection exercises native reassignment}
+===========================================
+===============Robot Response==============
+Robot r2 response: {yes}
+===========================================
+===============Leader Response==============
+{r1||Inspect object two}{r2||Inspect object one}
+===========================================
+===============Robot Response==============
+Robot r1 response: {yes}
+===========================================
+===============Robot Response==============
+Robot r2 response: {yes}
+===========================================
+===============Task Assignment Result==============
+{'r1': 'Inspect object two', 'r2': 'Inspect object one'}
+===============group discussion token usage========================
+Leader token usage: 6
+Robots token usage: 12
+Total token usage: 18
+========================================================

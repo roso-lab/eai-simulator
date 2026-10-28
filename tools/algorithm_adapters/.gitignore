@@ -1,0 +1,4 @@
+# Maintained adapter-host tests override the repository-wide tests/ exclusion.
+!/tests/
+!/tests/test_isaac_bt_multi_robot.py
+!/tests/test_isaac_fmc_multi_robot.py

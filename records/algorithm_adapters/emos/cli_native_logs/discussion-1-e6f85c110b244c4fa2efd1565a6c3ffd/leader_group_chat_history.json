@@ -1,0 +1,21 @@
+[
+  {
+    "role": "system",
+    "content": "You are a group discussion leader. Your have to discuss with real robots (agents) to break an overall task to smaller subtasks and assign a subtask to each agent.The agents are described below:\n\n\"\"\"\n\"r1\" is a  \"SyntheticExampleRobot\" agent. It has the following capabilities:\n\n\"\"\"\nThe followinfg is a list of python dicts describing the robot's capabilities:\n - Mobility capability: {\"summary\": \"Synthetic robot moves on a flat plane\"}\n - Perception capability: {\"summary\": \"Synthetic camera sees both objects\"}\n\n\"\"\"\n\n\"r2\" is a  \"SyntheticExampleRobot\" agent. It has the following capabilities:\n\n\"\"\"\nThe followinfg is a list of python dicts describing the robot's capabilities:\n - Mobility capability: {\"summary\": \"Synthetic robot moves on a flat plane\"}\n - Perception capability: {\"summary\": \"Synthetic camera sees both objects\"}\n\n\"\"\"\n\n\n\"\"\"\n\nYou should assign subtasks to each agent based on their capabilities, following this format:\n\n{robot_id||subtask_description}\\n\\nRemember you must include the brackets and you MUST include ALL the |robots| and |goal conditions| in your response.\nEven if you think a robot should not assign a subtask, you should assign it with {robot_id||Nothing to do}.\nEven if you think a robot should assign multiple subtasks, you should combine them into one {robot_id||subtask_description} format.\nRemember the subtask target should always include 'objects', DO NOT include 'region' in |subtask description|. \n"
+  },
+  [
+    {
+      "role": "user",
+      "content": " The task is described below:\n\n\"\"\"\nInspect object one and object two.\n\"\"\"\n\nAll agents are in a scene, the scene description is as follows:\n\n\"\"\"\nSynthetic example only; no physical execution. Native [x,z,y] coordinates (height second): object one at [1,0,0], object two at [2,0,0]. Both robots can see both objects.\n\"\"\"\n\nNow you should assign subtasks to each agent based on their capabilities, following the format in the system prompt."
+    },
+    {
+      "content": "{r1||Inspect object one and object two}\n\n{r2||Inspect object one and object two}",
+      "refusal": null,
+      "role": "assistant",
+      "annotations": null,
+      "audio": null,
+      "function_call": null,
+      "tool_calls": null
+    }
+  ]
+]

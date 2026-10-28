@@ -1,0 +1,88 @@
+{
+  "timestamp_utc": "2026-10-28T06:55:56.223368+00:00",
+  "mode": "protocol",
+  "input_kind": "synthetic_protocol_fixture",
+  "algorithm_acceptance": "not_passed",
+  "physical_acceptance": "not_evaluated",
+  "fallback_used": false,
+  "source_root": "/tmp/emos-1793068059",
+  "model_requests": 6,
+  "status": "protocol_passed",
+  "decision": {
+    "condition": {
+      "algorithm_id": "EMOS-native-discussion",
+      "source_reference": "/tmp/emos-1793068059",
+      "implementation": "original-upstream-planner-components-with-io-adapter",
+      "execution_scope": "discussion_and_assignment_only",
+      "planner": "EMOS.group_discussion",
+      "model_or_api": "explicit-protocol-double",
+      "checkpoint": "not_applicable_no_learned_weights",
+      "prompt_revision": "286c6d31d22d2f5b80876c8e77ab337c67168a329f5a14b2ea8c19707d257a02",
+      "supported_primitives": [],
+      "unsupported_dimensions": [],
+      "physical_executor_owner": "eai_runtime",
+      "serial_action_loop": false,
+      "notes": "No native decentralized action execution or physical acceptance is claimed."
+    },
+    "assignments": [
+      {
+        "task_id": "t2",
+        "robot_id": "r1",
+        "source": "EMOS-native-discussion",
+        "plan_version": "upstream-stage-one-v1"
+      },
+      {
+        "task_id": "t1",
+        "robot_id": "r2",
+        "source": "EMOS-native-discussion",
+        "plan_version": "upstream-stage-one-v1"
+      }
+    ],
+    "unassigned_tasks": [],
+    "provenance": {
+      "adapter": "algorithm.system.coordination.emos.native_adapter.EmosNativeAdapter",
+      "native_entrypoint": "habitat-baselines/habitat_baselines/rl/multi_agent/multi_llm_policy.py:group_discussion",
+      "source_hashes": {
+        "habitat-baselines/habitat_baselines/rl/multi_agent/multi_llm_policy.py": "286c6d31d22d2f5b80876c8e77ab337c67168a329f5a14b2ea8c19707d257a02",
+        "habitat-mas/habitat_mas/utils/models.py": "d0ccfbb147a30e6afe3d33ab52dbd4220d3f844dceaaed2165a0de92238dc428",
+        "habitat-mas/habitat_mas/utils/__init__.py": "30612b0cc3526a5b07141cdcf97b8898b68ef288641af2084438dc40b1cd777b",
+        "habitat-mas/habitat_mas/utils/python_interpreter.py": "bc81fe3a5fa56002811675089123690539fd29bdff3f50ccfdae0d3a5837fd82",
+        "habitat-mas/habitat_mas/agents/crab_core.py": "c447ef18ec6b3857cfc0e37f058c217b2f35165cb0c7bece3d5f903f8e581292"
+      },
+      "initialized": true,
+      "initialization_calls": 1,
+      "discussion_calls": 1,
+      "native_subtasks": {
+        "r1": "Inspect object two",
+        "r2": "Inspect object one"
+      },
+      "model_endpoint": {
+        "model": "explicit-protocol-double",
+        "completion_attempts": 6,
+        "failed_attempts": 0,
+        "total_tokens": 18,
+        "max_calls": 16,
+        "protocol_only": true
+      },
+      "native_log_dir": "/home/airs/hetrocoord/records/algorithm_adapters/emos/protocol_native_logs/discussion-1-0f619fb0fbca429e9d80c00cd8ff8ab4",
+      "history_restored_to_native": false,
+      "external_feedback_supported": false,
+      "evidence_kind": "protocol_only",
+      "algorithm_acceptance": "not_evaluated",
+      "physical_success": false,
+      "fallback_used": false
+    }
+  },
+  "endpoint": {
+    "model": "explicit-protocol-double",
+    "completion_attempts": 6,
+    "failed_attempts": 0,
+    "total_tokens": 18,
+    "max_calls": 16,
+    "protocol_only": true
+  },
+  "raw_native_subtasks": {
+    "r1": "Inspect object two",
+    "r2": "Inspect object one"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "endpoint": "http://172.17.0.2:18766",
+  "source_root": "/home/airs/.cache/heterocoord/upstream/bt-capabilities",
+  "command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-vv",
+    "algorithm/system/coordination/bt_capabilities/tests",
+    "--junitxml=records/algorithm_adapters/bt_capabilities/dag_20261028/run_20261028T172354_579280/pytest.xml"
+  ],
+  "evidence_scope": "native_protocol_only_not_physical",
+  "file_sha256": {
+    "algorithm/system/coordination/bt_capabilities/native_adapter.py": "2b0f61cda11ef999d3978c1d335f60c6caba786dd02e9e8ccbf5d83b721d59ca",
+    "algorithm/system/coordination/bt_capabilities/scripts/native_endpoint.py": "08f5ed366c55e1d7a249c93e7020b0e787f2f2d1a29606d99251dc0f2af78502",
+    "algorithm/system/coordination/bt_capabilities/tests/test_native_adapter.py": "2b1586107330477c323fa23d949edb4e863d8e73341b2149345c887cda34a3fd",
+    "algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py": "e1b0c392d46948fd019fa67cf2da1eca33c0fa28289dde07376796d6c784f6bf"
+  }
+}

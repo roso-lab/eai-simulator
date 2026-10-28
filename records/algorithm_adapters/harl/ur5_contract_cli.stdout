@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/home/airs/hetrocoord/tools/algorithm_adapters/run.py", line 50, in main
+    result = TaskRunner().run(TaskRunRequest(task), adapter)
+  File "/home/airs/hetrocoord/task/runner.py", line 197, in run
+    output = provider(task, task.robots)
+  File "/home/airs/hetrocoord/benchmark/native_algorithms.py", line 92, in __call__
+    return self._run(self.provider, task, robots)
+  File "/home/airs/hetrocoord/benchmark/native_algorithms.py", line 61, in _run
+    decision = callback(*args)
+  File "/home/airs/hetrocoord/algorithm/system/coordination/harl/native_adapter.py", line 318, in __call__
+    obs, available = encoder(task, robots, completed=self.completed,
+  File "/home/airs/hetrocoord/algorithm/system/coordination/harl/generic_manifest.py", line 167, in encode
+    raise NativeHAPPOError("task does not match bound environment contract")
+algorithm.system.coordination.harl.native_adapter.NativeHAPPOError: task does not match bound environment contract
+{"status": "not_passed", "report": "records/algorithm_adapters/harl/ur5_contract_rejection.json"}

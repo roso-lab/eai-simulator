@@ -1,0 +1,675 @@
+{
+  "task_id": "sadcher-ur5-physical-input-smoke",
+  "scene_id": "parent-owned-Isaac",
+  "branch_id": "fact",
+  "checkpoint": null,
+  "repeat_id": "",
+  "condition": {
+    "algorithm_id": "SADCHER-native-to-EAI",
+    "source_reference": "jakbichler/Sadcher@a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+    "implementation": "unchanged_upstream_SadcherScheduler",
+    "execution_scope": "native_assignment_only",
+    "planner": "neural_rewards+CachedBipartiteMatcher+filter_redundant_assignments+filter_overassignments",
+    "model_or_api": "official_SADCHER_IL_checkpoint",
+    "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+    "prompt_revision": "not_applicable",
+    "supported_primitives": [
+      "three_binary_skills",
+      "DAG",
+      "native_coalitions",
+      "native_idle"
+    ],
+    "unsupported_dimensions": [
+      "nonplanar_geometry",
+      "extra_skill_dimensions",
+      "coalition_dispatch_in_current_TaskRunner",
+      "physical_success_without_eai_evidence"
+    ],
+    "physical_executor_owner": "eai_runtime",
+    "serial_action_loop": false,
+    "notes": ""
+  },
+  "decisions": [
+    {
+      "assignments": [],
+      "unassigned_tasks": [
+        "pick_place"
+      ],
+      "provenance": {
+        "source_root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+        "checkpoint_audit": {
+          "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+          "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+          "expected_keys": 116,
+          "checkpoint_keys": 116,
+          "missing_keys": [],
+          "unexpected_keys": [],
+          "shape_mismatches": {},
+          "nonfinite_keys": [],
+          "strict_complete": true
+        },
+        "skill_order": [
+          "manipulate",
+          "inspect",
+          "transport"
+        ],
+        "native_assignments": {
+          "0": 2
+        },
+        "robot_index": [
+          "ur5_1"
+        ],
+        "task_index": [
+          "__start__",
+          "pick_place",
+          "__idle__",
+          "__end__"
+        ],
+        "coalitions": {},
+        "idle_robot_ids": [
+          "ur5_1"
+        ],
+        "end_robot_ids": [],
+        "start_robot_ids": [],
+        "unselected_robot_ids": [],
+        "task_adjacency": [
+          [
+            0
+          ]
+        ],
+        "task_runner_compatible": true,
+        "evidence": {
+          "contract": "translated",
+          "native": "executed_complete_checkpoint",
+          "simulation": "not_executed",
+          "physical": "N/A"
+        },
+        "normalization": {
+          "duration": 30.0,
+          "location": 0.45
+        },
+        "paper_algorithm": "sadcher",
+        "source_integrity": {
+          "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+          "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+          "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+          "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+          "code_files": 57
+        },
+        "adapter_source_sha256": "a5b103718acd82341a82098378edacb98f524102a58be501bb65d9289390bbf4",
+        "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+        "native_adapter_call": 1,
+        "decision_is_physical_evidence": false
+      }
+    },
+    {
+      "assignments": [],
+      "unassigned_tasks": [
+        "pick_place"
+      ],
+      "provenance": {
+        "source_root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+        "checkpoint_audit": {
+          "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+          "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+          "expected_keys": 116,
+          "checkpoint_keys": 116,
+          "missing_keys": [],
+          "unexpected_keys": [],
+          "shape_mismatches": {},
+          "nonfinite_keys": [],
+          "strict_complete": true
+        },
+        "skill_order": [
+          "manipulate",
+          "inspect",
+          "transport"
+        ],
+        "native_assignments": {
+          "0": 2
+        },
+        "robot_index": [
+          "ur5_1"
+        ],
+        "task_index": [
+          "__start__",
+          "pick_place",
+          "__idle__",
+          "__end__"
+        ],
+        "coalitions": {},
+        "idle_robot_ids": [
+          "ur5_1"
+        ],
+        "end_robot_ids": [],
+        "start_robot_ids": [],
+        "unselected_robot_ids": [],
+        "task_adjacency": [
+          [
+            0
+          ]
+        ],
+        "task_runner_compatible": true,
+        "evidence": {
+          "contract": "translated",
+          "native": "executed_complete_checkpoint",
+          "simulation": "not_executed",
+          "physical": "N/A"
+        },
+        "normalization": {
+          "duration": 30.0,
+          "location": 0.45
+        },
+        "paper_algorithm": "sadcher",
+        "source_integrity": {
+          "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+          "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+          "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+          "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+          "code_files": 57
+        },
+        "adapter_source_sha256": "a5b103718acd82341a82098378edacb98f524102a58be501bb65d9289390bbf4",
+        "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+        "native_adapter_call": 2,
+        "decision_is_physical_evidence": false
+      }
+    },
+    {
+      "assignments": [],
+      "unassigned_tasks": [
+        "pick_place"
+      ],
+      "provenance": {
+        "source_root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+        "checkpoint_audit": {
+          "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+          "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+          "expected_keys": 116,
+          "checkpoint_keys": 116,
+          "missing_keys": [],
+          "unexpected_keys": [],
+          "shape_mismatches": {},
+          "nonfinite_keys": [],
+          "strict_complete": true
+        },
+        "skill_order": [
+          "manipulate",
+          "inspect",
+          "transport"
+        ],
+        "native_assignments": {
+          "0": 2
+        },
+        "robot_index": [
+          "ur5_1"
+        ],
+        "task_index": [
+          "__start__",
+          "pick_place",
+          "__idle__",
+          "__end__"
+        ],
+        "coalitions": {},
+        "idle_robot_ids": [
+          "ur5_1"
+        ],
+        "end_robot_ids": [],
+        "start_robot_ids": [],
+        "unselected_robot_ids": [],
+        "task_adjacency": [
+          [
+            0
+          ]
+        ],
+        "task_runner_compatible": true,
+        "evidence": {
+          "contract": "translated",
+          "native": "executed_complete_checkpoint",
+          "simulation": "not_executed",
+          "physical": "N/A"
+        },
+        "normalization": {
+          "duration": 30.0,
+          "location": 0.45
+        },
+        "paper_algorithm": "sadcher",
+        "source_integrity": {
+          "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+          "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+          "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+          "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+          "code_files": 57
+        },
+        "adapter_source_sha256": "a5b103718acd82341a82098378edacb98f524102a58be501bb65d9289390bbf4",
+        "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+        "native_adapter_call": 3,
+        "decision_is_physical_evidence": false
+      }
+    },
+    {
+      "assignments": [],
+      "unassigned_tasks": [
+        "pick_place"
+      ],
+      "provenance": {
+        "source_root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+        "checkpoint_audit": {
+          "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+          "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+          "expected_keys": 116,
+          "checkpoint_keys": 116,
+          "missing_keys": [],
+          "unexpected_keys": [],
+          "shape_mismatches": {},
+          "nonfinite_keys": [],
+          "strict_complete": true
+        },
+        "skill_order": [
+          "manipulate",
+          "inspect",
+          "transport"
+        ],
+        "native_assignments": {
+          "0": 2
+        },
+        "robot_index": [
+          "ur5_1"
+        ],
+        "task_index": [
+          "__start__",
+          "pick_place",
+          "__idle__",
+          "__end__"
+        ],
+        "coalitions": {},
+        "idle_robot_ids": [
+          "ur5_1"
+        ],
+        "end_robot_ids": [],
+        "start_robot_ids": [],
+        "unselected_robot_ids": [],
+        "task_adjacency": [
+          [
+            0
+          ]
+        ],
+        "task_runner_compatible": true,
+        "evidence": {
+          "contract": "translated",
+          "native": "executed_complete_checkpoint",
+          "simulation": "not_executed",
+          "physical": "N/A"
+        },
+        "normalization": {
+          "duration": 30.0,
+          "location": 0.45
+        },
+        "paper_algorithm": "sadcher",
+        "source_integrity": {
+          "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+          "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+          "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+          "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+          "code_files": 57
+        },
+        "adapter_source_sha256": "a5b103718acd82341a82098378edacb98f524102a58be501bb65d9289390bbf4",
+        "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+        "native_adapter_call": 4,
+        "decision_is_physical_evidence": false
+      }
+    }
+  ],
+  "feedback": [],
+  "task_states": {
+    "pick_place": "pending"
+  },
+  "termination_reason": "max_rounds_reached",
+  "rounds": 3,
+  "dispatch_count": 0,
+  "verdict": {
+    "status": "N/A",
+    "reason": "physical_evidence_required",
+    "scheduler_termination": "max_rounds_reached",
+    "task_states": {
+      "pick_place": "pending"
+    }
+  },
+  "ledger": {
+    "schema_version": "task.orchestration.v1",
+    "events": [
+      {
+        "sequence": 0,
+        "kind": "algorithm_decision",
+        "payload": {
+          "algorithm_id": "SADCHER-native-to-EAI",
+          "assignments": [],
+          "unassigned_tasks": [
+            "pick_place"
+          ],
+          "provenance": {
+            "source_root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+            "checkpoint_audit": {
+              "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+              "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+              "expected_keys": 116,
+              "checkpoint_keys": 116,
+              "missing_keys": [],
+              "unexpected_keys": [],
+              "shape_mismatches": {},
+              "nonfinite_keys": [],
+              "strict_complete": true
+            },
+            "skill_order": [
+              "manipulate",
+              "inspect",
+              "transport"
+            ],
+            "native_assignments": {
+              "0": 2
+            },
+            "robot_index": [
+              "ur5_1"
+            ],
+            "task_index": [
+              "__start__",
+              "pick_place",
+              "__idle__",
+              "__end__"
+            ],
+            "coalitions": {},
+            "idle_robot_ids": [
+              "ur5_1"
+            ],
+            "end_robot_ids": [],
+            "start_robot_ids": [],
+            "unselected_robot_ids": [],
+            "task_adjacency": [
+              [
+                0
+              ]
+            ],
+            "task_runner_compatible": true,
+            "evidence": {
+              "contract": "translated",
+              "native": "executed_complete_checkpoint",
+              "simulation": "not_executed",
+              "physical": "N/A"
+            },
+            "normalization": {
+              "duration": 30.0,
+              "location": 0.45
+            },
+            "paper_algorithm": "sadcher",
+            "source_integrity": {
+              "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+              "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+              "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+              "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+              "code_files": 57
+            },
+            "adapter_source_sha256": "a5b103718acd82341a82098378edacb98f524102a58be501bb65d9289390bbf4",
+            "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+            "native_adapter_call": 1,
+            "decision_is_physical_evidence": false
+          },
+          "round_index": 0
+        }
+      },
+      {
+        "sequence": 1,
+        "kind": "algorithm_decision",
+        "payload": {
+          "algorithm_id": "SADCHER-native-to-EAI",
+          "assignments": [],
+          "unassigned_tasks": [
+            "pick_place"
+          ],
+          "provenance": {
+            "source_root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+            "checkpoint_audit": {
+              "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+              "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+              "expected_keys": 116,
+              "checkpoint_keys": 116,
+              "missing_keys": [],
+              "unexpected_keys": [],
+              "shape_mismatches": {},
+              "nonfinite_keys": [],
+              "strict_complete": true
+            },
+            "skill_order": [
+              "manipulate",
+              "inspect",
+              "transport"
+            ],
+            "native_assignments": {
+              "0": 2
+            },
+            "robot_index": [
+              "ur5_1"
+            ],
+            "task_index": [
+              "__start__",
+              "pick_place",
+              "__idle__",
+              "__end__"
+            ],
+            "coalitions": {},
+            "idle_robot_ids": [
+              "ur5_1"
+            ],
+            "end_robot_ids": [],
+            "start_robot_ids": [],
+            "unselected_robot_ids": [],
+            "task_adjacency": [
+              [
+                0
+              ]
+            ],
+            "task_runner_compatible": true,
+            "evidence": {
+              "contract": "translated",
+              "native": "executed_complete_checkpoint",
+              "simulation": "not_executed",
+              "physical": "N/A"
+            },
+            "normalization": {
+              "duration": 30.0,
+              "location": 0.45
+            },
+            "paper_algorithm": "sadcher",
+            "source_integrity": {
+              "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+              "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+              "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+              "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+              "code_files": 57
+            },
+            "adapter_source_sha256": "a5b103718acd82341a82098378edacb98f524102a58be501bb65d9289390bbf4",
+            "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+            "native_adapter_call": 2,
+            "decision_is_physical_evidence": false
+          },
+          "round_index": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "kind": "algorithm_decision",
+        "payload": {
+          "algorithm_id": "SADCHER-native-to-EAI",
+          "assignments": [],
+          "unassigned_tasks": [
+            "pick_place"
+          ],
+          "provenance": {
+            "source_root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+            "checkpoint_audit": {
+              "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+              "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+              "expected_keys": 116,
+              "checkpoint_keys": 116,
+              "missing_keys": [],
+              "unexpected_keys": [],
+              "shape_mismatches": {},
+              "nonfinite_keys": [],
+              "strict_complete": true
+            },
+            "skill_order": [
+              "manipulate",
+              "inspect",
+              "transport"
+            ],
+            "native_assignments": {
+              "0": 2
+            },
+            "robot_index": [
+              "ur5_1"
+            ],
+            "task_index": [
+              "__start__",
+              "pick_place",
+              "__idle__",
+              "__end__"
+            ],
+            "coalitions": {},
+            "idle_robot_ids": [
+              "ur5_1"
+            ],
+            "end_robot_ids": [],
+            "start_robot_ids": [],
+            "unselected_robot_ids": [],
+            "task_adjacency": [
+              [
+                0
+              ]
+            ],
+            "task_runner_compatible": true,
+            "evidence": {
+              "contract": "translated",
+              "native": "executed_complete_checkpoint",
+              "simulation": "not_executed",
+              "physical": "N/A"
+            },
+            "normalization": {
+              "duration": 30.0,
+              "location": 0.45
+            },
+            "paper_algorithm": "sadcher",
+            "source_integrity": {
+              "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+              "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+              "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+              "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+              "code_files": 57
+            },
+            "adapter_source_sha256": "a5b103718acd82341a82098378edacb98f524102a58be501bb65d9289390bbf4",
+            "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+            "native_adapter_call": 3,
+            "decision_is_physical_evidence": false
+          },
+          "round_index": 2
+        }
+      },
+      {
+        "sequence": 3,
+        "kind": "algorithm_decision",
+        "payload": {
+          "algorithm_id": "SADCHER-native-to-EAI",
+          "assignments": [],
+          "unassigned_tasks": [
+            "pick_place"
+          ],
+          "provenance": {
+            "source_root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+            "checkpoint_audit": {
+              "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+              "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+              "expected_keys": 116,
+              "checkpoint_keys": 116,
+              "missing_keys": [],
+              "unexpected_keys": [],
+              "shape_mismatches": {},
+              "nonfinite_keys": [],
+              "strict_complete": true
+            },
+            "skill_order": [
+              "manipulate",
+              "inspect",
+              "transport"
+            ],
+            "native_assignments": {
+              "0": 2
+            },
+            "robot_index": [
+              "ur5_1"
+            ],
+            "task_index": [
+              "__start__",
+              "pick_place",
+              "__idle__",
+              "__end__"
+            ],
+            "coalitions": {},
+            "idle_robot_ids": [
+              "ur5_1"
+            ],
+            "end_robot_ids": [],
+            "start_robot_ids": [],
+            "unselected_robot_ids": [],
+            "task_adjacency": [
+              [
+                0
+              ]
+            ],
+            "task_runner_compatible": true,
+            "evidence": {
+              "contract": "translated",
+              "native": "executed_complete_checkpoint",
+              "simulation": "not_executed",
+              "physical": "N/A"
+            },
+            "normalization": {
+              "duration": 30.0,
+              "location": 0.45
+            },
+            "paper_algorithm": "sadcher",
+            "source_integrity": {
+              "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+              "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+              "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+              "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+              "code_files": 57
+            },
+            "adapter_source_sha256": "a5b103718acd82341a82098378edacb98f524102a58be501bb65d9289390bbf4",
+            "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+            "native_adapter_call": 4,
+            "decision_is_physical_evidence": false
+          },
+          "round_index": 3
+        }
+      },
+      {
+        "sequence": 4,
+        "kind": "scheduler_terminated",
+        "payload": {
+          "reason": "max_rounds_reached",
+          "rounds": 3,
+          "dispatch_count": 0,
+          "task_states": {
+            "pick_place": "pending"
+          }
+        }
+      },
+      {
+        "sequence": 5,
+        "kind": "verdict",
+        "payload": {
+          "status": "N/A",
+          "reason": "physical_evidence_required"
+        }
+      }
+    ],
+    "digest": "4095795bcdda29b6c082bf9088fa1f932627e07a268b18d0812cc2101e9fed08"
+  }
+}

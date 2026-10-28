@@ -1,0 +1,108 @@
+{
+  "schema": "heterocoord.happo.checkpoint.v1",
+  "algorithm": "HAPPO",
+  "condition": "locally_trained_macro_smoke",
+  "contract": {
+    "schema": "heterocoord.happo.two_actor_macro.v1",
+    "scene_id": "happo-symbolic-macro-smoke",
+    "actors": [
+      {
+        "actor_index": 0,
+        "robot_id": "ground",
+        "task_id": "inspect_ground",
+        "capabilities": [
+          "ground_inspect"
+        ]
+      },
+      {
+        "actor_index": 1,
+        "robot_id": "air",
+        "task_id": "inspect_air",
+        "capabilities": [
+          "air_inspect"
+        ]
+      }
+    ],
+    "observation_features": [
+      "active",
+      "own_completed",
+      "peer_completed",
+      "robot_x",
+      "robot_y",
+      "target_x",
+      "target_y",
+      "last_feedback_completed",
+      "step_fraction"
+    ],
+    "coordinate_domain": [
+      0.0,
+      1.0
+    ],
+    "action_schema": {
+      "0": "wait",
+      "1": "dispatch_actor_owned_inspection"
+    },
+    "horizon": 4,
+    "completion_feedback": "macro_completed",
+    "reward": "new_completions - 0.05 + 0.5 * all_completed",
+    "semantics": "symbolic_instant_macro_completion; no physical simulator"
+  },
+  "source_commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+  "actor_args": {
+    "hidden_sizes": [
+      32,
+      32
+    ],
+    "activation_func": "relu",
+    "use_feature_normalization": true,
+    "initialization_method": "orthogonal_",
+    "gain": 0.01,
+    "use_naive_recurrent_policy": false,
+    "use_recurrent_policy": true,
+    "recurrent_n": 1,
+    "data_chunk_length": 4,
+    "lr": 0.0005,
+    "critic_lr": 0.0005,
+    "opti_eps": 1e-05,
+    "weight_decay": 0,
+    "std_x_coef": 1,
+    "std_y_coef": 0.5,
+    "ppo_epoch": 5,
+    "critic_epoch": 5,
+    "use_clipped_value_loss": true,
+    "clip_param": 0.2,
+    "actor_num_mini_batch": 1,
+    "critic_num_mini_batch": 1,
+    "entropy_coef": 0.01,
+    "value_loss_coef": 1,
+    "use_max_grad_norm": true,
+    "max_grad_norm": 10.0,
+    "use_gae": true,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "use_huber_loss": true,
+    "use_policy_active_masks": true,
+    "huber_delta": 10.0,
+    "action_aggregation": "prod",
+    "share_param": false,
+    "fixed_order": false
+  },
+  "actors": [
+    {
+      "actor_index": 0,
+      "robot_id": "ground",
+      "file": "actor_agent0.pt",
+      "sha256": "483979bdce4e2041126683b2501a39013da9107c5d46fb808be7e5c7c09f37ec"
+    },
+    {
+      "actor_index": 1,
+      "robot_id": "air",
+      "file": "actor_agent1.pt",
+      "sha256": "ae1d1bcd71fdc86a75285b4a17ff8bc795f9205fe0cc64a7ab5693499c7f334e"
+    }
+  ],
+  "training_receipt": {
+    "file": "training_receipt.json",
+    "sha256": "ac1f0f64099f96bba967830eaaaefb88b2fd201cfda975210947445ae0a11cb4"
+  }
+}

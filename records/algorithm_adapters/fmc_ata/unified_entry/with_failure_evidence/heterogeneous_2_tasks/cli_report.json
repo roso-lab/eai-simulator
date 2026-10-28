@@ -1,0 +1,1134 @@
+{
+  "schema": "heterocoord.native_adapter_run.v1",
+  "algorithm": "fmc_ata",
+  "evidence_scope": "native_decision_only",
+  "physical_success": null,
+  "simulation_acceptance_passed": false,
+  "status": "native_decision_returned",
+  "result": {
+    "task_id": "fmc-ata-unified-2-tasks",
+    "scene_id": "native-only-no-physical-scene",
+    "branch_id": "fact",
+    "checkpoint": null,
+    "repeat_id": "",
+    "condition": {
+      "algorithm_id": "FMC-ATA",
+      "source_reference": "/tmp/heterocoord-algorithms-20261028/fmc-ata",
+      "implementation": "upstream:solver_fmc_distributed_asy.FMC_ATA",
+      "execution_scope": "native_allocation_and_schedule_only",
+      "planner": "FMC_ATA(util_structure_level=1)",
+      "model_or_api": "not_applicable",
+      "checkpoint": "not_applicable_no_learned_weights",
+      "prompt_revision": "not_applicable",
+      "supported_primitives": [
+        "independent_single_mission_single_player"
+      ],
+      "unsupported_dimensions": [
+        "cooperative_fractional_missions",
+        "task_dependencies",
+        "busy_or_multi_ability_robots",
+        "physical_execution"
+      ],
+      "physical_executor_owner": "eai_runtime",
+      "serial_action_loop": false,
+      "notes": ""
+    },
+    "assignments": [
+      {
+        "task_id": "t0",
+        "robot_id": "r0",
+        "source": "native:solver_fmc_distributed_asy.FMC_ATA.schedule",
+        "plan_version": ""
+      },
+      {
+        "task_id": "t1",
+        "robot_id": "r1",
+        "source": "native:solver_fmc_distributed_asy.FMC_ATA.schedule",
+        "plan_version": ""
+      }
+    ],
+    "unassigned_tasks": [],
+    "feedback": [
+      {
+        "task_id": "t0",
+        "robot_id": "r0",
+        "outcome": "not_executed",
+        "failure_code": "milestone_unverified",
+        "message": "No EAI SkillExecutor was injected; physical evidence is unavailable.",
+        "timestamp_s": 0.0,
+        "world_changes": {}
+      },
+      {
+        "task_id": "t1",
+        "robot_id": "r1",
+        "outcome": "not_executed",
+        "failure_code": "milestone_unverified",
+        "message": "No EAI SkillExecutor was injected; physical evidence is unavailable.",
+        "timestamp_s": 0.0,
+        "world_changes": {}
+      }
+    ],
+    "verdict": {
+      "status": "N/A",
+      "reason": "physical_evidence_required",
+      "unassigned_tasks": []
+    },
+    "ledger": {
+      "schema_version": "coordination.v1",
+      "events": [
+        {
+          "sequence": 0,
+          "kind": "algorithm_decision",
+          "payload": {
+            "algorithm_id": "FMC-ATA",
+            "assignments": [
+              {
+                "task_id": "t0",
+                "robot_id": "r0",
+                "source": "native:solver_fmc_distributed_asy.FMC_ATA.schedule",
+                "plan_version": ""
+              },
+              {
+                "task_id": "t1",
+                "robot_id": "r1",
+                "source": "native:solver_fmc_distributed_asy.FMC_ATA.schedule",
+                "plan_version": ""
+              }
+            ],
+            "unassigned_tasks": [],
+            "provenance": {
+              "adapter": "NativeFMCATAAdapter",
+              "supported_domain": "independent_single_mission_single_player",
+              "contract_evidence": "complete_whole_mission_schedule",
+              "native_evidence": "original_solver_executed",
+              "simulation_evidence": "not_run",
+              "physical_evidence": "not_evaluated",
+              "source_integrity_gate": "parent_owned_not_asserted_here",
+              "schedule_semantics": "per_robot_order_preserved; cross_robot_timing_executor_owned",
+              "native_input": {
+                "source_root": "/tmp/heterocoord-algorithms-20261028/fmc-ata",
+                "max_nclo": 10000,
+                "players": [
+                  {
+                    "id": -1,
+                    "robot_id": "r0",
+                    "ability": "inspect",
+                    "position": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "speed": 1.0,
+                    "productivity": 1.0
+                  },
+                  {
+                    "id": -2,
+                    "robot_id": "r1",
+                    "ability": "carry",
+                    "position": [
+                      1000000,
+                      0,
+                      0
+                    ],
+                    "speed": 1.0,
+                    "productivity": 1.0
+                  }
+                ],
+                "tasks": [
+                  {
+                    "id": 1,
+                    "task_id": "t0",
+                    "mission_id": 1,
+                    "ability": "inspect",
+                    "max_players": 1,
+                    "position": [
+                      1000,
+                      0,
+                      0
+                    ],
+                    "workload": 17.0,
+                    "importance": 1000.0
+                  },
+                  {
+                    "id": 2,
+                    "task_id": "t1",
+                    "mission_id": 2,
+                    "ability": "carry",
+                    "max_players": 1,
+                    "position": [
+                      999000,
+                      0,
+                      0
+                    ],
+                    "workload": 23.0,
+                    "importance": 900.0
+                  }
+                ]
+              },
+              "native_output": {
+                "solver_class": "solver_fmc_distributed_asy.FMC_ATA",
+                "solver_module_file": "/tmp/heterocoord-algorithms-20261028/fmc-ata/solver_fmc_distributed_asy.py",
+                "imported_source_sha256": {
+                  "simulation_abstract_components.py": "d178791a44cee9e3a496a55b7d32dcbfaf8c95fee45da45758fafe0519176af0",
+                  "solver_abstract.py": "c07bd106a31850a88b1b516da7cbbb2db44667b2c94c750574747f29585544da",
+                  "solver_fmc_distributed_asy.py": "453dbdf2746763038101f273cd30fa3c2107fc47678b923414521a842e6c31b6",
+                  "create_excel_fisher.py": "afe65af3d5a5ac823e970e569f1ed6739443b1188eb8ad263c0fb312bc2f6efa",
+                  "create_excel_dynamic.py": "d1b1c5ed1a89f917445e9ce6cff0cff0dd9202c656fe70cd45d3222579882352",
+                  "create_dynamic_simulation_cumulative.py": "264c743059ede925cfb4794d8dd2c313492350e266e8b6312a9bf37cc4d91b86",
+                  "general_communication_protocols.py": "a14c0e17b4f709327fdf59e4e9a0309c0ac812896255e6d0078f09a961598a76",
+                  "general_data_fisher_market.py": "0afd7e20ed4d685e149f9f36315fa83ea655f394281d3a4a16b9be0d9f78efe1",
+                  "general_r_ij.py": "0ec6fd7223181c0bf97a9602f729acb114812f889780120afe4d2fdf8091d4dc",
+                  "simulation_abstract.py": "92c40232820cc9f557942de999729c0625a86cb2e7fa6712b7452c34c3c6f818",
+                  "solver_fmc_centralized.py": "f2ce3095739021b6e409c24c9563e6a345cbb018d58552aac648b11a90f2bd91",
+                  "solver_fmc_distributed_sy.py": "ba442d8ecb9d557135c06a7fb99b9d88f95d3cd30b36e363e85c146abf0d8b50",
+                  "1_simulation_user_static.py": "1b2d68b3e15d02057bd1a5b26a5e8037d4ac2954d26de680ba2464df1452d277"
+                },
+                "python_executable": "/home/airs/.cache/heterocoord/envs/fmc-ata/bin/python",
+                "parameters": {
+                  "util_structure_level": 1,
+                  "ro": 0.9,
+                  "Threshold": 1e-05,
+                  "counter_of_converges": 1,
+                  "communication": "CommunicationProtocolPerfectCommunication",
+                  "is_with_timestamp": false
+                },
+                "nclo": 4.0,
+                "nclo_limit_reached": false,
+                "all_tasks_converged": true,
+                "termination_semantics": "original_driver_phase_II_flags_or_nclo_limit; not_an_optimality_certificate",
+                "players": [
+                  {
+                    "id": -1,
+                    "schedule": [
+                      {
+                        "task_id": 1,
+                        "mission_id": 1,
+                        "duration": 17.0,
+                        "normalized_allocation": 1
+                      }
+                    ],
+                    "x_i": {
+                      "1": {
+                        "1": 1.0
+                      },
+                      "2": {
+                        "2": null
+                      }
+                    },
+                    "x_i_norm": {
+                      "1": {
+                        "1": 1
+                      },
+                      "2": {
+                        "2": 0
+                      }
+                    },
+                    "utility": {
+                      "1": {
+                        "1": {
+                          "linear_utility": 998.9469496904544,
+                          "ro": 0.9
+                        }
+                      },
+                      "2": {
+                        "2": {
+                          "linear_utility": 0,
+                          "ro": 0.9
+                        }
+                      }
+                    },
+                    "scheduling_data": [
+                      {
+                        "task_id": 1,
+                        "mission_id": 1,
+                        "measure": 0.4923423901410217,
+                        "norm_xjk": 1,
+                        "time_player_arrives": 1000.0,
+                        "max_time_received": null
+                      },
+                      {
+                        "task_id": 2,
+                        "mission_id": 2,
+                        "measure": 0,
+                        "norm_xjk": 0,
+                        "time_player_arrives": null,
+                        "max_time_received": null
+                      }
+                    ],
+                    "last_received_messages": [
+                      {
+                        "sender": 1,
+                        "receiver": -1,
+                        "information": [
+                          {
+                            "1": 1.0
+                          },
+                          {
+                            "1": 1
+                          },
+                          {
+                            "1": 1000.0
+                          }
+                        ],
+                        "msg_time": 2.0,
+                        "timestamp": 1,
+                        "is_with_perfect_communication": true
+                      },
+                      {
+                        "sender": 2,
+                        "receiver": -1,
+                        "information": [
+                          {
+                            "2": null
+                          },
+                          {
+                            "2": 0
+                          },
+                          {
+                            "2": 1000.0
+                          }
+                        ],
+                        "msg_time": 2.0,
+                        "timestamp": 1,
+                        "is_with_perfect_communication": false
+                      }
+                    ]
+                  },
+                  {
+                    "id": -2,
+                    "schedule": [
+                      {
+                        "task_id": 2,
+                        "mission_id": 2,
+                        "duration": 23.0,
+                        "normalized_allocation": 1
+                      }
+                    ],
+                    "x_i": {
+                      "2": {
+                        "2": 1.0
+                      },
+                      "1": {
+                        "1": null
+                      }
+                    },
+                    "x_i_norm": {
+                      "2": {
+                        "2": 1
+                      },
+                      "1": {
+                        "1": 0
+                      }
+                    },
+                    "utility": {
+                      "2": {
+                        "2": {
+                          "linear_utility": 899.052254721409,
+                          "ro": 0.9
+                        }
+                      },
+                      "1": {
+                        "1": {
+                          "linear_utility": 0,
+                          "ro": 0.9
+                        }
+                      }
+                    },
+                    "scheduling_data": [
+                      {
+                        "task_id": 2,
+                        "mission_id": 2,
+                        "measure": 0.44517504099798927,
+                        "norm_xjk": 1,
+                        "time_player_arrives": 1000.0,
+                        "max_time_received": null
+                      },
+                      {
+                        "task_id": 1,
+                        "mission_id": 1,
+                        "measure": 0,
+                        "norm_xjk": 0,
+                        "time_player_arrives": null,
+                        "max_time_received": null
+                      }
+                    ],
+                    "last_received_messages": [
+                      {
+                        "sender": 2,
+                        "receiver": -2,
+                        "information": [
+                          {
+                            "2": 1.0
+                          },
+                          {
+                            "2": 1
+                          },
+                          {
+                            "2": 1000.0
+                          }
+                        ],
+                        "msg_time": 4.0,
+                        "timestamp": 2,
+                        "is_with_perfect_communication": true
+                      },
+                      {
+                        "sender": 1,
+                        "receiver": -2,
+                        "information": [
+                          {
+                            "1": null
+                          },
+                          {
+                            "1": 0
+                          },
+                          {
+                            "1": 1000.0
+                          }
+                        ],
+                        "msg_time": 2.0,
+                        "timestamp": 1,
+                        "is_with_perfect_communication": false
+                      }
+                    ]
+                  }
+                ],
+                "tasks": [
+                  {
+                    "id": 1,
+                    "x_jk": {
+                      "1": {
+                        "-1": 1.0,
+                        "-2": 0.0
+                      }
+                    },
+                    "x_jk_normal": {
+                      "1": {
+                        "-1": 1,
+                        "-2": 0
+                      }
+                    },
+                    "bids": {
+                      "1": {
+                        "-1": 0.5,
+                        "-2": 0
+                      }
+                    },
+                    "price_current": {
+                      "1": 0.5
+                    },
+                    "price_delta": {
+                      "1": 0.5
+                    },
+                    "max_time_per_mission": {
+                      "1": 1000.0
+                    },
+                    "player_greedy_arrive_dict": {
+                      "1": {
+                        "-1": 1000.0,
+                        "-2": null
+                      }
+                    },
+                    "is_finish_phase_II": true,
+                    "last_received_messages": [
+                      {
+                        "sender": -1,
+                        "receiver": 1,
+                        "information": [
+                          {
+                            "1": 0.5
+                          },
+                          {
+                            "1": {
+                              "linear_utility": 998.9469496904544,
+                              "ro": 0.9
+                            }
+                          },
+                          {
+                            "1": 1000.0
+                          }
+                        ],
+                        "msg_time": 2.0,
+                        "timestamp": 2,
+                        "is_with_perfect_communication": true
+                      },
+                      {
+                        "sender": -2,
+                        "receiver": 1,
+                        "information": [
+                          {
+                            "1": 0
+                          },
+                          {
+                            "1": {
+                              "linear_utility": 0,
+                              "ro": 0.9
+                            }
+                          },
+                          {
+                            "1": null
+                          }
+                        ],
+                        "msg_time": 2.0,
+                        "timestamp": 2,
+                        "is_with_perfect_communication": false
+                      }
+                    ]
+                  },
+                  {
+                    "id": 2,
+                    "x_jk": {
+                      "2": {
+                        "-1": 0.0,
+                        "-2": 1.0
+                      }
+                    },
+                    "x_jk_normal": {
+                      "2": {
+                        "-1": 0,
+                        "-2": 1
+                      }
+                    },
+                    "bids": {
+                      "2": {
+                        "-1": 0,
+                        "-2": 0.5
+                      }
+                    },
+                    "price_current": {
+                      "2": 0.5
+                    },
+                    "price_delta": {
+                      "2": 0.5
+                    },
+                    "max_time_per_mission": {
+                      "2": 1000.0
+                    },
+                    "player_greedy_arrive_dict": {
+                      "2": {
+                        "-2": 1000.0,
+                        "-1": null
+                      }
+                    },
+                    "is_finish_phase_II": true,
+                    "last_received_messages": [
+                      {
+                        "sender": -1,
+                        "receiver": 2,
+                        "information": [
+                          {
+                            "2": 0
+                          },
+                          {
+                            "2": {
+                              "linear_utility": 0,
+                              "ro": 0.9
+                            }
+                          },
+                          {
+                            "2": null
+                          }
+                        ],
+                        "msg_time": 2.0,
+                        "timestamp": 2,
+                        "is_with_perfect_communication": false
+                      },
+                      {
+                        "sender": -2,
+                        "receiver": 2,
+                        "information": [
+                          {
+                            "2": 0.5
+                          },
+                          {
+                            "2": {
+                              "linear_utility": 899.052254721409,
+                              "ro": 0.9
+                            }
+                          },
+                          {
+                            "2": 1000.0
+                          }
+                        ],
+                        "msg_time": 2.0,
+                        "timestamp": 2,
+                        "is_with_perfect_communication": true
+                      }
+                    ]
+                  }
+                ],
+                "messages": {
+                  "sent": 15,
+                  "received": 14,
+                  "lost": 0,
+                  "timestamp_lost": 0,
+                  "measurements": {
+                    "Loss Counter": {
+                      "0.0": 0,
+                      "2.0": 0,
+                      "4.0": 0
+                    },
+                    "Loss Timestamp Counter": {
+                      "0.0": 0,
+                      "2.0": 0,
+                      "4.0": 0
+                    },
+                    "Message Sent Counter": {
+                      "0.0": 5,
+                      "2.0": 9,
+                      "4.0": 14
+                    },
+                    "Message Received Counter": {
+                      "0.0": 2,
+                      "2.0": 4,
+                      "4.0": 9
+                    }
+                  },
+                  "trace_scope": "native_counters_and_final_received_contexts_not_full_wire_trace"
+                },
+                "native_threads_joined": true,
+                "lifecycle": {
+                  "worker_pid": 2640285,
+                  "worker_returncode": 0,
+                  "worker_reaped": true,
+                  "wall_seconds": 0.31476292794104666
+                }
+              },
+              "paper_algorithm": "fmc_ata",
+              "source_integrity": {
+                "root": "/tmp/heterocoord-algorithms-20261028/fmc-ata",
+                "commit": "7872a94776cfe21cf58cadf44007382deb650eea",
+                "tree": "026e34041df531797c775a4680c97cc1d4c4ac9f",
+                "code_sha256": "d51be2ec34916e1f12f95158d46c988a232f3935520184e8286928a74a873eb4",
+                "code_files": 26
+              },
+              "adapter_source_sha256": "8b49f025b592caf8f73c4c5b21630823ad845892a569f97a8896a43b52157bf6",
+              "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+              "native_adapter_call": 1,
+              "decision_is_physical_evidence": false
+            }
+          }
+        },
+        {
+          "sequence": 1,
+          "kind": "verdict",
+          "payload": {
+            "status": "N/A",
+            "reason": "physical_evidence_required"
+          }
+        }
+      ],
+      "digest": "fec5b7064c85cca1fea90c63b092916f9f01d2ced81295f106ccb9b2c8cf6d62"
+    }
+  },
+  "provenance": {
+    "adapter": "NativeFMCATAAdapter",
+    "supported_domain": "independent_single_mission_single_player",
+    "contract_evidence": "complete_whole_mission_schedule",
+    "native_evidence": "original_solver_executed",
+    "simulation_evidence": "not_run",
+    "physical_evidence": "not_evaluated",
+    "source_integrity_gate": "parent_owned_not_asserted_here",
+    "schedule_semantics": "per_robot_order_preserved; cross_robot_timing_executor_owned",
+    "native_input": {
+      "source_root": "/tmp/heterocoord-algorithms-20261028/fmc-ata",
+      "max_nclo": 10000,
+      "players": [
+        {
+          "id": -1,
+          "robot_id": "r0",
+          "ability": "inspect",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "speed": 1.0,
+          "productivity": 1.0
+        },
+        {
+          "id": -2,
+          "robot_id": "r1",
+          "ability": "carry",
+          "position": [
+            1000000,
+            0,
+            0
+          ],
+          "speed": 1.0,
+          "productivity": 1.0
+        }
+      ],
+      "tasks": [
+        {
+          "id": 1,
+          "task_id": "t0",
+          "mission_id": 1,
+          "ability": "inspect",
+          "max_players": 1,
+          "position": [
+            1000,
+            0,
+            0
+          ],
+          "workload": 17.0,
+          "importance": 1000.0
+        },
+        {
+          "id": 2,
+          "task_id": "t1",
+          "mission_id": 2,
+          "ability": "carry",
+          "max_players": 1,
+          "position": [
+            999000,
+            0,
+            0
+          ],
+          "workload": 23.0,
+          "importance": 900.0
+        }
+      ]
+    },
+    "native_output": {
+      "solver_class": "solver_fmc_distributed_asy.FMC_ATA",
+      "solver_module_file": "/tmp/heterocoord-algorithms-20261028/fmc-ata/solver_fmc_distributed_asy.py",
+      "imported_source_sha256": {
+        "simulation_abstract_components.py": "d178791a44cee9e3a496a55b7d32dcbfaf8c95fee45da45758fafe0519176af0",
+        "solver_abstract.py": "c07bd106a31850a88b1b516da7cbbb2db44667b2c94c750574747f29585544da",
+        "solver_fmc_distributed_asy.py": "453dbdf2746763038101f273cd30fa3c2107fc47678b923414521a842e6c31b6",
+        "create_excel_fisher.py": "afe65af3d5a5ac823e970e569f1ed6739443b1188eb8ad263c0fb312bc2f6efa",
+        "create_excel_dynamic.py": "d1b1c5ed1a89f917445e9ce6cff0cff0dd9202c656fe70cd45d3222579882352",
+        "create_dynamic_simulation_cumulative.py": "264c743059ede925cfb4794d8dd2c313492350e266e8b6312a9bf37cc4d91b86",
+        "general_communication_protocols.py": "a14c0e17b4f709327fdf59e4e9a0309c0ac812896255e6d0078f09a961598a76",
+        "general_data_fisher_market.py": "0afd7e20ed4d685e149f9f36315fa83ea655f394281d3a4a16b9be0d9f78efe1",
+        "general_r_ij.py": "0ec6fd7223181c0bf97a9602f729acb114812f889780120afe4d2fdf8091d4dc",
+        "simulation_abstract.py": "92c40232820cc9f557942de999729c0625a86cb2e7fa6712b7452c34c3c6f818",
+        "solver_fmc_centralized.py": "f2ce3095739021b6e409c24c9563e6a345cbb018d58552aac648b11a90f2bd91",
+        "solver_fmc_distributed_sy.py": "ba442d8ecb9d557135c06a7fb99b9d88f95d3cd30b36e363e85c146abf0d8b50",
+        "1_simulation_user_static.py": "1b2d68b3e15d02057bd1a5b26a5e8037d4ac2954d26de680ba2464df1452d277"
+      },
+      "python_executable": "/home/airs/.cache/heterocoord/envs/fmc-ata/bin/python",
+      "parameters": {
+        "util_structure_level": 1,
+        "ro": 0.9,
+        "Threshold": 1e-05,
+        "counter_of_converges": 1,
+        "communication": "CommunicationProtocolPerfectCommunication",
+        "is_with_timestamp": false
+      },
+      "nclo": 4.0,
+      "nclo_limit_reached": false,
+      "all_tasks_converged": true,
+      "termination_semantics": "original_driver_phase_II_flags_or_nclo_limit; not_an_optimality_certificate",
+      "players": [
+        {
+          "id": -1,
+          "schedule": [
+            {
+              "task_id": 1,
+              "mission_id": 1,
+              "duration": 17.0,
+              "normalized_allocation": 1
+            }
+          ],
+          "x_i": {
+            "1": {
+              "1": 1.0
+            },
+            "2": {
+              "2": null
+            }
+          },
+          "x_i_norm": {
+            "1": {
+              "1": 1
+            },
+            "2": {
+              "2": 0
+            }
+          },
+          "utility": {
+            "1": {
+              "1": {
+                "linear_utility": 998.9469496904544,
+                "ro": 0.9
+              }
+            },
+            "2": {
+              "2": {
+                "linear_utility": 0,
+                "ro": 0.9
+              }
+            }
+          },
+          "scheduling_data": [
+            {
+              "task_id": 1,
+              "mission_id": 1,
+              "measure": 0.4923423901410217,
+              "norm_xjk": 1,
+              "time_player_arrives": 1000.0,
+              "max_time_received": null
+            },
+            {
+              "task_id": 2,
+              "mission_id": 2,
+              "measure": 0,
+              "norm_xjk": 0,
+              "time_player_arrives": null,
+              "max_time_received": null
+            }
+          ],
+          "last_received_messages": [
+            {
+              "sender": 1,
+              "receiver": -1,
+              "information": [
+                {
+                  "1": 1.0
+                },
+                {
+                  "1": 1
+                },
+                {
+                  "1": 1000.0
+                }
+              ],
+              "msg_time": 2.0,
+              "timestamp": 1,
+              "is_with_perfect_communication": true
+            },
+            {
+              "sender": 2,
+              "receiver": -1,
+              "information": [
+                {
+                  "2": null
+                },
+                {
+                  "2": 0
+                },
+                {
+                  "2": 1000.0
+                }
+              ],
+              "msg_time": 2.0,
+              "timestamp": 1,
+              "is_with_perfect_communication": false
+            }
+          ]
+        },
+        {
+          "id": -2,
+          "schedule": [
+            {
+              "task_id": 2,
+              "mission_id": 2,
+              "duration": 23.0,
+              "normalized_allocation": 1
+            }
+          ],
+          "x_i": {
+            "2": {
+              "2": 1.0
+            },
+            "1": {
+              "1": null
+            }
+          },
+          "x_i_norm": {
+            "2": {
+              "2": 1
+            },
+            "1": {
+              "1": 0
+            }
+          },
+          "utility": {
+            "2": {
+              "2": {
+                "linear_utility": 899.052254721409,
+                "ro": 0.9
+              }
+            },
+            "1": {
+              "1": {
+                "linear_utility": 0,
+                "ro": 0.9
+              }
+            }
+          },
+          "scheduling_data": [
+            {
+              "task_id": 2,
+              "mission_id": 2,
+              "measure": 0.44517504099798927,
+              "norm_xjk": 1,
+              "time_player_arrives": 1000.0,
+              "max_time_received": null
+            },
+            {
+              "task_id": 1,
+              "mission_id": 1,
+              "measure": 0,
+              "norm_xjk": 0,
+              "time_player_arrives": null,
+              "max_time_received": null
+            }
+          ],
+          "last_received_messages": [
+            {
+              "sender": 2,
+              "receiver": -2,
+              "information": [
+                {
+                  "2": 1.0
+                },
+                {
+                  "2": 1
+                },
+                {
+                  "2": 1000.0
+                }
+              ],
+              "msg_time": 4.0,
+              "timestamp": 2,
+              "is_with_perfect_communication": true
+            },
+            {
+              "sender": 1,
+              "receiver": -2,
+              "information": [
+                {
+                  "1": null
+                },
+                {
+                  "1": 0
+                },
+                {
+                  "1": 1000.0
+                }
+              ],
+              "msg_time": 2.0,
+              "timestamp": 1,
+              "is_with_perfect_communication": false
+            }
+          ]
+        }
+      ],
+      "tasks": [
+        {
+          "id": 1,
+          "x_jk": {
+            "1": {
+              "-1": 1.0,
+              "-2": 0.0
+            }
+          },
+          "x_jk_normal": {
+            "1": {
+              "-1": 1,
+              "-2": 0
+            }
+          },
+          "bids": {
+            "1": {
+              "-1": 0.5,
+              "-2": 0
+            }
+          },
+          "price_current": {
+            "1": 0.5
+          },
+          "price_delta": {
+            "1": 0.5
+          },
+          "max_time_per_mission": {
+            "1": 1000.0
+          },
+          "player_greedy_arrive_dict": {
+            "1": {
+              "-1": 1000.0,
+              "-2": null
+            }
+          },
+          "is_finish_phase_II": true,
+          "last_received_messages": [
+            {
+              "sender": -1,
+              "receiver": 1,
+              "information": [
+                {
+                  "1": 0.5
+                },
+                {
+                  "1": {
+                    "linear_utility": 998.9469496904544,
+                    "ro": 0.9
+                  }
+                },
+                {
+                  "1": 1000.0
+                }
+              ],
+              "msg_time": 2.0,
+              "timestamp": 2,
+              "is_with_perfect_communication": true
+            },
+            {
+              "sender": -2,
+              "receiver": 1,
+              "information": [
+                {
+                  "1": 0
+                },
+                {
+                  "1": {
+                    "linear_utility": 0,
+                    "ro": 0.9
+                  }
+                },
+                {
+                  "1": null
+                }
+              ],
+              "msg_time": 2.0,
+              "timestamp": 2,
+              "is_with_perfect_communication": false
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "x_jk": {
+            "2": {
+              "-1": 0.0,
+              "-2": 1.0
+            }
+          },
+          "x_jk_normal": {
+            "2": {
+              "-1": 0,
+              "-2": 1
+            }
+          },
+          "bids": {
+            "2": {
+              "-1": 0,
+              "-2": 0.5
+            }
+          },
+          "price_current": {
+            "2": 0.5
+          },
+          "price_delta": {
+            "2": 0.5
+          },
+          "max_time_per_mission": {
+            "2": 1000.0
+          },
+          "player_greedy_arrive_dict": {
+            "2": {
+              "-2": 1000.0,
+              "-1": null
+            }
+          },
+          "is_finish_phase_II": true,
+          "last_received_messages": [
+            {
+              "sender": -1,
+              "receiver": 2,
+              "information": [
+                {
+                  "2": 0
+                },
+                {
+                  "2": {
+                    "linear_utility": 0,
+                    "ro": 0.9
+                  }
+                },
+                {
+                  "2": null
+                }
+              ],
+              "msg_time": 2.0,
+              "timestamp": 2,
+              "is_with_perfect_communication": false
+            },
+            {
+              "sender": -2,
+              "receiver": 2,
+              "information": [
+                {
+                  "2": 0.5
+                },
+                {
+                  "2": {
+                    "linear_utility": 899.052254721409,
+                    "ro": 0.9
+                  }
+                },
+                {
+                  "2": 1000.0
+                }
+              ],
+              "msg_time": 2.0,
+              "timestamp": 2,
+              "is_with_perfect_communication": true
+            }
+          ]
+        }
+      ],
+      "messages": {
+        "sent": 15,
+        "received": 14,
+        "lost": 0,
+        "timestamp_lost": 0,
+        "measurements": {
+          "Loss Counter": {
+            "0.0": 0,
+            "2.0": 0,
+            "4.0": 0
+          },
+          "Loss Timestamp Counter": {
+            "0.0": 0,
+            "2.0": 0,
+            "4.0": 0
+          },
+          "Message Sent Counter": {
+            "0.0": 5,
+            "2.0": 9,
+            "4.0": 14
+          },
+          "Message Received Counter": {
+            "0.0": 2,
+            "2.0": 4,
+            "4.0": 9
+          }
+        },
+        "trace_scope": "native_counters_and_final_received_contexts_not_full_wire_trace"
+      },
+      "native_threads_joined": true,
+      "lifecycle": {
+        "worker_pid": 2640285,
+        "worker_returncode": 0,
+        "worker_reaped": true,
+        "wall_seconds": 0.31476292794104666
+      }
+    },
+    "paper_algorithm": "fmc_ata",
+    "source_integrity": {
+      "root": "/tmp/heterocoord-algorithms-20261028/fmc-ata",
+      "commit": "7872a94776cfe21cf58cadf44007382deb650eea",
+      "tree": "026e34041df531797c775a4680c97cc1d4c4ac9f",
+      "code_sha256": "d51be2ec34916e1f12f95158d46c988a232f3935520184e8286928a74a873eb4",
+      "code_files": 26
+    },
+    "adapter_source_sha256": "8b49f025b592caf8f73c4c5b21630823ad845892a569f97a8896a43b52157bf6",
+    "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+    "native_adapter_call": 1,
+    "decision_is_physical_evidence": false
+  },
+  "elapsed_wall_s": 0.35742993000894785
+}

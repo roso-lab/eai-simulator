@@ -1,0 +1,302 @@
+{
+  "result": {
+    "task_id": "sadcher-native-fixture",
+    "scene_id": "native-2d-simulation",
+    "branch_id": "fact",
+    "checkpoint": null,
+    "repeat_id": "",
+    "condition": {
+      "algorithm_id": "SADCHER-native-to-EAI",
+      "source_reference": "jakbichler/Sadcher@a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+      "implementation": "unchanged_upstream_SadcherScheduler",
+      "execution_scope": "native_assignment_only",
+      "planner": "neural_rewards+CachedBipartiteMatcher+filter_redundant_assignments+filter_overassignments",
+      "model_or_api": "official_SADCHER_IL_checkpoint",
+      "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+      "prompt_revision": "not_applicable",
+      "supported_primitives": [
+        "three_binary_skills",
+        "DAG",
+        "native_coalitions",
+        "native_idle"
+      ],
+      "unsupported_dimensions": [
+        "nonplanar_geometry",
+        "extra_skill_dimensions",
+        "coalition_dispatch_in_current_TaskRunner",
+        "physical_success_without_eai_evidence"
+      ],
+      "physical_executor_owner": "eai_runtime",
+      "serial_action_loop": false,
+      "notes": ""
+    },
+    "assignments": [
+      {
+        "task_id": "t0",
+        "robot_id": "r0",
+        "source": "native_sadcher",
+        "plan_version": ""
+      },
+      {
+        "task_id": "t1",
+        "robot_id": "r1",
+        "source": "native_sadcher",
+        "plan_version": ""
+      }
+    ],
+    "unassigned_tasks": [
+      "t2"
+    ],
+    "feedback": [
+      {
+        "task_id": "t0",
+        "robot_id": "r0",
+        "outcome": "not_executed",
+        "failure_code": "milestone_unverified",
+        "message": "No EAI SkillExecutor was injected; physical evidence is unavailable.",
+        "timestamp_s": 0.0,
+        "world_changes": {}
+      },
+      {
+        "task_id": "t1",
+        "robot_id": "r1",
+        "outcome": "not_executed",
+        "failure_code": "milestone_unverified",
+        "message": "No EAI SkillExecutor was injected; physical evidence is unavailable.",
+        "timestamp_s": 0.0,
+        "world_changes": {}
+      }
+    ],
+    "verdict": {
+      "status": "N/A",
+      "reason": "physical_evidence_required",
+      "unassigned_tasks": [
+        "t2"
+      ]
+    },
+    "ledger": {
+      "schema_version": "coordination.v1",
+      "events": [
+        {
+          "sequence": 0,
+          "kind": "algorithm_decision",
+          "payload": {
+            "algorithm_id": "SADCHER-native-to-EAI",
+            "assignments": [
+              {
+                "task_id": "t0",
+                "robot_id": "r0",
+                "source": "native_sadcher",
+                "plan_version": ""
+              },
+              {
+                "task_id": "t1",
+                "robot_id": "r1",
+                "source": "native_sadcher",
+                "plan_version": ""
+              }
+            ],
+            "unassigned_tasks": [
+              "t2"
+            ],
+            "provenance": {
+              "source_root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+              "checkpoint_audit": {
+                "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+                "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+                "expected_keys": 116,
+                "checkpoint_keys": 116,
+                "missing_keys": [],
+                "unexpected_keys": [],
+                "shape_mismatches": {},
+                "nonfinite_keys": [],
+                "strict_complete": true,
+                "audit_mutates_model": false
+              },
+              "skill_order": [
+                "terrain",
+                "button",
+                "sensor"
+              ],
+              "native_assignments": {
+                "0": 1,
+                "1": 2,
+                "2": 4
+              },
+              "robot_index": [
+                "r0",
+                "r1",
+                "r2"
+              ],
+              "task_index": [
+                "__start__",
+                "t0",
+                "t1",
+                "t2",
+                "__idle__",
+                "__end__"
+              ],
+              "coalitions": {
+                "t0": [
+                  "r0"
+                ],
+                "t1": [
+                  "r1"
+                ]
+              },
+              "idle_robot_ids": [
+                "r2"
+              ],
+              "end_robot_ids": [],
+              "start_robot_ids": [],
+              "unselected_robot_ids": [],
+              "task_adjacency": [
+                [
+                  0,
+                  0,
+                  1
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "task_runner_compatible": true,
+              "evidence": {
+                "contract": "translated",
+                "native": "executed_complete_checkpoint",
+                "simulation": "not_executed",
+                "physical": "N/A"
+              },
+              "normalization": {
+                "duration": 7.0,
+                "location": 30.0
+              },
+              "paper_algorithm": "sadcher",
+              "source_integrity": {
+                "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+                "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+                "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+                "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+                "code_files": 57
+              },
+              "adapter_source_sha256": "789e708e57ab3aabb6e93bff475279ed62b25b09205863b6425003da244110ef",
+              "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+              "native_adapter_call": 1,
+              "decision_is_physical_evidence": false
+            }
+          }
+        },
+        {
+          "sequence": 1,
+          "kind": "verdict",
+          "payload": {
+            "status": "N/A",
+            "reason": "physical_evidence_required"
+          }
+        }
+      ],
+      "digest": "4a2292a1376b490137cba95a6f388f8ed82231b61de16c7693c3c84463c5d9e4"
+    }
+  },
+  "provenance": {
+    "source_root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+    "checkpoint_audit": {
+      "checkpoint": "/tmp/heterocoord-algorithms-20261028/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+      "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+      "expected_keys": 116,
+      "checkpoint_keys": 116,
+      "missing_keys": [],
+      "unexpected_keys": [],
+      "shape_mismatches": {},
+      "nonfinite_keys": [],
+      "strict_complete": true,
+      "audit_mutates_model": false
+    },
+    "skill_order": [
+      "terrain",
+      "button",
+      "sensor"
+    ],
+    "native_assignments": {
+      "0": 1,
+      "1": 2,
+      "2": 4
+    },
+    "robot_index": [
+      "r0",
+      "r1",
+      "r2"
+    ],
+    "task_index": [
+      "__start__",
+      "t0",
+      "t1",
+      "t2",
+      "__idle__",
+      "__end__"
+    ],
+    "coalitions": {
+      "t0": [
+        "r0"
+      ],
+      "t1": [
+        "r1"
+      ]
+    },
+    "idle_robot_ids": [
+      "r2"
+    ],
+    "end_robot_ids": [],
+    "start_robot_ids": [],
+    "unselected_robot_ids": [],
+    "task_adjacency": [
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ]
+    ],
+    "task_runner_compatible": true,
+    "evidence": {
+      "contract": "translated",
+      "native": "executed_complete_checkpoint",
+      "simulation": "not_executed",
+      "physical": "N/A"
+    },
+    "normalization": {
+      "duration": 7.0,
+      "location": 30.0
+    },
+    "paper_algorithm": "sadcher",
+    "source_integrity": {
+      "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+      "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+      "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+      "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+      "code_files": 57
+    },
+    "adapter_source_sha256": "789e708e57ab3aabb6e93bff475279ed62b25b09205863b6425003da244110ef",
+    "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+    "native_adapter_call": 1,
+    "decision_is_physical_evidence": false
+  },
+  "dispatch_count": 0,
+  "physical_success": null
+}

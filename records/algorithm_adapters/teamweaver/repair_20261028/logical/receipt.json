@@ -1,0 +1,1217 @@
+{
+  "schema": "heterocoord.teamweaver.logical.v1",
+  "logical_success": true,
+  "execution_scope": "supplied_decomposition",
+  "physical_execution": "not_run",
+  "physical_success": "N/A",
+  "scoreable": false,
+  "steps": [
+    {
+      "assignments": [
+        {
+          "task_id": "phase0_mobile",
+          "robot_id": "mobile",
+          "source": "TeamWeaver-original-HRCS-MIQP",
+          "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+        },
+        {
+          "task_id": "phase0_sensor",
+          "robot_id": "sensor",
+          "source": "TeamWeaver-original-HRCS-MIQP",
+          "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+        }
+      ],
+      "before": {
+        "objects": {},
+        "revision": 0,
+        "robots": [
+          {
+            "active": true,
+            "capabilities": [
+              "navigation"
+            ],
+            "metadata": {
+              "yaw_rad": 0.0
+            },
+            "position": [
+              -1.0,
+              0.0,
+              0.0
+            ],
+            "robot_id": "mobile"
+          },
+          {
+            "active": true,
+            "capabilities": [
+              "navigation",
+              "sensing"
+            ],
+            "metadata": {
+              "yaw_rad": 0.0
+            },
+            "position": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "robot_id": "sensor"
+          }
+        ],
+        "scene_id": "ideal_logical_no_physics",
+        "tick": 0
+      },
+      "after": {
+        "objects": {},
+        "revision": 1,
+        "robots": [
+          {
+            "active": true,
+            "capabilities": [
+              "navigation"
+            ],
+            "metadata": {
+              "yaw_rad": 0.0
+            },
+            "position": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "robot_id": "mobile"
+          },
+          {
+            "active": true,
+            "capabilities": [
+              "navigation",
+              "sensing"
+            ],
+            "metadata": {
+              "yaw_rad": 0.0
+            },
+            "position": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "robot_id": "sensor"
+          }
+        ],
+        "scene_id": "ideal_logical_no_physics",
+        "tick": 1
+      },
+      "feedback": [
+        {
+          "task_id": "phase0_mobile",
+          "robot_id": "mobile",
+          "outcome": "succeeded",
+          "failure_code": "none",
+          "message": "Ideal logical Navigate; no physical execution",
+          "timestamp_s": 1.0,
+          "world_changes": {},
+          "dependency_outcome": "completed"
+        },
+        {
+          "task_id": "phase0_sensor",
+          "robot_id": "sensor",
+          "outcome": "succeeded",
+          "failure_code": "none",
+          "message": "Ideal logical Navigate; no physical execution",
+          "timestamp_s": 1.0,
+          "world_changes": {},
+          "dependency_outcome": "completed"
+        }
+      ],
+      "independently_checked": true
+    },
+    {
+      "assignments": [
+        {
+          "task_id": "phase1_mobile",
+          "robot_id": "mobile",
+          "source": "TeamWeaver-original-HRCS-MIQP",
+          "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+        },
+        {
+          "task_id": "phase1_sensor",
+          "robot_id": "sensor",
+          "source": "TeamWeaver-original-HRCS-MIQP",
+          "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+        }
+      ],
+      "before": {
+        "objects": {},
+        "revision": 1,
+        "robots": [
+          {
+            "active": true,
+            "capabilities": [
+              "navigation"
+            ],
+            "metadata": {
+              "yaw_rad": 0.0
+            },
+            "position": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "robot_id": "mobile"
+          },
+          {
+            "active": true,
+            "capabilities": [
+              "navigation",
+              "sensing"
+            ],
+            "metadata": {
+              "yaw_rad": 0.0
+            },
+            "position": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "robot_id": "sensor"
+          }
+        ],
+        "scene_id": "ideal_logical_no_physics",
+        "tick": 1
+      },
+      "after": {
+        "objects": {},
+        "revision": 2,
+        "robots": [
+          {
+            "active": true,
+            "capabilities": [
+              "navigation"
+            ],
+            "metadata": {
+              "yaw_rad": 0.0
+            },
+            "position": [
+              2.0,
+              1.0,
+              0.0
+            ],
+            "robot_id": "mobile"
+          },
+          {
+            "active": true,
+            "capabilities": [
+              "navigation",
+              "sensing"
+            ],
+            "metadata": {
+              "yaw_rad": 0.0
+            },
+            "position": [
+              2.0,
+              1.0,
+              0.0
+            ],
+            "robot_id": "sensor"
+          }
+        ],
+        "scene_id": "ideal_logical_no_physics",
+        "tick": 2
+      },
+      "feedback": [
+        {
+          "task_id": "phase1_mobile",
+          "robot_id": "mobile",
+          "outcome": "succeeded",
+          "failure_code": "none",
+          "message": "Ideal logical Navigate; no physical execution",
+          "timestamp_s": 2.0,
+          "world_changes": {},
+          "dependency_outcome": "completed"
+        },
+        {
+          "task_id": "phase1_sensor",
+          "robot_id": "sensor",
+          "outcome": "succeeded",
+          "failure_code": "none",
+          "message": "Ideal logical Navigate; no physical execution",
+          "timestamp_s": 2.0,
+          "world_changes": {},
+          "dependency_outcome": "completed"
+        }
+      ],
+      "independently_checked": true
+    }
+  ],
+  "result": {
+    "task_id": "teamweaver-logical-dag",
+    "scene_id": "ideal_logical_no_physics",
+    "branch_id": "fact",
+    "checkpoint": null,
+    "repeat_id": "",
+    "condition": {
+      "algorithm_id": "TeamWeaver-native-HRCS",
+      "source_reference": "/home/airs/.cache/heterocoord/upstream/teamweaver@edf4619e4730860b96eebaac39620df4bbdc486a",
+      "implementation": "unmodified-upstream-solver-with-io-mapping",
+      "execution_scope": "supplied_decomposition",
+      "planner": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+      "model_or_api": "CVXPY/GUROBI",
+      "checkpoint": "not_applicable_no_learned_weights",
+      "prompt_revision": "not_applicable",
+      "supported_primitives": [
+        "Navigate",
+        "Pick",
+        "Place",
+        "Open",
+        "Close"
+      ],
+      "unsupported_dimensions": [
+        "semantic_decomposition",
+        "native_phase_management",
+        "coalition_dispatch",
+        "physical_execution"
+      ],
+      "physical_executor_owner": "eai_runtime",
+      "serial_action_loop": false,
+      "notes": "Externally supplied frontier only; original utilities, objective and constraints unchanged."
+    },
+    "decisions": [
+      {
+        "assignments": [
+          {
+            "task_id": "phase0_mobile",
+            "robot_id": "mobile",
+            "source": "TeamWeaver-original-HRCS-MIQP",
+            "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+          },
+          {
+            "task_id": "phase0_sensor",
+            "robot_id": "sensor",
+            "source": "TeamWeaver-original-HRCS-MIQP",
+            "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+          }
+        ],
+        "unassigned_tasks": [
+          "phase1_mobile",
+          "phase1_sensor"
+        ],
+        "provenance": {
+          "source": {
+            "root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+            "commit": "edf4619e4730860b96eebaac39620df4bbdc486a",
+            "tree": "1f8ab1c1c9e41cec7c6bb7296cf90b1ffeba1d29",
+            "code_sha256": "6e43e80bcad2142bfeaf51eac00e81d7962f799386af123005709792ad875953",
+            "code_files": 390
+          },
+          "execution_scope": "supplied_decomposition",
+          "full_semantic_status": "blocked",
+          "decomposition_source": "supplied_EaiTaskPackage",
+          "frontier_source": "supplied_graph_and_completed_task_ids",
+          "completed_task_ids": [],
+          "ready_task_ids": [
+            "phase0_mobile",
+            "phase0_sensor"
+          ],
+          "robot_ids": [
+            "mobile",
+            "sensor"
+          ],
+          "solver_entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+          "solver_invoked": true,
+          "physical_evidence": "N/A",
+          "prompts_invoked": false,
+          "native_input": {
+            "robot_ids": [
+              "mobile",
+              "sensor"
+            ],
+            "tasks": [
+              {
+                "task_id": "phase0_mobile",
+                "task_type": "Navigate",
+                "target": "inspection",
+                "target_position": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "task_id": "phase0_sensor",
+                "task_type": "Navigate",
+                "target": "inspection",
+                "target_position": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "capability_names": [
+              "navigation",
+              "sensing"
+            ],
+            "x": [
+              [
+                -1.0,
+                0.0,
+                0.0
+              ],
+              [
+                1.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "A": [
+              [
+                1,
+                1
+              ],
+              [
+                0,
+                1
+              ]
+            ],
+            "T": [
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                1
+              ]
+            ],
+            "global_vars": {
+              "p_goal": [
+                0.0,
+                0.0
+              ]
+            },
+            "time_s": 0.0
+          },
+          "native_result": {
+            "entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+            "status": "Optimal",
+            "solve_time_s": 0.010796308517456055,
+            "robot_ids": [
+              "mobile",
+              "sensor"
+            ],
+            "task_ids": [
+              "phase0_mobile",
+              "phase0_sensor"
+            ],
+            "alpha": [
+              [
+                1.0,
+                0.0
+              ],
+              [
+                0.0,
+                1.0
+              ]
+            ],
+            "u": [
+              2.5,
+              -0.0,
+              -2.5,
+              -0.0
+            ],
+            "delta": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "native_robot_bounds": [
+              [
+                0,
+                2
+              ],
+              [
+                0,
+                2
+              ]
+            ],
+            "F": [
+              [
+                1.0,
+                1.0
+              ],
+              [
+                0.0,
+                1.0
+              ]
+            ],
+            "solver_file": "/home/airs/.cache/heterocoord/upstream/teamweaver/TeamWeaver/planner/HRCS/class_def/RTA_task.py",
+            "versions": {
+              "numpy": "2.2.6",
+              "cvxpy": "1.7.5",
+              "gurobi": [
+                13,
+                0,
+                3
+              ]
+            },
+            "fallback_used": false,
+            "native_error_count": 0
+          }
+        }
+      },
+      {
+        "assignments": [
+          {
+            "task_id": "phase1_mobile",
+            "robot_id": "mobile",
+            "source": "TeamWeaver-original-HRCS-MIQP",
+            "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+          },
+          {
+            "task_id": "phase1_sensor",
+            "robot_id": "sensor",
+            "source": "TeamWeaver-original-HRCS-MIQP",
+            "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+          }
+        ],
+        "unassigned_tasks": [],
+        "provenance": {
+          "source": {
+            "root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+            "commit": "edf4619e4730860b96eebaac39620df4bbdc486a",
+            "tree": "1f8ab1c1c9e41cec7c6bb7296cf90b1ffeba1d29",
+            "code_sha256": "6e43e80bcad2142bfeaf51eac00e81d7962f799386af123005709792ad875953",
+            "code_files": 390
+          },
+          "execution_scope": "supplied_decomposition",
+          "full_semantic_status": "blocked",
+          "decomposition_source": "supplied_EaiTaskPackage",
+          "frontier_source": "supplied_graph_and_completed_task_ids",
+          "completed_task_ids": [
+            "phase0_mobile",
+            "phase0_sensor"
+          ],
+          "ready_task_ids": [
+            "phase1_mobile",
+            "phase1_sensor"
+          ],
+          "robot_ids": [
+            "mobile",
+            "sensor"
+          ],
+          "solver_entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+          "solver_invoked": true,
+          "physical_evidence": "N/A",
+          "prompts_invoked": false,
+          "native_input": {
+            "robot_ids": [
+              "mobile",
+              "sensor"
+            ],
+            "tasks": [
+              {
+                "task_id": "phase1_mobile",
+                "task_type": "Navigate",
+                "target": "return",
+                "target_position": [
+                  2.0,
+                  1.0
+                ]
+              },
+              {
+                "task_id": "phase1_sensor",
+                "task_type": "Navigate",
+                "target": "return",
+                "target_position": [
+                  2.0,
+                  1.0
+                ]
+              }
+            ],
+            "capability_names": [
+              "navigation",
+              "sensing"
+            ],
+            "x": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "A": [
+              [
+                1,
+                1
+              ],
+              [
+                0,
+                1
+              ]
+            ],
+            "T": [
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                1
+              ]
+            ],
+            "global_vars": {
+              "p_goal": [
+                2.0,
+                1.0
+              ]
+            },
+            "time_s": 0.0
+          },
+          "native_result": {
+            "entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+            "status": "Optimal",
+            "solve_time_s": 0.010831117630004883,
+            "robot_ids": [
+              "mobile",
+              "sensor"
+            ],
+            "task_ids": [
+              "phase1_mobile",
+              "phase1_sensor"
+            ],
+            "alpha": [
+              [
+                1.0,
+                0.0
+              ],
+              [
+                0.0,
+                1.0
+              ]
+            ],
+            "u": [
+              6.25,
+              -0.0,
+              6.25,
+              -0.0
+            ],
+            "delta": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "native_robot_bounds": [
+              [
+                0,
+                2
+              ],
+              [
+                0,
+                2
+              ]
+            ],
+            "F": [
+              [
+                1.0,
+                1.0
+              ],
+              [
+                0.0,
+                1.0
+              ]
+            ],
+            "solver_file": "/home/airs/.cache/heterocoord/upstream/teamweaver/TeamWeaver/planner/HRCS/class_def/RTA_task.py",
+            "versions": {
+              "numpy": "2.2.6",
+              "cvxpy": "1.7.5",
+              "gurobi": [
+                13,
+                0,
+                3
+              ]
+            },
+            "fallback_used": false,
+            "native_error_count": 0
+          }
+        }
+      }
+    ],
+    "feedback": [
+      {
+        "task_id": "phase0_mobile",
+        "robot_id": "mobile",
+        "outcome": "succeeded",
+        "failure_code": "none",
+        "message": "Ideal logical Navigate; no physical execution",
+        "timestamp_s": 1.0,
+        "world_changes": {}
+      },
+      {
+        "task_id": "phase0_sensor",
+        "robot_id": "sensor",
+        "outcome": "succeeded",
+        "failure_code": "none",
+        "message": "Ideal logical Navigate; no physical execution",
+        "timestamp_s": 1.0,
+        "world_changes": {}
+      },
+      {
+        "task_id": "phase1_mobile",
+        "robot_id": "mobile",
+        "outcome": "succeeded",
+        "failure_code": "none",
+        "message": "Ideal logical Navigate; no physical execution",
+        "timestamp_s": 2.0,
+        "world_changes": {}
+      },
+      {
+        "task_id": "phase1_sensor",
+        "robot_id": "sensor",
+        "outcome": "succeeded",
+        "failure_code": "none",
+        "message": "Ideal logical Navigate; no physical execution",
+        "timestamp_s": 2.0,
+        "world_changes": {}
+      }
+    ],
+    "task_states": {
+      "phase0_mobile": "completed",
+      "phase0_sensor": "completed",
+      "phase1_mobile": "completed",
+      "phase1_sensor": "completed"
+    },
+    "termination_reason": "all_dependencies_completed",
+    "rounds": 2,
+    "dispatch_count": 4,
+    "verdict": {
+      "status": "N/A",
+      "reason": "physical_evidence_required",
+      "scheduler_termination": "all_dependencies_completed",
+      "task_states": {
+        "phase0_mobile": "completed",
+        "phase0_sensor": "completed",
+        "phase1_mobile": "completed",
+        "phase1_sensor": "completed"
+      }
+    },
+    "ledger": {
+      "schema_version": "task.orchestration.v1",
+      "events": [
+        {
+          "sequence": 0,
+          "kind": "world_observed",
+          "payload": {
+            "revision": 0,
+            "tick": 0,
+            "digest": "551a00e0ad9286c8f3e69333b4fd42fcb48e2c66077dcb9d1d01facd6ddcbe9b"
+          }
+        },
+        {
+          "sequence": 1,
+          "kind": "algorithm_decision",
+          "payload": {
+            "algorithm_id": "TeamWeaver-native-HRCS",
+            "assignments": [
+              {
+                "task_id": "phase0_mobile",
+                "robot_id": "mobile",
+                "source": "TeamWeaver-original-HRCS-MIQP",
+                "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+              },
+              {
+                "task_id": "phase0_sensor",
+                "robot_id": "sensor",
+                "source": "TeamWeaver-original-HRCS-MIQP",
+                "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+              }
+            ],
+            "unassigned_tasks": [
+              "phase1_mobile",
+              "phase1_sensor"
+            ],
+            "provenance": {
+              "source": {
+                "root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+                "commit": "edf4619e4730860b96eebaac39620df4bbdc486a",
+                "tree": "1f8ab1c1c9e41cec7c6bb7296cf90b1ffeba1d29",
+                "code_sha256": "6e43e80bcad2142bfeaf51eac00e81d7962f799386af123005709792ad875953",
+                "code_files": 390
+              },
+              "execution_scope": "supplied_decomposition",
+              "full_semantic_status": "blocked",
+              "decomposition_source": "supplied_EaiTaskPackage",
+              "frontier_source": "supplied_graph_and_completed_task_ids",
+              "completed_task_ids": [],
+              "ready_task_ids": [
+                "phase0_mobile",
+                "phase0_sensor"
+              ],
+              "robot_ids": [
+                "mobile",
+                "sensor"
+              ],
+              "solver_entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+              "solver_invoked": true,
+              "physical_evidence": "N/A",
+              "prompts_invoked": false,
+              "native_input": {
+                "robot_ids": [
+                  "mobile",
+                  "sensor"
+                ],
+                "tasks": [
+                  {
+                    "task_id": "phase0_mobile",
+                    "task_type": "Navigate",
+                    "target": "inspection",
+                    "target_position": [
+                      0.0,
+                      0.0
+                    ]
+                  },
+                  {
+                    "task_id": "phase0_sensor",
+                    "task_type": "Navigate",
+                    "target": "inspection",
+                    "target_position": [
+                      0.0,
+                      0.0
+                    ]
+                  }
+                ],
+                "capability_names": [
+                  "navigation",
+                  "sensing"
+                ],
+                "x": [
+                  [
+                    -1.0,
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    1.0,
+                    0.0,
+                    0.0
+                  ]
+                ],
+                "A": [
+                  [
+                    1,
+                    1
+                  ],
+                  [
+                    0,
+                    1
+                  ]
+                ],
+                "T": [
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    1,
+                    1
+                  ]
+                ],
+                "global_vars": {
+                  "p_goal": [
+                    0.0,
+                    0.0
+                  ]
+                },
+                "time_s": 0.0
+              },
+              "native_result": {
+                "entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+                "status": "Optimal",
+                "solve_time_s": 0.010796308517456055,
+                "robot_ids": [
+                  "mobile",
+                  "sensor"
+                ],
+                "task_ids": [
+                  "phase0_mobile",
+                  "phase0_sensor"
+                ],
+                "alpha": [
+                  [
+                    1.0,
+                    0.0
+                  ],
+                  [
+                    0.0,
+                    1.0
+                  ]
+                ],
+                "u": [
+                  2.5,
+                  -0.0,
+                  -2.5,
+                  -0.0
+                ],
+                "delta": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "native_robot_bounds": [
+                  [
+                    0,
+                    2
+                  ],
+                  [
+                    0,
+                    2
+                  ]
+                ],
+                "F": [
+                  [
+                    1.0,
+                    1.0
+                  ],
+                  [
+                    0.0,
+                    1.0
+                  ]
+                ],
+                "solver_file": "/home/airs/.cache/heterocoord/upstream/teamweaver/TeamWeaver/planner/HRCS/class_def/RTA_task.py",
+                "versions": {
+                  "numpy": "2.2.6",
+                  "cvxpy": "1.7.5",
+                  "gurobi": [
+                    13,
+                    0,
+                    3
+                  ]
+                },
+                "fallback_used": false,
+                "native_error_count": 0
+              }
+            },
+            "round_index": 0
+          }
+        },
+        {
+          "sequence": 2,
+          "kind": "assignment_applied",
+          "payload": {
+            "round_index": 0,
+            "task_id": "phase0_mobile",
+            "robot_id": "mobile"
+          }
+        },
+        {
+          "sequence": 3,
+          "kind": "assignment_applied",
+          "payload": {
+            "round_index": 0,
+            "task_id": "phase0_sensor",
+            "robot_id": "sensor"
+          }
+        },
+        {
+          "sequence": 4,
+          "kind": "execution_update",
+          "payload": {
+            "round_index": 1,
+            "task_id": "phase0_mobile",
+            "robot_id": "mobile",
+            "dependency_outcome": "completed",
+            "feedback_outcome": "succeeded",
+            "failure_code": "none"
+          }
+        },
+        {
+          "sequence": 5,
+          "kind": "execution_update",
+          "payload": {
+            "round_index": 1,
+            "task_id": "phase0_sensor",
+            "robot_id": "sensor",
+            "dependency_outcome": "completed",
+            "feedback_outcome": "succeeded",
+            "failure_code": "none"
+          }
+        },
+        {
+          "sequence": 6,
+          "kind": "world_observed",
+          "payload": {
+            "revision": 1,
+            "tick": 1,
+            "digest": "a8578edbd748774d4208bc5c1fa14dd8054acded2f79d3501732d84072455e3c"
+          }
+        },
+        {
+          "sequence": 7,
+          "kind": "algorithm_decision",
+          "payload": {
+            "algorithm_id": "TeamWeaver-native-HRCS",
+            "assignments": [
+              {
+                "task_id": "phase1_mobile",
+                "robot_id": "mobile",
+                "source": "TeamWeaver-original-HRCS-MIQP",
+                "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+              },
+              {
+                "task_id": "phase1_sensor",
+                "robot_id": "sensor",
+                "source": "TeamWeaver-original-HRCS-MIQP",
+                "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+              }
+            ],
+            "unassigned_tasks": [],
+            "provenance": {
+              "source": {
+                "root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+                "commit": "edf4619e4730860b96eebaac39620df4bbdc486a",
+                "tree": "1f8ab1c1c9e41cec7c6bb7296cf90b1ffeba1d29",
+                "code_sha256": "6e43e80bcad2142bfeaf51eac00e81d7962f799386af123005709792ad875953",
+                "code_files": 390
+              },
+              "execution_scope": "supplied_decomposition",
+              "full_semantic_status": "blocked",
+              "decomposition_source": "supplied_EaiTaskPackage",
+              "frontier_source": "supplied_graph_and_completed_task_ids",
+              "completed_task_ids": [
+                "phase0_mobile",
+                "phase0_sensor"
+              ],
+              "ready_task_ids": [
+                "phase1_mobile",
+                "phase1_sensor"
+              ],
+              "robot_ids": [
+                "mobile",
+                "sensor"
+              ],
+              "solver_entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+              "solver_invoked": true,
+              "physical_evidence": "N/A",
+              "prompts_invoked": false,
+              "native_input": {
+                "robot_ids": [
+                  "mobile",
+                  "sensor"
+                ],
+                "tasks": [
+                  {
+                    "task_id": "phase1_mobile",
+                    "task_type": "Navigate",
+                    "target": "return",
+                    "target_position": [
+                      2.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "task_id": "phase1_sensor",
+                    "task_type": "Navigate",
+                    "target": "return",
+                    "target_position": [
+                      2.0,
+                      1.0
+                    ]
+                  }
+                ],
+                "capability_names": [
+                  "navigation",
+                  "sensing"
+                ],
+                "x": [
+                  [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                ],
+                "A": [
+                  [
+                    1,
+                    1
+                  ],
+                  [
+                    0,
+                    1
+                  ]
+                ],
+                "T": [
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    1,
+                    1
+                  ]
+                ],
+                "global_vars": {
+                  "p_goal": [
+                    2.0,
+                    1.0
+                  ]
+                },
+                "time_s": 0.0
+              },
+              "native_result": {
+                "entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+                "status": "Optimal",
+                "solve_time_s": 0.010831117630004883,
+                "robot_ids": [
+                  "mobile",
+                  "sensor"
+                ],
+                "task_ids": [
+                  "phase1_mobile",
+                  "phase1_sensor"
+                ],
+                "alpha": [
+                  [
+                    1.0,
+                    0.0
+                  ],
+                  [
+                    0.0,
+                    1.0
+                  ]
+                ],
+                "u": [
+                  6.25,
+                  -0.0,
+                  6.25,
+                  -0.0
+                ],
+                "delta": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "native_robot_bounds": [
+                  [
+                    0,
+                    2
+                  ],
+                  [
+                    0,
+                    2
+                  ]
+                ],
+                "F": [
+                  [
+                    1.0,
+                    1.0
+                  ],
+                  [
+                    0.0,
+                    1.0
+                  ]
+                ],
+                "solver_file": "/home/airs/.cache/heterocoord/upstream/teamweaver/TeamWeaver/planner/HRCS/class_def/RTA_task.py",
+                "versions": {
+                  "numpy": "2.2.6",
+                  "cvxpy": "1.7.5",
+                  "gurobi": [
+                    13,
+                    0,
+                    3
+                  ]
+                },
+                "fallback_used": false,
+                "native_error_count": 0
+              }
+            },
+            "round_index": 1
+          }
+        },
+        {
+          "sequence": 8,
+          "kind": "assignment_applied",
+          "payload": {
+            "round_index": 1,
+            "task_id": "phase1_mobile",
+            "robot_id": "mobile"
+          }
+        },
+        {
+          "sequence": 9,
+          "kind": "assignment_applied",
+          "payload": {
+            "round_index": 1,
+            "task_id": "phase1_sensor",
+            "robot_id": "sensor"
+          }
+        },
+        {
+          "sequence": 10,
+          "kind": "execution_update",
+          "payload": {
+            "round_index": 2,
+            "task_id": "phase1_mobile",
+            "robot_id": "mobile",
+            "dependency_outcome": "completed",
+            "feedback_outcome": "succeeded",
+            "failure_code": "none"
+          }
+        },
+        {
+          "sequence": 11,
+          "kind": "execution_update",
+          "payload": {
+            "round_index": 2,
+            "task_id": "phase1_sensor",
+            "robot_id": "sensor",
+            "dependency_outcome": "completed",
+            "feedback_outcome": "succeeded",
+            "failure_code": "none"
+          }
+        },
+        {
+          "sequence": 12,
+          "kind": "world_observed",
+          "payload": {
+            "revision": 2,
+            "tick": 2,
+            "digest": "6bf6dd3f16188ea46d3f365e2f0cfda94200cffdaa479e1aef8b83ddb2110031"
+          }
+        },
+        {
+          "sequence": 13,
+          "kind": "scheduler_terminated",
+          "payload": {
+            "reason": "all_dependencies_completed",
+            "rounds": 2,
+            "dispatch_count": 4,
+            "task_states": {
+              "phase0_mobile": "completed",
+              "phase0_sensor": "completed",
+              "phase1_mobile": "completed",
+              "phase1_sensor": "completed"
+            }
+          }
+        },
+        {
+          "sequence": 14,
+          "kind": "verdict",
+          "payload": {
+            "status": "N/A",
+            "reason": "physical_evidence_required"
+          }
+        }
+      ],
+      "digest": "8979a6b77a19deb42de3da208935c93383783745bfe18e4e5db40770cc197e33"
+    }
+  }
+}

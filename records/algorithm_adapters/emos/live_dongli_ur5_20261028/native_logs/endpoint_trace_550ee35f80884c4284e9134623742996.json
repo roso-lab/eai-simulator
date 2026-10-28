@@ -1,0 +1,95 @@
+{
+  "endpoint": {
+    "model": "gpt-5.6-luna",
+    "completion_attempts": 2,
+    "failed_attempts": 0,
+    "total_tokens": 1306,
+    "max_calls": 4,
+    "reasoning_effort": "low",
+    "protocol_only": false
+  },
+  "responses": [
+    {
+      "call": 1,
+      "requested_model": "gpt-5.6-luna",
+      "reasoning_effort": "low",
+      "response": {
+        "id": "resp_089be9c879d187d1016ae1adc41cdc819b9cce7e4944e2747b",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "{ur5_1||Move objects: the workbench carton at [0.45,0,0.475] to its declared target at [0.425,0,0.475], completing task ID move_carton.}",
+              "refusal": null,
+              "role": "assistant",
+              "annotations": null,
+              "audio": null,
+              "function_call": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1793174981,
+        "model": "gpt-5.6-luna",
+        "object": "chat.completion",
+        "service_tier": "default",
+        "system_fingerprint": null,
+        "usage": {
+          "completion_tokens": 53,
+          "prompt_tokens": 394,
+          "total_tokens": 447,
+          "completion_tokens_details": null,
+          "prompt_tokens_details": null
+        }
+      },
+      "status": "response_received",
+      "elapsed_wall_s": 3.717920569004491
+    },
+    {
+      "call": 2,
+      "requested_model": "gpt-5.6-luna",
+      "reasoning_effort": "low",
+      "response": {
+        "id": "resp_08cb7589f70a2e4a016ae1add23b98819184d5ac09e8c42e15",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "{{yes}}",
+              "refusal": null,
+              "role": "assistant",
+              "annotations": null,
+              "audio": null,
+              "function_call": null,
+              "tool_calls": null,
+              "reasoning_content": "**Assessing UR5 robot reach feasibility**"
+            }
+          }
+        ],
+        "created": 1793175009,
+        "model": "gpt-5.6-luna",
+        "object": "chat.completion",
+        "service_tier": "default",
+        "system_fingerprint": null,
+        "usage": {
+          "completion_tokens": 136,
+          "prompt_tokens": 723,
+          "total_tokens": 859,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": null,
+            "audio_tokens": null,
+            "reasoning_tokens": 127,
+            "rejected_prediction_tokens": null
+          },
+          "prompt_tokens_details": null
+        }
+      },
+      "status": "response_received",
+      "elapsed_wall_s": 28.58443105092738
+    }
+  ]
+}

@@ -1,0 +1,194 @@
+{
+  "schema": "heterocoord.bt_multi_robot.v1",
+  "started_at_utc": "2026-10-28T09:34:11.739955+00:00",
+  "mode": "native_preflight",
+  "passed": false,
+  "physical_success": null,
+  "physical_execution_started": false,
+  "native_preflight_passed": true,
+  "physical_concurrency": null,
+  "benchmark_scores_available": false,
+  "attachment_semantics": "idealized_follow_proxy_pick_place; not contact grasp",
+  "source_sha256": {
+    "tools/algorithm_adapters/isaac_bt_multi_robot.py": "531e18a3ce93c8cd0d2bf29cecbc8daf69e7c70cf3590fc29a7aff729e7cc923",
+    "task/runner.py": "4738c07d63f77b9d86d58fe7a0147f1974b6962ec0cdc16aaced97363c7f0b9f",
+    "task/executors/pick_place.py": "bf719a982ed8916c22c5e16c75dd6fa18e5a3b42a04f7099d13e6a305e90d8b2",
+    "task/executors/pick_place_backends/arm.py": "153b3711d56b4ec30ed99a30e15e319ab023ea893f21c0dd37e91ce02fce2d5b",
+    "source/EAI/EAI/controllers/idealized_manipulation.py": "07c5234e311dd469e242817d8e1d2594c7952c76ffc08e7afbf678376abdbfa3",
+    "source/EAI/EAI/controllers/ik_controller.py": "61fdb637fce79653030a22edad1fe4627c9c19bf7890ab124d7aef30a5a0e67a",
+    "source/EAI/EAI/manipulation_geometry.py": "23d83ebd2098730ae909ec5873d933cfe00ff9b3b9b921112f910529e48d6a35",
+    "algorithm/skills/pick_place/provider.py": "0bfdb5fd2a640f99bc63035f783653e32d782b8e3a0d20157d13af34f63630b0",
+    "algorithm/skills/pick_place/contracts.py": "f1425ddfe2ef0605e9f329f9047b1091fe5efe538ef9323173729daca10ea065",
+    "tools/validation/pick_place_clearance.py": "b2ffb958d1d500dc415ae8158272e531f7a778a9e10fea7e1aa1fc037c236691",
+    "algorithm/system/coordination/bt_capabilities/native_adapter.py": "d2128f51a3d06c9bd02a09ac0e4564d2038366d9c300fd0e94f282407ce6a6b0",
+    "task.json": "8fe936fbf62fdb0849ac363fcea1b96cbe19cb496dc3fe716b983ecc067773b9"
+  },
+  "roster": [
+    "ur5_1",
+    "ur5_2"
+  ],
+  "endpoint": "http://172.17.0.2:18767",
+  "status": "native_validated_no_physical_execution",
+  "native_final_state": {
+    "ok": true,
+    "mission_id": "fc7b854451e14c68957796113ad87f25",
+    "task_contract_sha256": "6fee16fb879307fdc107a62b396127265a7b9127283516d557fbe27fcf14478d",
+    "native_algorithm": "ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager",
+    "native_tree": "ros_bt_py.nodes.parallel.Parallel",
+    "graph_mode": "dag",
+    "prerequisites": {
+      "move_left": [],
+      "move_right": [],
+      "inspect_join": [
+        "move_left",
+        "move_right"
+      ]
+    },
+    "endpoint_adapter_sha256": "18b0e354428ab7687a7b2d8a21a9f1e202be1144d2c939ecf804bddb03b662f7",
+    "source_commit": "5438f6e8d7599e39ec12104c0a9f0a8f1543838d",
+    "source_sha256": {
+      "ros_bt_py/src/ros_bt_py/assignment_manager/parallel_auction_manager.py": "4c45e7b99c44a66454cd07725bd1ce554633f4e4128b87ce4096c2fa4d32860d",
+      "ros_bt_py/src/ros_bt_py/nodes/sequence.py": "b963b33aee84fdcb2262c10fd481a009084456629ae9609d037b427cd49e9ccb",
+      "ros_bt_py/src/ros_bt_py/nodes/parallel.py": "81e72b496d4ac232c96f0390c169f8d3623885b8556102e2dc8ff930e0aa5f4e"
+    },
+    "tree_state": "RUNNING",
+    "assignments": [
+      {
+        "task_id": "move_left",
+        "robot_id": "ur5_1",
+        "implementation_name": "fc7b854451e14c68957796113ad87f25_0",
+        "executor_namespace": "/heterocoord_bt_physical/robot_0"
+      },
+      {
+        "task_id": "move_right",
+        "robot_id": "ur5_2",
+        "implementation_name": "fc7b854451e14c68957796113ad87f25_1",
+        "executor_namespace": "/heterocoord_bt_physical/robot_1"
+      }
+    ],
+    "cancelled_assignments": [],
+    "unassigned_tasks": [
+      "inspect_join"
+    ],
+    "leaf_states": [
+      {
+        "task_id": "move_left",
+        "state": "RUNNING",
+        "feedback": null,
+        "auction_error": null,
+        "waiting_for_slot": false
+      },
+      {
+        "task_id": "move_right",
+        "state": "RUNNING",
+        "feedback": null,
+        "auction_error": null,
+        "waiting_for_slot": false
+      },
+      {
+        "task_id": "inspect_join",
+        "state": "IDLE",
+        "feedback": null,
+        "auction_error": null,
+        "waiting_for_slot": false
+      }
+    ],
+    "auction_messages": [
+      {
+        "auction_id": "7a4c0524-9623-4045-bea3-2810456f318a",
+        "sender_id": "/heterocoord_bt_physical/dispatcher/",
+        "type": "ANNOUNCEMENT",
+        "bid": 0.0,
+        "executors": 0,
+        "result_id": "",
+        "implementation": ""
+      },
+      {
+        "auction_id": "7a4c0524-9623-4045-bea3-2810456f318a",
+        "sender_id": "/heterocoord_bt_physical/robot_0/",
+        "type": "BID",
+        "bid": 0.45,
+        "executors": 1,
+        "result_id": "",
+        "implementation": "fc7b854451e14c68957796113ad87f25_0"
+      },
+      {
+        "auction_id": "7a4c0524-9623-4045-bea3-2810456f318a",
+        "sender_id": "/heterocoord_bt_physical/robot_1/",
+        "type": "BID",
+        "bid": 2.5401771591761078,
+        "executors": 1,
+        "result_id": "",
+        "implementation": "fc7b854451e14c68957796113ad87f25_0"
+      },
+      {
+        "auction_id": "7a4c0524-9623-4045-bea3-2810456f318a",
+        "sender_id": "/heterocoord_bt_physical/dispatcher/",
+        "type": "CLOSE",
+        "bid": 0.0,
+        "executors": 0,
+        "result_id": "",
+        "implementation": ""
+      },
+      {
+        "auction_id": "7a4c0524-9623-4045-bea3-2810456f318a",
+        "sender_id": "/heterocoord_bt_physical/dispatcher/",
+        "type": "RESULT",
+        "bid": 0.54,
+        "executors": 0,
+        "result_id": "/heterocoord_bt_physical/robot_0/",
+        "implementation": "fc7b854451e14c68957796113ad87f25_0"
+      },
+      {
+        "auction_id": "30235fc8-bcf2-4b4d-9f6a-69d1c7c57687",
+        "sender_id": "/heterocoord_bt_physical/dispatcher/",
+        "type": "ANNOUNCEMENT",
+        "bid": 0.0,
+        "executors": 0,
+        "result_id": "",
+        "implementation": ""
+      },
+      {
+        "auction_id": "30235fc8-bcf2-4b4d-9f6a-69d1c7c57687",
+        "sender_id": "/heterocoord_bt_physical/robot_1/",
+        "type": "BID",
+        "bid": 0.45,
+        "executors": 1,
+        "result_id": "",
+        "implementation": "fc7b854451e14c68957796113ad87f25_1"
+      },
+      {
+        "auction_id": "30235fc8-bcf2-4b4d-9f6a-69d1c7c57687",
+        "sender_id": "/heterocoord_bt_physical/robot_0/",
+        "type": "BID",
+        "bid": 2.5401771591761078,
+        "executors": 0,
+        "result_id": "",
+        "implementation": "fc7b854451e14c68957796113ad87f25_1"
+      },
+      {
+        "auction_id": "30235fc8-bcf2-4b4d-9f6a-69d1c7c57687",
+        "sender_id": "/heterocoord_bt_physical/dispatcher/",
+        "type": "CLOSE",
+        "bid": 0.0,
+        "executors": 0,
+        "result_id": "",
+        "implementation": ""
+      },
+      {
+        "auction_id": "30235fc8-bcf2-4b4d-9f6a-69d1c7c57687",
+        "sender_id": "/heterocoord_bt_physical/dispatcher/",
+        "type": "RESULT",
+        "bid": 0.54,
+        "executors": 0,
+        "result_id": "/heterocoord_bt_physical/robot_1/",
+        "implementation": "fc7b854451e14c68957796113ad87f25_1"
+      }
+    ],
+    "evidence_scope": "native_ros_protocol_and_bt_feedback_only",
+    "simulation_evidence": "not_evaluated",
+    "physical_evidence": "not_evaluated"
+  },
+  "input_files_unchanged": true,
+  "native_events.json_sha256": "8ca74f3f56e80ebf7b45c783b674ca67ceb393107883a0d923a54435a7620db3"
+}

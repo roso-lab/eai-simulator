@@ -1,0 +1,84 @@
+{
+  "source_receipt": {
+    "root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+    "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+    "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+    "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+    "code_files": 57
+  },
+  "test_suite": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "28",
+    "time": "7.790",
+    "timestamp": "2026-10-28T15:07:37.809819",
+    "hostname": "airs-Precision-3660"
+  },
+  "consumed_code_sha256": {
+    "/home/airs/hetrocoord/benchmark/native_algorithms.py": "bec3bef932fe0ad52e4c66af34fab2da7465d40242ccadc2da4efaa530548102",
+    "/home/airs/hetrocoord/tools/algorithm_adapters/run.py": "6fdb7e8812691ad3a57890007593bcb0830e0c083bccd042e1524c771e2b3ed4",
+    "/home/airs/hetrocoord/task/runner.py": "4738c07d63f77b9d86d58fe7a0147f1974b6962ec0cdc16aaced97363c7f0b9f",
+    "/home/airs/hetrocoord/task/observation.py": "ff6e95a225f70ad57a76994696d2c97039fa329e8cb0c90e9280d8f1c65d9ccf",
+    "/home/airs/hetrocoord/algorithm/system/coordination/sadcher/native_adapter.py": "a5b103718acd82341a82098378edacb98f524102a58be501bb65d9289390bbf4",
+    "/home/airs/hetrocoord/algorithm/system/coordination/sadcher/tests/test_unified_entry.py": "35dac998f04a07719fca9b818307c6f66f4bfbc7cd36a454b544abb6fcbf0bce"
+  },
+  "cases": {
+    "normal": {
+      "cli_status": "native_decision_returned",
+      "returncode": 0,
+      "assignment_count": 2,
+      "error_type": null,
+      "native_assignments": {
+        "0": 1,
+        "1": 2,
+        "2": 4
+      },
+      "task_sha256": "c4aababee65cb002c4faed664bf187947d6869d98adf8c1d0ad7b24c5252520e",
+      "config_sha256": "aadd194d44c6fce3e8d14c4996c87b850e6b680943214cfe4326f280fe72d8ee"
+    },
+    "ur5_idle": {
+      "cli_status": "native_decision_returned",
+      "returncode": 0,
+      "assignment_count": 0,
+      "error_type": null,
+      "native_assignments": {
+        "0": 2
+      },
+      "task_sha256": "9dcffd6946c007b3f3c468b8583dae90ae74b63942c733c444b670477276656e",
+      "config_sha256": "a481c8c879b6b36b9beec106f5d20bc4191a9c0b5e5d3be790e7acf8151f0fd0"
+    },
+    "coalition_rejected": {
+      "cli_status": "not_passed",
+      "returncode": 1,
+      "assignment_count": 0,
+      "error_type": "NativeCoalitionScopeError",
+      "native_assignments": null,
+      "task_sha256": "bddfb5501b94b0a8a810ee14fc7713399b9856627541e498f2850df021e2bed9",
+      "config_sha256": "aadd194d44c6fce3e8d14c4996c87b850e6b680943214cfe4326f280fe72d8ee"
+    },
+    "default_checkpoint_rejected": {
+      "cli_status": "not_passed",
+      "returncode": 1,
+      "assignment_count": 0,
+      "error_type": "CheckpointCompatibilityError",
+      "native_assignments": null,
+      "task_sha256": "c4aababee65cb002c4faed664bf187947d6869d98adf8c1d0ad7b24c5252520e",
+      "config_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    }
+  },
+  "physical_success": null,
+  "gpu_executed": false,
+  "shared_entrypoints_modified_by_this_followup": false,
+  "feedback_loop": {
+    "dispatches": 3,
+    "rounds": 2,
+    "termination": "all_dependencies_completed",
+    "work_completed_tick": 31,
+    "exit_makespan": 59,
+    "per_state_parity_checks": 3,
+    "original_event_driven_makespan": 51,
+    "event_driven_trajectory_equivalence": false
+  }
+}

@@ -24,6 +24,12 @@ Current modules are deliberately flat:
 - `evidence.py`: branch-local evidence records and hash-chained ledger.
 - `emos.py`: EMOS assignment-only adapter; deterministic EMOS fallback by
   default, native policy callback by explicit injection.
+- `native_algorithms.py`: source-verified providers for the supplied paper's six
+  result columns (FMC-ATA, BT capabilities, SADCHER, HARL:HAPPO, TeamWeaver,
+  EMOS). This is the original-algorithm entry point. Per-method scope, model and
+  environment requirements are explicit; there is no substitute planner.
+- `external_algorithms.py`: historical diagnostic wrappers. Fixed allocations
+  and rewritten policies in this path are not eligible as original paper methods.
 - `eai_adapter.py`: dependency-light bridge from `SimulatorSession` to the
   common topology-bound `NavigationExecutor`, registered controller adapters,
   neutral actions and bounded host stepping. It reports execution feedback only.
@@ -157,6 +163,27 @@ its configured model/API path; this adapter is imported explicitly and does
 not silently replace it or pretend that the deterministic fallback is a paper
 result. Keeping it out of `benchmark.__init__` also prevents generic runtime
 imports from pulling in Fire Rescue/EMOS dependencies.
+
+The pulled external algorithms use the same boundary through
+`benchmark.external_algorithms.ExternalAlgorithmDecisionAdapter`:
+
+```python
+from benchmark.external_algorithms import (
+    ExternalAlgorithmDecisionAdapter,
+    package_for_external_algorithm,
+)
+from task.fixtures.fire_rescue import build_fire_rescue_assignment_request
+
+request = build_fire_rescue_assignment_request()
+package = package_for_external_algorithm(request)
+adapter = ExternalAlgorithmDecisionAdapter(request, "robot_fleet")
+decision = adapter(package, package.robots)
+```
+
+Pass `adapter.replan` to `TaskRunner.run_orchestrated(...)` when execution
+feedback should trigger an explicit pending-task reallocation. The adapter
+returns a decision and provenance only; `TaskRunner`, the EAI executor and the
+external evaluator still own dispatch, execution and physical evidence.
 
 For a checkpoint branch, construct `PhysicsReplayBackend` around the existing
 `tools.physics_replay.ReplayCoordinator` and pass it to

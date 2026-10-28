@@ -1,0 +1,1 @@
+{"passed": false, "output": "/home/airs/hetrocoord/records/algorithm_adapters/emos/live_dongli_ur5_20261028T080837Z"}

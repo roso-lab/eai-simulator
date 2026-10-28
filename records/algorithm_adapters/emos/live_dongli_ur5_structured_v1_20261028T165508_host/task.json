@@ -1,0 +1,69 @@
+{
+  "task_id": "native-ur5-pick-place-integration",
+  "scene_id": "isolated-ur5-workbench",
+  "robots": [
+    {
+      "robot_id": "ur5_1",
+      "capabilities": [
+        "manipulate"
+      ],
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "metadata": {
+        "yaw_rad": 0.0
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "move_carton",
+      "description": "Pick and place the workbench carton",
+      "required_capabilities": [
+        "manipulate"
+      ],
+      "target_ref": "/World/Object",
+      "metadata": {
+        "position": [
+          0.45,
+          0.0,
+          0.0
+        ],
+        "duration_s": 30.0,
+        "target_position": [
+          0.425,
+          0.01,
+          0.475
+        ],
+        "pick_place": {
+          "object_position_world_m": [
+            0.45,
+            0.0,
+            0.475
+          ],
+          "approach_degrees": 15.0,
+          "timeout_s": 100.0,
+          "mode": "cartesian_pose"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "position_source": "declared_spawn_xy_projection",
+    "sadcher": {
+      "start_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_position": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "evidence_scope": "one_robot_one_skill_integration"
+  }
+}

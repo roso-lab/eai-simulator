@@ -1,0 +1,678 @@
+{
+  "schema": "heterocoord.teamweaver.native_receipt.v1",
+  "source_before": {
+    "root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+    "commit": "edf4619e4730860b96eebaac39620df4bbdc486a",
+    "tree": "1f8ab1c1c9e41cec7c6bb7296cf90b1ffeba1d29",
+    "code_sha256": "6e43e80bcad2142bfeaf51eac00e81d7962f799386af123005709792ad875953",
+    "code_files": 390
+  },
+  "source_after": {
+    "root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+    "commit": "edf4619e4730860b96eebaac39620df4bbdc486a",
+    "tree": "1f8ab1c1c9e41cec7c6bb7296cf90b1ffeba1d29",
+    "code_sha256": "6e43e80bcad2142bfeaf51eac00e81d7962f799386af123005709792ad875953",
+    "code_files": 390
+  },
+  "source_unchanged": true,
+  "source_file_sha256": {
+    "TeamWeaver/planner/HRCS/class_def/RTA_task.py": "3473f51d4f20c402c7d26483dc043495a0289e900d6e856400fe9baee14e0f5d",
+    "TeamWeaver/planner/HRCS/class_def/task_utility_normalizer.py": "31d9543aabd5e0deeed510f499eacd7c867328eb04269f68af1947003aac8afc",
+    "TeamWeaver/planner/HRCS/params_module/scenario_params_task.py": "01e5ad467dfe9ac503851b3b966b591fc62ed08ef967f6a1d83a2aa9103676ee",
+    "TeamWeaver/planner/HRCS/params_module/opt_params_task.py": "f0fe65f47a77e780721e8e2b0cebf53dbf36adae189316a86df6edd2a7884381",
+    "TeamWeaver/planner/HRCS/plan_module/miqp_solver_wrapper.py": "30575f5e4b0d808c6a245b16c9f4d7157d6bbcf8d0adf0d9d332da5365376f1b",
+    "TeamWeaver/planner/HRCS/connector/phase_manager.py": "34112d5944a1a2fa810949a8b1d0d8957c4716e39f53cbcf0ad4535416e8e12e",
+    "TeamWeaver/planner/miqp_prompts.py": "86cd7818735bb09f5d58d693bc12f1748e9495c8b61a41a9320fadeed2454acd",
+    "TeamWeaver/planner/llm_planner_comparison/llm_planner_miqp.py": "65f392327029c253594ebefaaae9cea595780441b8cf954fb7565e361b408067"
+  },
+  "interpreter": "/home/airs/.cache/heterocoord/envs/teamweaver-native/bin/python",
+  "decision": {
+    "condition": {
+      "algorithm_id": "TeamWeaver-native-HRCS",
+      "source_reference": "/home/airs/.cache/heterocoord/upstream/teamweaver@edf4619e4730860b96eebaac39620df4bbdc486a",
+      "implementation": "unmodified-upstream-solver-with-io-mapping",
+      "execution_scope": "supplied_decomposition",
+      "planner": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+      "model_or_api": "CVXPY/GUROBI",
+      "checkpoint": "not_applicable_no_learned_weights",
+      "prompt_revision": "not_applicable",
+      "supported_primitives": [
+        "Navigate",
+        "Pick",
+        "Place",
+        "Open",
+        "Close"
+      ],
+      "unsupported_dimensions": [
+        "semantic_decomposition",
+        "native_phase_management",
+        "closed_loop_replanning",
+        "coalition_dispatch",
+        "physical_execution"
+      ],
+      "physical_executor_owner": "eai_runtime",
+      "serial_action_loop": false,
+      "notes": "Externally supplied frontier only; original utilities, objective and constraints unchanged."
+    },
+    "assignments": [
+      {
+        "task_id": "move_mobile",
+        "robot_id": "mobile",
+        "source": "TeamWeaver-original-HRCS-MIQP",
+        "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+      },
+      {
+        "task_id": "move_sensor",
+        "robot_id": "sensor",
+        "source": "TeamWeaver-original-HRCS-MIQP",
+        "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+      }
+    ],
+    "unassigned_tasks": [],
+    "provenance": {
+      "source": {
+        "root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+        "commit": "edf4619e4730860b96eebaac39620df4bbdc486a",
+        "tree": "1f8ab1c1c9e41cec7c6bb7296cf90b1ffeba1d29",
+        "code_sha256": "6e43e80bcad2142bfeaf51eac00e81d7962f799386af123005709792ad875953",
+        "code_files": 390
+      },
+      "execution_scope": "supplied_decomposition",
+      "full_semantic_status": "blocked",
+      "decomposition_source": "supplied_EaiTaskPackage",
+      "frontier_source": "supplied_graph_and_completed_task_ids",
+      "completed_task_ids": [],
+      "ready_task_ids": [
+        "move_mobile",
+        "move_sensor"
+      ],
+      "robot_ids": [
+        "mobile",
+        "sensor"
+      ],
+      "solver_entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+      "solver_invoked": true,
+      "physical_evidence": "N/A",
+      "prompts_invoked": false,
+      "native_input": {
+        "robot_ids": [
+          "mobile",
+          "sensor"
+        ],
+        "tasks": [
+          {
+            "task_id": "move_mobile",
+            "task_type": "Navigate",
+            "target": "inspection_area",
+            "target_position": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "task_id": "move_sensor",
+            "task_type": "Navigate",
+            "target": "inspection_area",
+            "target_position": [
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "capability_names": [
+          "navigation",
+          "sensing"
+        ],
+        "x": [
+          [
+            -1.0,
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "A": [
+          [
+            1,
+            1
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "T": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "global_vars": {
+          "p_goal": [
+            0.0,
+            0.0
+          ]
+        },
+        "time_s": 0.0
+      },
+      "native_result": {
+        "entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+        "status": "Optimal",
+        "solve_time_s": 0.011012554168701172,
+        "robot_ids": [
+          "mobile",
+          "sensor"
+        ],
+        "task_ids": [
+          "move_mobile",
+          "move_sensor"
+        ],
+        "alpha": [
+          [
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0
+          ]
+        ],
+        "u": [
+          2.5,
+          -0.0,
+          -2.5,
+          -0.0
+        ],
+        "delta": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "native_robot_bounds": [
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        "F": [
+          [
+            1.0,
+            1.0
+          ],
+          [
+            0.0,
+            1.0
+          ]
+        ],
+        "solver_file": "/home/airs/.cache/heterocoord/upstream/teamweaver/TeamWeaver/planner/HRCS/class_def/RTA_task.py",
+        "versions": {
+          "numpy": "2.2.6",
+          "cvxpy": "1.7.5",
+          "gurobi": [
+            13,
+            0,
+            3
+          ]
+        },
+        "fallback_used": false,
+        "native_error_count": 0
+      }
+    }
+  },
+  "taskrunner_roundtrip": {
+    "task_id": "teamweaver-native-smoke",
+    "scene_id": "protocol_fixture_no_physics",
+    "branch_id": "fact",
+    "checkpoint": null,
+    "repeat_id": "",
+    "condition": {
+      "algorithm_id": "TeamWeaver-native-HRCS",
+      "source_reference": "/home/airs/.cache/heterocoord/upstream/teamweaver@edf4619e4730860b96eebaac39620df4bbdc486a",
+      "implementation": "unmodified-upstream-solver-with-io-mapping",
+      "execution_scope": "supplied_decomposition",
+      "planner": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+      "model_or_api": "CVXPY/GUROBI",
+      "checkpoint": "not_applicable_no_learned_weights",
+      "prompt_revision": "not_applicable",
+      "supported_primitives": [
+        "Navigate",
+        "Pick",
+        "Place",
+        "Open",
+        "Close"
+      ],
+      "unsupported_dimensions": [
+        "semantic_decomposition",
+        "native_phase_management",
+        "closed_loop_replanning",
+        "coalition_dispatch",
+        "physical_execution"
+      ],
+      "physical_executor_owner": "eai_runtime",
+      "serial_action_loop": false,
+      "notes": "Externally supplied frontier only; original utilities, objective and constraints unchanged."
+    },
+    "assignments": [
+      {
+        "task_id": "move_mobile",
+        "robot_id": "mobile",
+        "source": "TeamWeaver-original-HRCS-MIQP",
+        "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+      },
+      {
+        "task_id": "move_sensor",
+        "robot_id": "sensor",
+        "source": "TeamWeaver-original-HRCS-MIQP",
+        "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+      }
+    ],
+    "unassigned_tasks": [],
+    "feedback": [
+      {
+        "task_id": "move_mobile",
+        "robot_id": "mobile",
+        "outcome": "not_executed",
+        "failure_code": "milestone_unverified",
+        "message": "No EAI SkillExecutor was injected; physical evidence is unavailable.",
+        "timestamp_s": 0.0,
+        "world_changes": {}
+      },
+      {
+        "task_id": "move_sensor",
+        "robot_id": "sensor",
+        "outcome": "not_executed",
+        "failure_code": "milestone_unverified",
+        "message": "No EAI SkillExecutor was injected; physical evidence is unavailable.",
+        "timestamp_s": 0.0,
+        "world_changes": {}
+      }
+    ],
+    "verdict": {
+      "status": "N/A",
+      "reason": "physical_evidence_required",
+      "unassigned_tasks": []
+    },
+    "ledger": {
+      "schema_version": "coordination.v1",
+      "events": [
+        {
+          "sequence": 0,
+          "kind": "algorithm_decision",
+          "payload": {
+            "algorithm_id": "TeamWeaver-native-HRCS",
+            "assignments": [
+              {
+                "task_id": "move_mobile",
+                "robot_id": "mobile",
+                "source": "TeamWeaver-original-HRCS-MIQP",
+                "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+              },
+              {
+                "task_id": "move_sensor",
+                "robot_id": "sensor",
+                "source": "TeamWeaver-original-HRCS-MIQP",
+                "plan_version": "edf4619e4730860b96eebaac39620df4bbdc486a"
+              }
+            ],
+            "unassigned_tasks": [],
+            "provenance": {
+              "source": {
+                "root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+                "commit": "edf4619e4730860b96eebaac39620df4bbdc486a",
+                "tree": "1f8ab1c1c9e41cec7c6bb7296cf90b1ffeba1d29",
+                "code_sha256": "6e43e80bcad2142bfeaf51eac00e81d7962f799386af123005709792ad875953",
+                "code_files": 390
+              },
+              "execution_scope": "supplied_decomposition",
+              "full_semantic_status": "blocked",
+              "decomposition_source": "supplied_EaiTaskPackage",
+              "frontier_source": "supplied_graph_and_completed_task_ids",
+              "completed_task_ids": [],
+              "ready_task_ids": [
+                "move_mobile",
+                "move_sensor"
+              ],
+              "robot_ids": [
+                "mobile",
+                "sensor"
+              ],
+              "solver_entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+              "solver_invoked": true,
+              "physical_evidence": "N/A",
+              "prompts_invoked": false,
+              "native_input": {
+                "robot_ids": [
+                  "mobile",
+                  "sensor"
+                ],
+                "tasks": [
+                  {
+                    "task_id": "move_mobile",
+                    "task_type": "Navigate",
+                    "target": "inspection_area",
+                    "target_position": [
+                      0.0,
+                      0.0
+                    ]
+                  },
+                  {
+                    "task_id": "move_sensor",
+                    "task_type": "Navigate",
+                    "target": "inspection_area",
+                    "target_position": [
+                      0.0,
+                      0.0
+                    ]
+                  }
+                ],
+                "capability_names": [
+                  "navigation",
+                  "sensing"
+                ],
+                "x": [
+                  [
+                    -1.0,
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    1.0,
+                    0.0,
+                    0.0
+                  ]
+                ],
+                "A": [
+                  [
+                    1,
+                    1
+                  ],
+                  [
+                    0,
+                    1
+                  ]
+                ],
+                "T": [
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    1,
+                    1
+                  ]
+                ],
+                "global_vars": {
+                  "p_goal": [
+                    0.0,
+                    0.0
+                  ]
+                },
+                "time_s": 0.0
+              },
+              "native_result": {
+                "entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+                "status": "Optimal",
+                "solve_time_s": 0.01699066162109375,
+                "robot_ids": [
+                  "mobile",
+                  "sensor"
+                ],
+                "task_ids": [
+                  "move_mobile",
+                  "move_sensor"
+                ],
+                "alpha": [
+                  [
+                    1.0,
+                    0.0
+                  ],
+                  [
+                    0.0,
+                    1.0
+                  ]
+                ],
+                "u": [
+                  2.5,
+                  -0.0,
+                  -2.5,
+                  -0.0
+                ],
+                "delta": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "native_robot_bounds": [
+                  [
+                    0,
+                    2
+                  ],
+                  [
+                    0,
+                    2
+                  ]
+                ],
+                "F": [
+                  [
+                    1.0,
+                    1.0
+                  ],
+                  [
+                    0.0,
+                    1.0
+                  ]
+                ],
+                "solver_file": "/home/airs/.cache/heterocoord/upstream/teamweaver/TeamWeaver/planner/HRCS/class_def/RTA_task.py",
+                "versions": {
+                  "numpy": "2.2.6",
+                  "cvxpy": "1.7.5",
+                  "gurobi": [
+                    13,
+                    0,
+                    3
+                  ]
+                },
+                "fallback_used": false,
+                "native_error_count": 0
+              }
+            }
+          }
+        },
+        {
+          "sequence": 1,
+          "kind": "verdict",
+          "payload": {
+            "status": "N/A",
+            "reason": "physical_evidence_required"
+          }
+        }
+      ],
+      "digest": "495bdea4adf7fc0274db44144de3c3a68761536624d41ae9d143262ac470a485"
+    }
+  },
+  "coalition": {
+    "status": "scope_error",
+    "reason": "native coalition for move_mobile: TaskRunner rejects multi-robot same-task assignments; complete alpha preserved in native_result, no owner selected",
+    "native_result": {
+      "entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+      "status": "Optimal",
+      "solve_time_s": 0.009908199310302734,
+      "robot_ids": [
+        "mobile",
+        "sensor"
+      ],
+      "task_ids": [
+        "move_mobile"
+      ],
+      "alpha": [
+        [
+          1.0
+        ],
+        [
+          1.0
+        ]
+      ],
+      "u": [
+        2.5,
+        -0.0,
+        -2.5,
+        -0.0
+      ],
+      "delta": [
+        0.0,
+        0.0
+      ],
+      "native_robot_bounds": [
+        [
+          0,
+          2
+        ]
+      ],
+      "F": [
+        [
+          1.0,
+          1.0
+        ],
+        [
+          0.0,
+          1.0
+        ]
+      ],
+      "solver_file": "/home/airs/.cache/heterocoord/upstream/teamweaver/TeamWeaver/planner/HRCS/class_def/RTA_task.py",
+      "versions": {
+        "numpy": "2.2.6",
+        "cvxpy": "1.7.5",
+        "gurobi": [
+          13,
+          0,
+          3
+        ]
+      },
+      "fallback_used": false,
+      "native_error_count": 0
+    }
+  },
+  "infeasible": {
+    "status": "native_solver_error",
+    "reason": "native MIQP did not produce an acceptable solution: Exception",
+    "native_result": {
+      "entrypoint": "class_def.RTA_task.RTA.solve_miqp_phase_aware",
+      "status": "Exception",
+      "solve_time_s": 0,
+      "robot_ids": [
+        "mobile"
+      ],
+      "task_ids": [
+        "move_mobile",
+        "move_sensor"
+      ],
+      "alpha": [
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "u": [
+        0.0,
+        0.0
+      ],
+      "delta": [
+        0.0,
+        0.0
+      ],
+      "native_robot_bounds": [
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "F": [
+        [
+          1.0
+        ],
+        [
+          0.0
+        ]
+      ],
+      "solver_file": "/home/airs/.cache/heterocoord/upstream/teamweaver/TeamWeaver/planner/HRCS/class_def/RTA_task.py",
+      "versions": {
+        "numpy": "2.2.6",
+        "cvxpy": "1.7.5",
+        "gurobi": [
+          13,
+          0,
+          3
+        ]
+      },
+      "fallback_used": false,
+      "native_error_count": 1
+    }
+  },
+  "full_semantic_probe": {
+    "full_semantic_status": "blocked",
+    "import_error": "SyntaxError",
+    "blocked_stage": "planner_import",
+    "planner_entrypoint": "habitat_llm.planner.llm_planner_comparison.llm_planner_miqp.LLMPlanner.replan",
+    "native_replan_invoked": false,
+    "semantic_solver_invoked": false,
+    "llm_calls_made": false,
+    "missing_module": null,
+    "missing_runtime_packages": [],
+    "namespace_overlay": "real TeamWeaver/PARTNR files only; no mocks",
+    "planner_import": {
+      "error_type": "SyntaxError",
+      "file": "/home/airs/.cache/heterocoord/upstream/teamweaver/TeamWeaver/planner/HRCS/plan_module/execution_manager.py",
+      "line": 73,
+      "message": "invalid syntax",
+      "source_line": "iflen(self.execution_history['actions']) > self.max_history_length:",
+      "sha256": "f4a96b9eb35456865a9dfde3e487353d5d5fcfa79e2afa25d1fbb7e03d671f7a"
+    },
+    "native_error_count": 0,
+    "source": {
+      "root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+      "commit": "edf4619e4730860b96eebaac39620df4bbdc486a",
+      "tree": "1f8ab1c1c9e41cec7c6bb7296cf90b1ffeba1d29",
+      "code_sha256": "6e43e80bcad2142bfeaf51eac00e81d7962f799386af123005709792ad875953",
+      "code_files": 390
+    },
+    "source_unchanged": true,
+    "dependency_sources": {
+      "partnr": {
+        "root": "/home/airs/.cache/heterocoord/upstream/teamweaver-partnr",
+        "commit": "ddfff19f4b6c098a31edea4d19e7b75db72433c2",
+        "tree": "418c40be1c16f203a53e89f032284ef5ccb1c715",
+        "code_sha256": "eebdecf69830394bfc4fbfe84702d8111d3cd8f36b3313828671d016b3c50b22",
+        "code_files": 404
+      },
+      "habitat_lab": {
+        "root": "/home/airs/.cache/heterocoord/upstream/teamweaver-habitat-lab",
+        "commit": "094d6be2f9d057e4781a68ae792132895fd4d3d0",
+        "tree": "d592bc948e04e2e54fc77b7d6bc26592a25b52b2",
+        "code_sha256": "9e6bd474305c8c868868124caae5d8ab3126c4fd44782675c89c937dfb36e459",
+        "code_files": 642
+      }
+    },
+    "interpreter": "/home/airs/.cache/heterocoord/envs/teamweaver-semantic/bin/python"
+  },
+  "physical_execution": "not_run",
+  "physical_success": "N/A",
+  "scoreable": false
+}

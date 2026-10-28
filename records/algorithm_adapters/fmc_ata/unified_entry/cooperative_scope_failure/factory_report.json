@@ -1,0 +1,9 @@
+{
+  "entry": "benchmark.native_algorithms.build_native_adapter",
+  "simulation_acceptance_passed": false,
+  "physical_success": null,
+  "status": "not_passed",
+  "error_type": "UnsupportedFMCATADomain",
+  "error": "explicit max_players=1 required; fractions cannot be rounded",
+  "native_error_evidence": {}
+}

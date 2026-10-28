@@ -1,0 +1,21 @@
+{
+  "nclo": 1.0,
+  "sent": 4,
+  "mailer_inbox_empty": true,
+  "pending_mailer_messages": 0,
+  "tasks": [
+    {
+      "id": 1,
+      "finished": false,
+      "counters": "{<simulation_abstract_components.MissionSimple object at 0x771972749d20>: 1}",
+      "price_delta": "{<simulation_abstract_components.MissionSimple object at 0x771972749d20>: 1.0}",
+      "allocation": "{<simulation_abstract_components.MissionSimple object at 0x771972749d20>: {-1: 1}}"
+    }
+  ],
+  "players": [
+    {
+      "id": -1,
+      "schedule": "[(<simulation_abstract_components.TaskSimple object at 0x7719345b7af0>, <simulation_abstract_components.MissionSimple object at 0x771972749d20>, 30.0)]"
+    }
+  ]
+}

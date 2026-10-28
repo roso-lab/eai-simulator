@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="20" skipped="0" tests="61" time="0.207" timestamp="2026-10-28T17:25:50.510810" hostname="airs-Precision-3660"><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_adapter" name="test_bt_capability_auction_uses_utility_and_precedence" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_adapter" name="test_bt_reauction_after_capability_loss" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_dag_payload_retains_targets_bids_dependencies_and_input_order" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_dag_missing_bid_fails_without_defaults" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_dag_source_receipt_requires_parallel" time="0.002" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_dag_source_receipt_rejects_modified_parallel" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_linear_source_receipt_keeps_original_two[False]" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_linear_source_receipt_keeps_original_two[True]" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_mode_and_slot_mismatch_fail_closed" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_feedback_batch_wire_contract_and_duplicate_validation" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_batch_forwards_existing_executor_preserves_real_updates_and_failure" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_invalid_executor_batch_is_not_partially_submitted[identity-NativeBTError-identity mismatch]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_invalid_executor_batch_is_not_partially_submitted[duplicate-NativeBTError-duplicate executor feedback]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_invalid_executor_batch_is_not_partially_submitted[missing-NativeBTError-identity mismatch]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_invalid_executor_batch_is_not_partially_submitted[contradiction-NativeBTError-contradicts execution failure code]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_invalid_executor_batch_is_not_partially_submitted[raw-TypeError-executor must return ExecutionUpdate]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_busy_same_robot_batch_rejected_before_executor" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_serial_executor_fallback_collects_all_receipts_before_one_submission" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_executor_exception_is_not_converted_to_success" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_predicate_cannot_mask_failure_or_supply_truthy_non_boolean[&lt;lambda&gt;-TypeError-explicit boolean]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_predicate_cannot_mask_failure_or_supply_truthy_non_boolean[&lt;lambda&gt;-NativeBTError-contradicts execution failure code]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_wrapper_forwards_runner_binding" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_replan_does_not_invent_feedback_from_scheduler_state" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_receipt_must_match_active_mission_contract_and_tree[mission_id-other-mission-mission_id]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x7502944e1ae0&gt;, ...her-mission', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+field = 'mission_id', value = 'other-mission', message = 'mission_id'
+
+    @pytest.mark.parametrize('field,value,message', [
+        ('mission_id', 'other-mission', 'mission_id'),
+        ('mission_id', '', 'mission_id'),
+        ('mission_id', None, 'mission_id'),
+        ('task_contract_sha256', '0' * 64, 'task_contract_sha256'),
+        ('task_contract_sha256', None, 'task_contract_sha256'),
+        ('native_tree', 'ros_bt_py.nodes.sequence.MemorySequence', 'native_tree'),
+        ('native_tree', None, 'native_tree'),
+    ])
+    def test_receipt_must_match_active_mission_contract_and_tree(client_receipt, field, value, message):
+        adapter, result = client_receipt
+        result[field] = value
+&gt;       with pytest.raises(NativeBTError, match=message):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:337: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_receipt_must_match_active_mission_contract_and_tree[mission_id--mission_id]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x750293fff8e0&gt;, ...sion_id': '', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+field = 'mission_id', value = '', message = 'mission_id'
+
+    @pytest.mark.parametrize('field,value,message', [
+        ('mission_id', 'other-mission', 'mission_id'),
+        ('mission_id', '', 'mission_id'),
+        ('mission_id', None, 'mission_id'),
+        ('task_contract_sha256', '0' * 64, 'task_contract_sha256'),
+        ('task_contract_sha256', None, 'task_contract_sha256'),
+        ('native_tree', 'ros_bt_py.nodes.sequence.MemorySequence', 'native_tree'),
+        ('native_tree', None, 'native_tree'),
+    ])
+    def test_receipt_must_match_active_mission_contract_and_tree(client_receipt, field, value, message):
+        adapter, result = client_receipt
+        result[field] = value
+&gt;       with pytest.raises(NativeBTError, match=message):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:337: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_receipt_must_match_active_mission_contract_and_tree[mission_id-None-mission_id]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x7502944df130&gt;, ...on_id': None, 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+field = 'mission_id', value = None, message = 'mission_id'
+
+    @pytest.mark.parametrize('field,value,message', [
+        ('mission_id', 'other-mission', 'mission_id'),
+        ('mission_id', '', 'mission_id'),
+        ('mission_id', None, 'mission_id'),
+        ('task_contract_sha256', '0' * 64, 'task_contract_sha256'),
+        ('task_contract_sha256', None, 'task_contract_sha256'),
+        ('native_tree', 'ros_bt_py.nodes.sequence.MemorySequence', 'native_tree'),
+        ('native_tree', None, 'native_tree'),
+    ])
+    def test_receipt_must_match_active_mission_contract_and_tree(client_receipt, field, value, message):
+        adapter, result = client_receipt
+        result[field] = value
+&gt;       with pytest.raises(NativeBTError, match=message):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:337: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_receipt_must_match_active_mission_contract_and_tree[task_contract_sha256-0000000000000000000000000000000000000000000000000000000000000000-task_contract_sha256]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x7502944dd480&gt;, ...': 'fixture', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+field = 'task_contract_sha256'
+value = '0000000000000000000000000000000000000000000000000000000000000000'
+message = 'task_contract_sha256'
+
+    @pytest.mark.parametrize('field,value,message', [
+        ('mission_id', 'other-mission', 'mission_id'),
+        ('mission_id', '', 'mission_id'),
+        ('mission_id', None, 'mission_id'),
+        ('task_contract_sha256', '0' * 64, 'task_contract_sha256'),
+        ('task_contract_sha256', None, 'task_contract_sha256'),
+        ('native_tree', 'ros_bt_py.nodes.sequence.MemorySequence', 'native_tree'),
+        ('native_tree', None, 'native_tree'),
+    ])
+    def test_receipt_must_match_active_mission_contract_and_tree(client_receipt, field, value, message):
+        adapter, result = client_receipt
+        result[field] = value
+&gt;       with pytest.raises(NativeBTError, match=message):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:337: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_receipt_must_match_active_mission_contract_and_tree[task_contract_sha256-None-task_contract_sha256]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x75029455a2c0&gt;, ...': 'fixture', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+field = 'task_contract_sha256', value = None, message = 'task_contract_sha256'
+
+    @pytest.mark.parametrize('field,value,message', [
+        ('mission_id', 'other-mission', 'mission_id'),
+        ('mission_id', '', 'mission_id'),
+        ('mission_id', None, 'mission_id'),
+        ('task_contract_sha256', '0' * 64, 'task_contract_sha256'),
+        ('task_contract_sha256', None, 'task_contract_sha256'),
+        ('native_tree', 'ros_bt_py.nodes.sequence.MemorySequence', 'native_tree'),
+        ('native_tree', None, 'native_tree'),
+    ])
+    def test_receipt_must_match_active_mission_contract_and_tree(client_receipt, field, value, message):
+        adapter, result = client_receipt
+        result[field] = value
+&gt;       with pytest.raises(NativeBTError, match=message):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:337: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_receipt_must_match_active_mission_contract_and_tree[native_tree-ros_bt_py.nodes.sequence.MemorySequence-native_tree]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x7502944c19f0&gt;, ...': 'fixture', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+field = 'native_tree', value = 'ros_bt_py.nodes.sequence.MemorySequence'
+message = 'native_tree'
+
+    @pytest.mark.parametrize('field,value,message', [
+        ('mission_id', 'other-mission', 'mission_id'),
+        ('mission_id', '', 'mission_id'),
+        ('mission_id', None, 'mission_id'),
+        ('task_contract_sha256', '0' * 64, 'task_contract_sha256'),
+        ('task_contract_sha256', None, 'task_contract_sha256'),
+        ('native_tree', 'ros_bt_py.nodes.sequence.MemorySequence', 'native_tree'),
+        ('native_tree', None, 'native_tree'),
+    ])
+    def test_receipt_must_match_active_mission_contract_and_tree(client_receipt, field, value, message):
+        adapter, result = client_receipt
+        result[field] = value
+&gt;       with pytest.raises(NativeBTError, match=message):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:337: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_receipt_must_match_active_mission_contract_and_tree[native_tree-None-native_tree]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x75029465bc40&gt;, ...': 'fixture', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+field = 'native_tree', value = None, message = 'native_tree'
+
+    @pytest.mark.parametrize('field,value,message', [
+        ('mission_id', 'other-mission', 'mission_id'),
+        ('mission_id', '', 'mission_id'),
+        ('mission_id', None, 'mission_id'),
+        ('task_contract_sha256', '0' * 64, 'task_contract_sha256'),
+        ('task_contract_sha256', None, 'task_contract_sha256'),
+        ('native_tree', 'ros_bt_py.nodes.sequence.MemorySequence', 'native_tree'),
+        ('native_tree', None, 'native_tree'),
+    ])
+    def test_receipt_must_match_active_mission_contract_and_tree(client_receipt, field, value, message):
+        adapter, result = client_receipt
+        result[field] = value
+&gt;       with pytest.raises(NativeBTError, match=message):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:337: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_payload_mutation_invalidates_existing_receipt" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x750294559810&gt;, ...': 'fixture', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+
+    def test_payload_mutation_invalidates_existing_receipt(client_receipt):
+        adapter, result = client_receipt
+        adapter._payload['tasks'][0]['target_ref'] = '/World/DifferentTarget'
+&gt;       with pytest.raises(NativeBTError, match='task_contract_sha256'):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:345: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_assignments_require_known_task_robot_and_explicit_eligibility[task-unknown task]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x75029465b910&gt;, ...': 'fixture', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+case = 'task', message = 'unknown task'
+
+    @pytest.mark.parametrize('case,message', [('task', 'unknown task'), ('robot', 'unknown robot'), ('bid', 'bid eligibility')])
+    def test_assignments_require_known_task_robot_and_explicit_eligibility(client_receipt, case, message):
+        adapter, result = client_receipt
+        assignment = {'task_id': 'root', 'robot_id': 'robot_a'}
+        if case == 'task':
+            assignment['task_id'] = 'unknown_task'
+        elif case == 'robot':
+            assignment['robot_id'] = 'unknown_robot'
+        else:
+            adapter._payload['tasks'][2]['bids'].pop('robot_a')
+            result['task_contract_sha256'] = contract_hash(adapter._payload)
+        result['assignments'] = [assignment]
+&gt;       with pytest.raises(NativeBTError, match=message):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:361: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_assignments_require_known_task_robot_and_explicit_eligibility[robot-unknown robot]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x7502944e1f60&gt;, ...': 'fixture', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+case = 'robot', message = 'unknown robot'
+
+    @pytest.mark.parametrize('case,message', [('task', 'unknown task'), ('robot', 'unknown robot'), ('bid', 'bid eligibility')])
+    def test_assignments_require_known_task_robot_and_explicit_eligibility(client_receipt, case, message):
+        adapter, result = client_receipt
+        assignment = {'task_id': 'root', 'robot_id': 'robot_a'}
+        if case == 'task':
+            assignment['task_id'] = 'unknown_task'
+        elif case == 'robot':
+            assignment['robot_id'] = 'unknown_robot'
+        else:
+            adapter._payload['tasks'][2]['bids'].pop('robot_a')
+            result['task_contract_sha256'] = contract_hash(adapter._payload)
+        result['assignments'] = [assignment]
+&gt;       with pytest.raises(NativeBTError, match=message):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:361: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_assignments_require_known_task_robot_and_explicit_eligibility[bid-bid eligibility]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x7502944c1360&gt;, ...': 'fixture', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+case = 'bid', message = 'bid eligibility'
+
+    @pytest.mark.parametrize('case,message', [('task', 'unknown task'), ('robot', 'unknown robot'), ('bid', 'bid eligibility')])
+    def test_assignments_require_known_task_robot_and_explicit_eligibility(client_receipt, case, message):
+        adapter, result = client_receipt
+        assignment = {'task_id': 'root', 'robot_id': 'robot_a'}
+        if case == 'task':
+            assignment['task_id'] = 'unknown_task'
+        elif case == 'robot':
+            assignment['robot_id'] = 'unknown_robot'
+        else:
+            adapter._payload['tasks'][2]['bids'].pop('robot_a')
+            result['task_contract_sha256'] = contract_hash(adapter._payload)
+        result['assignments'] = [assignment]
+&gt;       with pytest.raises(NativeBTError, match=message):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:361: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_valid_assignment_accepts_only_exact_receipt_binding" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_feedback_response_uses_full_receipt_validation[/feedback]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x7502944e1d80&gt;, ...': 'fixture', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7502944e2b30&gt;
+route = '/feedback'
+
+    @pytest.mark.parametrize('route', ['/feedback', '/feedback_batch'])
+    def test_feedback_response_uses_full_receipt_validation(client_receipt, monkeypatch, route):
+        adapter, result = client_receipt
+        result['task_contract_sha256'] = '0' * 64
+        calls = []
+        def request(actual_route, body):
+            calls.append((actual_route, body))
+            return result
+        monkeypatch.setattr(adapter, '_request', request)
+        feedback = ExecutionFeedback('root', 'robot_a', 'executor_ack')
+&gt;       with pytest.raises(NativeBTError, match='task_contract_sha256'):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:383: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_feedback_response_uses_full_receipt_validation[/feedback_batch]" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;">client_receipt = (&lt;algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTCapabilitiesAdapter object at 0x750294558a60&gt;, ...': 'fixture', 'native_algorithm': 'ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager', ...})
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x750294558fa0&gt;
+route = '/feedback_batch'
+
+    @pytest.mark.parametrize('route', ['/feedback', '/feedback_batch'])
+    def test_feedback_response_uses_full_receipt_validation(client_receipt, monkeypatch, route):
+        adapter, result = client_receipt
+        result['task_contract_sha256'] = '0' * 64
+        calls = []
+        def request(actual_route, body):
+            calls.append((actual_route, body))
+            return result
+        monkeypatch.setattr(adapter, '_request', request)
+        feedback = ExecutionFeedback('root', 'robot_a', 'executor_ack')
+&gt;       with pytest.raises(NativeBTError, match='task_contract_sha256'):
+E       Failed: DID NOT RAISE &lt;class 'algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:383: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_empty_graph_is_rejected_at_encoder_boundary" time="0.000"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">def test_empty_graph_is_rejected_at_encoder_boundary():
+        task = replace(package(), graph=SimpleNamespace(tasks=(), valid=True))
+&gt;       with pytest.raises(ValueError, match='nonempty task graph'):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:394: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_runtime_roster_must_match_package[subset]" time="0.000"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">case = 'subset'
+
+    @pytest.mark.parametrize('case', ['subset', 'replacement', 'empty_package', 'capabilities', 'active'])
+    def test_runtime_roster_must_match_package(case):
+        task = package()
+        robots = task.robots
+        if case == 'subset':
+            robots = robots[:1]
+        elif case == 'replacement':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, robot_id='robot_c')))
+        elif case == 'empty_package':
+            task = replace(task, robots=())
+        elif case == 'capabilities':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, capabilities=frozenset())))
+        else:
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, active=False)))
+&gt;       with pytest.raises(ValueError, match='runtime robot roster differs from task package'):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:412: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_runtime_roster_must_match_package[replacement]" time="0.000"><failure message="AssertionError: Regex pattern 'runtime robot roster differs from task package' does not match 'inspect: missing explicit bid for robot_c'.">case = 'replacement'
+
+    @pytest.mark.parametrize('case', ['subset', 'replacement', 'empty_package', 'capabilities', 'active'])
+    def test_runtime_roster_must_match_package(case):
+        task = package()
+        robots = task.robots
+        if case == 'subset':
+            robots = robots[:1]
+        elif case == 'replacement':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, robot_id='robot_c')))
+        elif case == 'empty_package':
+            task = replace(task, robots=())
+        elif case == 'capabilities':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, capabilities=frozenset())))
+        else:
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, active=False)))
+        with pytest.raises(ValueError, match='runtime robot roster differs from task package'):
+&gt;           encode_task(task, robots)
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:413: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+task = EaiTaskPackage(task_id='native_bt_fixture', scene_id='protocol_fixture', graph=TaskGraph(tasks=(CoordinationTask(task_...ozenset({'camera'}), active=True), position=None, metadata={})), observation_schema='task.observation.v1', metadata={})
+robots = (RobotState(capability=RobotCapability(robot_id='robot_a', capabilities=frozenset({'camera'}), active=True), position=...lity=RobotCapability(robot_id='robot_c', capabilities=frozenset({'camera'}), active=True), position=None, metadata={}))
+
+    def encode_task(task: EaiTaskPackage, robots: Sequence[RobotState]) -&gt; dict:
+        """Translate a DAG without choosing assignments or inventing bid costs."""
+        tasks = list(task.graph.tasks)
+        if not task.graph.valid:
+            raise ValueError("invalid task graph")
+        remaining = {item.task_id: item for item in tasks}
+        ordered = []
+        previous = ()
+        while remaining:
+            ready = [item for item in remaining.values() if item.prerequisites == previous]
+            if len(ready) != 1:
+                break
+            item = ready[0]
+            ordered.append(item)
+            del remaining[item.task_id]
+            previous = (item.task_id,)
+        graph_mode = "dag" if remaining else "linear"
+        if graph_mode == "dag":
+            ordered = tasks
+        ids = [r.capability.robot_id for r in robots]
+        if len(ids) != len(set(ids)) or not ids:
+            raise ValueError("nonempty unique robot roster required")
+        records = []
+        for item in ordered:
+            config = item.metadata.get("bt_native", {})
+            supplied = config.get("bids")
+            if not isinstance(supplied, dict):
+                raise ValueError(f"{item.task_id}: explicit bt_native.bids required (lower cost wins)")
+            bids = {}
+            for robot in robots:
+                cap = robot.capability
+                if not cap.active or not item.required_capabilities &lt;= cap.capabilities:
+                    continue
+                if cap.robot_id not in supplied:
+&gt;                   raise ValueError(f"{item.task_id}: missing explicit bid for {cap.robot_id}")
+E                   ValueError: inspect: missing explicit bid for robot_c
+
+algorithm/system/coordination/bt_capabilities/native_adapter.py:60: ValueError
+
+During handling of the above exception, another exception occurred:
+
+case = 'replacement'
+
+    @pytest.mark.parametrize('case', ['subset', 'replacement', 'empty_package', 'capabilities', 'active'])
+    def test_runtime_roster_must_match_package(case):
+        task = package()
+        robots = task.robots
+        if case == 'subset':
+            robots = robots[:1]
+        elif case == 'replacement':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, robot_id='robot_c')))
+        elif case == 'empty_package':
+            task = replace(task, robots=())
+        elif case == 'capabilities':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, capabilities=frozenset())))
+        else:
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, active=False)))
+&gt;       with pytest.raises(ValueError, match='runtime robot roster differs from task package'):
+E       AssertionError: Regex pattern 'runtime robot roster differs from task package' does not match 'inspect: missing explicit bid for robot_c'.
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:412: AssertionError</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_runtime_roster_must_match_package[empty_package]" time="0.000"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">case = 'empty_package'
+
+    @pytest.mark.parametrize('case', ['subset', 'replacement', 'empty_package', 'capabilities', 'active'])
+    def test_runtime_roster_must_match_package(case):
+        task = package()
+        robots = task.robots
+        if case == 'subset':
+            robots = robots[:1]
+        elif case == 'replacement':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, robot_id='robot_c')))
+        elif case == 'empty_package':
+            task = replace(task, robots=())
+        elif case == 'capabilities':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, capabilities=frozenset())))
+        else:
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, active=False)))
+&gt;       with pytest.raises(ValueError, match='runtime robot roster differs from task package'):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:412: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_runtime_roster_must_match_package[capabilities]" time="0.000"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">case = 'capabilities'
+
+    @pytest.mark.parametrize('case', ['subset', 'replacement', 'empty_package', 'capabilities', 'active'])
+    def test_runtime_roster_must_match_package(case):
+        task = package()
+        robots = task.robots
+        if case == 'subset':
+            robots = robots[:1]
+        elif case == 'replacement':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, robot_id='robot_c')))
+        elif case == 'empty_package':
+            task = replace(task, robots=())
+        elif case == 'capabilities':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, capabilities=frozenset())))
+        else:
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, active=False)))
+&gt;       with pytest.raises(ValueError, match='runtime robot roster differs from task package'):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:412: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_runtime_roster_must_match_package[active]" time="0.000"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">case = 'active'
+
+    @pytest.mark.parametrize('case', ['subset', 'replacement', 'empty_package', 'capabilities', 'active'])
+    def test_runtime_roster_must_match_package(case):
+        task = package()
+        robots = task.robots
+        if case == 'subset':
+            robots = robots[:1]
+        elif case == 'replacement':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, robot_id='robot_c')))
+        elif case == 'empty_package':
+            task = replace(task, robots=())
+        elif case == 'capabilities':
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, capabilities=frozenset())))
+        else:
+            robots = (robots[0], replace(robots[1], capability=replace(robots[1].capability, active=False)))
+&gt;       with pytest.raises(ValueError, match='runtime robot roster differs from task package'):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:412: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_roster_order_can_differ_without_changing_eligibility" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_dag_native" name="test_unknown_supplied_bid_is_rejected_not_silently_filtered" time="0.000"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">def test_unknown_supplied_bid_is_rejected_not_silently_filtered():
+        task = package(bids={'robot_a': 1, 'robot_b': 2, 'typo_robot': 3})
+&gt;       with pytest.raises(ValueError, match='unknown supplied bid robot IDs'):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+algorithm/system/coordination/bt_capabilities/tests/test_dag_native.py:425: Failed</failure></testcase><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_isaac_host_contract" name="test_task_positions_angle_timeout_reach_host" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_isaac_host_contract" name="test_unsupported_or_inconsistent_physical_contract_fails[&lt;lambda&gt;-object_position]" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_isaac_host_contract" name="test_unsupported_or_inconsistent_physical_contract_fails[&lt;lambda&gt;-disagrees]" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_isaac_host_contract" name="test_unsupported_or_inconsistent_physical_contract_fails[&lt;lambda&gt;-equal-height]" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_isaac_host_contract" name="test_unsupported_or_inconsistent_physical_contract_fails[&lt;lambda&gt;-target_ref]" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_isaac_host_contract" name="test_unsupported_or_inconsistent_physical_contract_fails[&lt;lambda&gt;-robot pose]" time="0.001" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_native_adapter" name="test_explicit_costs_and_linear_order" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_native_adapter" name="test_invalid_costs_fail_closed[nan]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_native_adapter" name="test_invalid_costs_fail_closed[inf]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_native_adapter" name="test_invalid_costs_fail_closed[-1]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_native_adapter" name="test_invalid_costs_fail_closed[True]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_native_adapter" name="test_invalid_costs_fail_closed[2]" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_native_adapter" name="test_missing_bid_never_becomes_default_cost" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_native_adapter" name="test_inactive_and_incapable_robots_do_not_bid" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_native_adapter" name="test_independent_graph_preserves_input_without_serial_heuristic" time="0.000" /><testcase classname="algorithm.system.coordination.bt_capabilities.tests.test_native_adapter" name="test_missing_source_is_explicit_blocker" time="0.001" /></testsuite></testsuites>

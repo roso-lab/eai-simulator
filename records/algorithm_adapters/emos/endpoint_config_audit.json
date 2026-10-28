@@ -1,0 +1,25 @@
+{
+  "scope": "current process environment and explicit configuration candidates under /home/airs/hetrocoord; no credential stores or unrelated home files read",
+  "environment_presence": {
+    "EMOS_API_KEY": false,
+    "EMOS_BASE_URL": false,
+    "EMOS_MODEL": false,
+    "OPENAI_API_KEY": false,
+    "OPENAI_BASE_URL": false,
+    "OPENAI_MODEL": false,
+    "DEEPSEEK_API_KEY": false,
+    "ZHIPU_API_KEY": false
+  },
+  "config_file_presence": {
+    ".env": false,
+    ".env.local": false,
+    ".env.example": false,
+    "config/llm.json": false,
+    "configs/llm.json": false,
+    "config/emos.json": false,
+    "configs/emos.json": false
+  },
+  "code_configuration": "in-tree brain accepts explicit base_url and api_key_env (default DEEPSEEK_API_KEY); no configured endpoint discovered in checked scope",
+  "network_requests": 0,
+  "additional_filename_inspection": "Nonignored and ignored project config/profile/env filenames examined, excluding source assets, records, research, papers, web artifacts and dependencies; only unrelated G1 editor settings/stadium profiles found."
+}

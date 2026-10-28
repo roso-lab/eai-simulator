@@ -1,0 +1,11 @@
+{
+  "schema": "heterocoord.native_adapter_run.v1",
+  "algorithm": "sadcher",
+  "evidence_scope": "native_decision_only",
+  "physical_success": null,
+  "simulation_acceptance_passed": false,
+  "status": "not_passed",
+  "error_type": "CheckpointCompatibilityError",
+  "error": "SADCHER checkpoint rejected: 16 missing, 84 unexpected, 86 shape mismatches; no native inference executed",
+  "elapsed_wall_s": 0.8208850130904466
+}

@@ -1,0 +1,42 @@
+Traceback (most recent call last):
+  File "/home/airs/hetrocoord/algorithm/system/coordination/bt_capabilities/native_adapter.py", line 97, in _request
+    with urlopen(request, timeout=self.timeout_s) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/miniconda3/envs/env_isaaclab/lib/python3.11/urllib/request.py", line 216, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/miniconda3/envs/env_isaaclab/lib/python3.11/urllib/request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/miniconda3/envs/env_isaaclab/lib/python3.11/urllib/request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/home/airs/miniconda3/envs/env_isaaclab/lib/python3.11/urllib/request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/miniconda3/envs/env_isaaclab/lib/python3.11/urllib/request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/home/airs/miniconda3/envs/env_isaaclab/lib/python3.11/urllib/request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/airs/hetrocoord/tools/algorithm_adapters/isaac_pick_place.py", line 188, in main
+    result = TaskRunner(executor=Executor(), evaluator=Evaluator()).run(TaskRunRequest(task), provider)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/task/runner.py", line 197, in run
+    output = provider(task, task.robots)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/tools/algorithm_adapters/isaac_pick_place.py", line 143, in provider
+    resumed = native_feedback_adapter.resume_mission(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/algorithm/system/coordination/bt_capabilities/native_adapter.py", line 165, in resume_mission
+    result = self._request("/state", {"mission_id": mission_id})
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airs/hetrocoord/algorithm/system/coordination/bt_capabilities/native_adapter.py", line 101, in _request
+    raise NativeBTError(f"native endpoint {route}: {exc.read(4096).decode()}") from exc
+algorithm.system.coordination.bt_capabilities.native_adapter.NativeBTError: native endpoint /state: {"ok": false, "error": "'7722c8f7500f403fb78c71ad3db8dfff'"}
+{"passed": false, "output": "algorithm/system/coordination/bt_capabilities/evidence/isaac_ur5_20261028"}

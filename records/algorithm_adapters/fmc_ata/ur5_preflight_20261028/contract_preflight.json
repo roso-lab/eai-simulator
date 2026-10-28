@@ -1,0 +1,35 @@
+{
+  "status": "contract_validated_only",
+  "host_options": {
+    "arm": "ur5",
+    "backend": "arm",
+    "mode": "cartesian_pose",
+    "trials": 1,
+    "approach_degrees": 15.0,
+    "timeout_s": 100.0,
+    "gui": false,
+    "video": null,
+    "object_position": [
+      0.45,
+      0.0,
+      0.475
+    ],
+    "place_offset": null,
+    "place_position": [
+      0.425,
+      0.01,
+      0.475
+    ],
+    "report": "/home/airs/hetrocoord/records/algorithm_adapters/fmc_ata/ur5_preflight_20261028/host_run/physical_execution.json"
+  },
+  "fmc_position_matches_host_xy_projection": true,
+  "fmc_workload_over_productivity_matches_nominal_duration": true,
+  "physical_execution_performed": false,
+  "isaac_started": false,
+  "gpu_started": false,
+  "native_solver_called": false,
+  "limitations": [
+    "no native execution feedback/replan API; host can record executor feedback only",
+    "native ground-projected geometry and nominal duration are planning inputs, not arm dynamics or measured timing"
+  ]
+}

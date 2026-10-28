@@ -1,0 +1,51 @@
+{
+  "evidence_scope": "native_protocol_only_not_simulation",
+  "native": {
+    "ok": true,
+    "mission_id": "3f71a1df1d9a430cbf17048cd116951a",
+    "native_algorithm": "ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager",
+    "native_tree": "ros_bt_py.nodes.sequence.MemorySequence",
+    "source_commit": "5438f6e8d7599e39ec12104c0a9f0a8f1543838d",
+    "source_sha256": {
+      "ros_bt_py/src/ros_bt_py/assignment_manager/parallel_auction_manager.py": "4c45e7b99c44a66454cd07725bd1ce554633f4e4128b87ce4096c2fa4d32860d",
+      "ros_bt_py/src/ros_bt_py/nodes/sequence.py": "b963b33aee84fdcb2262c10fd481a009084456629ae9609d037b427cd49e9ccb"
+    },
+    "tree_state": "FAILED",
+    "assignments": [],
+    "unassigned_tasks": [
+      "inspect"
+    ],
+    "leaf_states": [
+      {
+        "task_id": "inspect",
+        "state": "FAILED",
+        "feedback": null,
+        "auction_error": "No valid bids received! Auction has failed!"
+      }
+    ],
+    "auction_messages": [
+      {
+        "auction_id": "f2e5a6cf-8cf2-4b55-b81b-1597dbf17038",
+        "sender_id": "/heterocoord_native/dispatcher/",
+        "type": "ANNOUNCEMENT",
+        "bid": 0.0,
+        "executors": 0,
+        "result_id": "",
+        "implementation": ""
+      },
+      {
+        "auction_id": "f2e5a6cf-8cf2-4b55-b81b-1597dbf17038",
+        "sender_id": "/heterocoord_native/dispatcher/",
+        "type": "CLOSE",
+        "bid": 0.0,
+        "executors": 0,
+        "result_id": "",
+        "implementation": ""
+      }
+    ],
+    "evidence_scope": "native_ros_protocol_and_bt_feedback_only",
+    "simulation_evidence": "not_evaluated",
+    "physical_evidence": "not_evaluated"
+  },
+  "task_runner": null
+}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="0.814" timestamp="2026-10-28T16:44:05.176874" hostname="airs-Precision-3660"><testcase classname="" name="algorithm.system.coordination.harl.tests.test_physical_contract" time="0.000"><error message="collection failure">ImportError while importing test module '/home/airs/hetrocoord/algorithm/system/coordination/harl/tests/test_physical_contract.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+algorithm/system/coordination/harl/tests/test_physical_contract.py:15: in &lt;module&gt;
+    from algorithm.system.coordination.harl.tests.test_native_adapter import (
+algorithm/system/coordination/harl/tests/test_native_adapter.py:17: in &lt;module&gt;
+    from algorithm.system.coordination.harl.macro_environment import EaiMacroEnvironment, SymbolicMacroExecutor
+algorithm/system/coordination/harl/macro_environment.py:9: in &lt;module&gt;
+    from gymnasium.spaces import Box, Discrete
+E   ModuleNotFoundError: No module named 'gymnasium'</error></testcase></testsuite></testsuites>

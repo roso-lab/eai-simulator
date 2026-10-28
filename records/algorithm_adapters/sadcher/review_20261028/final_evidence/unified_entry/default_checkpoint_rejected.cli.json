@@ -1,0 +1,27 @@
+{
+  "schema": "heterocoord.native_adapter_run.v1",
+  "algorithm": "sadcher",
+  "started_at_utc": "2026-10-28T10:39:18.085124+00:00",
+  "evidence_scope": "native_decision_only",
+  "physical_success": null,
+  "simulation_acceptance_passed": false,
+  "task_sha256": "c4aababee65cb002c4faed664bf187947d6869d98adf8c1d0ad7b24c5252520e",
+  "config_sha256": "cc1131e63fd8bf478f344f703f03ec201675ed4608f20bcf8808891031266a17",
+  "status": "not_passed",
+  "error_type": "CheckpointCompatibilityError",
+  "error": "SADCHER checkpoint rejected: 16 missing, 84 unexpected, 86 shape mismatches; no native inference executed",
+  "native_source_provenance": {
+    "paper_algorithm": "sadcher",
+    "source_integrity": {
+      "root": "/home/airs/.cache/heterocoord/upstream/sadcher",
+      "commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+      "tree": "13223cb5802f580aa437cc5c42f02c2a5298b440",
+      "code_sha256": "a1ab0f3a925758897639bed75b2da1e65bf26ca8052b3b8c13cbd13bedf7f60d",
+      "code_files": 57
+    },
+    "adapter_source_sha256": "669c5352f3df721ed3d7bd9a0789c73ea3d774fec712239a2aaac457f640af0c",
+    "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+    "decision_is_physical_evidence": false
+  },
+  "elapsed_wall_s": 0.8008648289833218
+}

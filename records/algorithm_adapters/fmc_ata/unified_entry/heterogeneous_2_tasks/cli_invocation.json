@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "/home/airs/.cache/heterocoord/envs/fmc-ata/bin/python",
+    "-B",
+    "-m",
+    "tools.algorithm_adapters.run",
+    "--algorithm",
+    "fmc_ata",
+    "--task",
+    "/home/airs/hetrocoord/records/algorithm_adapters/fmc_ata/unified_entry/heterogeneous_2_tasks/task.json",
+    "--config",
+    "/home/airs/hetrocoord/records/algorithm_adapters/fmc_ata/unified_entry/heterogeneous_2_tasks/config.json",
+    "--source-root",
+    "/tmp/heterocoord-algorithms-20261028/fmc-ata",
+    "--report",
+    "/home/airs/hetrocoord/records/algorithm_adapters/fmc_ata/unified_entry/heterogeneous_2_tasks/cli_report.json"
+  ],
+  "cwd": "/home/airs/hetrocoord",
+  "returncode": 0,
+  "stdout": "{\"status\": \"native_decision_returned\", \"report\": \"/home/airs/hetrocoord/records/algorithm_adapters/fmc_ata/unified_entry/heterogeneous_2_tasks/cli_report.json\"}\n",
+  "stderr": ""
+}

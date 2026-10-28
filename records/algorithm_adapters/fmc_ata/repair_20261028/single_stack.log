@@ -1,0 +1,36 @@
+Thread 0x0000771933553640 (most recent call first):
+  File "/usr/lib/python3.10/threading.py", line 268 in __exit__
+  File "/home/airs/.cache/heterocoord/upstream/fmc-ata/solver_abstract.py", line 868 in get_is_idle
+  File "/home/airs/.cache/heterocoord/upstream/fmc-ata/solver_abstract.py", line 489 in are_all_agents_idle
+  File "/home/airs/.cache/heterocoord/upstream/fmc-ata/solver_abstract.py", line 298 in self_check_if_all_idle_to_continue
+  File "/home/airs/.cache/heterocoord/upstream/fmc-ata/solver_abstract.py", line 239 in run
+  File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+  File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+
+Thread 0x0000771933d54640 (most recent call first):
+  File "/usr/lib/python3.10/threading.py", line 320 in wait
+  File "/home/airs/.cache/heterocoord/upstream/fmc-ata/solver_abstract.py", line 40 in extract
+  File "/home/airs/.cache/heterocoord/upstream/fmc-ata/solver_abstract.py", line 840 in run
+  File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+  File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+
+Thread 0x0000771934555640 (most recent call first):
+  File "/usr/lib/python3.10/threading.py", line 320 in wait
+  File "/home/airs/.cache/heterocoord/upstream/fmc-ata/solver_abstract.py", line 40 in extract
+  File "/home/airs/.cache/heterocoord/upstream/fmc-ata/solver_abstract.py", line 840 in run
+  File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+  File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+
+Current thread 0x0000771979bff640 (most recent call first):
+  File "/home/airs/hetrocoord/records/algorithm_adapters/fmc_ata/repair_20261028/diagnose.py", line 18 in observe
+  File "/usr/lib/python3.10/threading.py", line 953 in run
+  File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+  File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+
+Thread 0x000077197b138000 (most recent call first):
+  File "/usr/lib/python3.10/threading.py", line 1116 in _wait_for_tstate_lock
+  File "/usr/lib/python3.10/threading.py", line 1096 in join
+  File "/home/airs/.cache/heterocoord/upstream/fmc-ata/solver_fmc_distributed_asy.py", line 1159 in allocate
+  File "/home/airs/.cache/heterocoord/upstream/fmc-ata/solver_abstract.py", line 1127 in solve
+  File "/home/airs/hetrocoord/algorithm/system/coordination/fmc_ata/native_adapter.py", line 294 in _native_worker
+  File "/home/airs/hetrocoord/records/algorithm_adapters/fmc_ata/repair_20261028/diagnose.py", line 36 in <module>

@@ -1,0 +1,78 @@
+{
+  "task_id": "sadcher-native-fixture",
+  "scene_id": "native-2d-simulation",
+  "metadata": {
+    "sadcher": {
+      "start_position": [
+        0,
+        0,
+        0
+      ],
+      "end_position": [
+        30,
+        30,
+        0
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "task_id": "t0",
+      "description": "native fixture task 0",
+      "required_capabilities": [
+        "terrain",
+        "button"
+      ],
+      "prerequisites": [],
+      "metadata": {
+        "duration_s": 5,
+        "position": [
+          10,
+          10,
+          0
+        ]
+      }
+    }
+  ],
+  "robots": [
+    {
+      "robot_id": "r0",
+      "capabilities": [
+        "terrain"
+      ],
+      "active": true,
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "metadata": {}
+    },
+    {
+      "robot_id": "r1",
+      "capabilities": [
+        "button"
+      ],
+      "active": true,
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "metadata": {}
+    },
+    {
+      "robot_id": "r2",
+      "capabilities": [
+        "sensor"
+      ],
+      "active": true,
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "metadata": {}
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "shared_files": {
+    "benchmark/native_algorithms.py": "bb6d66ad1c39e2e3cc84202088556eacb6a115b7070d0e582a2cfd6e94e0473b",
+    "tools/algorithm_adapters/run.py": "73150923ef90c4e956c0b140a86776339c28b5db6e03f401ebde889747d06df7"
+  },
+  "shared_same_as_before": true,
+  "tests": "........................................................................ [ 88%]\n.........                                                                [100%]\n81 passed in 6.09s",
+  "source_integrity": {
+    "root": "/home/airs/.cache/heterocoord/upstream/harl",
+    "commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+    "tree": "baaf128d5fa643fc78cc656e49e4972688a84081",
+    "code_sha256": "98783b65ea6cb865fffb05011430d24379d09962a8be6b5127c06ca082fdf359",
+    "code_files": 616
+  },
+  "own_changes": [
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/native_adapter.py",
+      "sha256": "9f9a9d52f54c5e83ecf5f6174e825de6afd2ef71c7f21e0f2ddae461d26765d0"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/generic_manifest.py",
+      "sha256": "822b0e68d795a5ecaf4e5adbac069250373c8a752232ad33e3c4b53ad3069692"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/tests/test_native_adapter.py",
+      "sha256": "1972be12944d07d012850cef81c2a287e27497235cec7ab5564d0b6793ce7e38"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/tests/test_review.py",
+      "sha256": "7bab76ad71b467cebb9c4ab2721c6a649eddc83eb318a47544aa75fd75b4e358"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/NATIVE_ADAPTER.md",
+      "sha256": "049a671f7ce14d9044ce1a9ecb5996b29ef54fe96fdfedaa5aca24356b30818d"
+    }
+  ],
+  "parent_findings_remain_open": [
+    "report_can_overwrite_manifest",
+    "replan_none_and_kwargs_not_preserved"
+  ],
+  "v2_feedback_requires": "decision_token=decision.provenance[feedback_token]",
+  "physical_evidence": "N/A"
+}

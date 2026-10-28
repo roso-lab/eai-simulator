@@ -1,0 +1,302 @@
+{
+  "schema": "heterocoord.native_adapter_run.v1",
+  "algorithm": "harl_happo",
+  "evidence_scope": "native_decision_only",
+  "physical_success": null,
+  "simulation_acceptance_passed": false,
+  "status": "native_decision_returned",
+  "result": {
+    "task_id": "holdout-10012-2",
+    "scene_id": "happo-symbolic-macro-smoke",
+    "branch_id": "fact",
+    "checkpoint": null,
+    "repeat_id": "",
+    "condition": {
+      "algorithm_id": "HARL-HAPPO-v2-local-compatibility-test",
+      "source_reference": "PKU-MARL/HARL@b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+      "implementation": "original_harl_HAPPO_act_strict_checkpoint",
+      "execution_scope": "native_inference_caller_bound_contract",
+      "planner": "harl.algorithms.actors.happo.HAPPO",
+      "model_or_api": "not_applicable",
+      "checkpoint": "d76e69fa732156ba4010dcc51a21f43f2563c201e5b46a2aebb2402e298ff241",
+      "prompt_revision": "not_applicable",
+      "supported_primitives": [
+        "declared_discrete_assignment",
+        "explicit_observation_snapshot"
+      ],
+      "unsupported_dimensions": [
+        "continuous_control",
+        "coalition_dispatch",
+        "unverified_environment_transfer"
+      ],
+      "physical_executor_owner": "eai_runtime",
+      "serial_action_loop": false,
+      "notes": "Caller-attested checkpoint/environment binding; native inference is not benchmark acceptance."
+    },
+    "assignments": [
+      {
+        "task_id": "inspect_ground",
+        "robot_id": "ground",
+        "source": "HARL-HAPPO-v2-local-compatibility-test",
+        "plan_version": ""
+      },
+      {
+        "task_id": "inspect_air",
+        "robot_id": "air",
+        "source": "HARL-HAPPO-v2-local-compatibility-test",
+        "plan_version": ""
+      }
+    ],
+    "unassigned_tasks": [],
+    "feedback": [
+      {
+        "task_id": "inspect_ground",
+        "robot_id": "ground",
+        "outcome": "not_executed",
+        "failure_code": "milestone_unverified",
+        "message": "No EAI SkillExecutor was injected; physical evidence is unavailable.",
+        "timestamp_s": 0.0,
+        "world_changes": {}
+      },
+      {
+        "task_id": "inspect_air",
+        "robot_id": "air",
+        "outcome": "not_executed",
+        "failure_code": "milestone_unverified",
+        "message": "No EAI SkillExecutor was injected; physical evidence is unavailable.",
+        "timestamp_s": 0.0,
+        "world_changes": {}
+      }
+    ],
+    "verdict": {
+      "status": "N/A",
+      "reason": "physical_evidence_required",
+      "unassigned_tasks": []
+    },
+    "ledger": {
+      "schema_version": "coordination.v1",
+      "events": [
+        {
+          "sequence": 0,
+          "kind": "algorithm_decision",
+          "payload": {
+            "algorithm_id": "HARL-HAPPO-v2-local-compatibility-test",
+            "assignments": [
+              {
+                "task_id": "inspect_ground",
+                "robot_id": "ground",
+                "source": "HARL-HAPPO-v2-local-compatibility-test",
+                "plan_version": ""
+              },
+              {
+                "task_id": "inspect_air",
+                "robot_id": "air",
+                "source": "HARL-HAPPO-v2-local-compatibility-test",
+                "plan_version": ""
+              }
+            ],
+            "unassigned_tasks": [],
+            "provenance": {
+              "adapter": "NativeHAPPOAdapter",
+              "source_root": "/home/airs/.cache/heterocoord/upstream/harl",
+              "source_commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+              "manifest_sha256": "d76e69fa732156ba4010dcc51a21f43f2563c201e5b46a2aebb2402e298ff241",
+              "checkpoint_sha256": [
+                "483979bdce4e2041126683b2501a39013da9107c5d46fb808be7e5c7c09f37ec",
+                "ae1d1bcd71fdc86a75285b4a17ff8bc795f9205fe0cc64a7ab5693499c7f334e"
+              ],
+              "actor_outputs": [
+                {
+                  "actor_index": 0,
+                  "robot_id": "ground",
+                  "action": 1,
+                  "observation": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.7516247630119324,
+                    0.02999061532318592,
+                    0.36062711477279663,
+                    0.6783834099769592,
+                    0.0,
+                    0.0
+                  ],
+                  "available_actions": [
+                    1.0,
+                    1.0
+                  ],
+                  "rnn_input_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+                  "rnn_output_sha256": "bffcc7880ac262bd12cb4e836d7d1bcbe7ec04cc7e83363d2d19e7d2fda4672f",
+                  "reset_mask": 0.0,
+                  "action_binding": {
+                    "kind": "assign",
+                    "task_id": "inspect_ground"
+                  }
+                },
+                {
+                  "actor_index": 1,
+                  "robot_id": "air",
+                  "action": 1,
+                  "observation": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.09416639804840088,
+                    0.5339025855064392,
+                    0.6194533109664917,
+                    0.3137977421283722,
+                    0.0,
+                    0.0
+                  ],
+                  "available_actions": [
+                    1.0,
+                    1.0
+                  ],
+                  "rnn_input_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+                  "rnn_output_sha256": "0fe1fe1b9dc09bcfd54ab88dfbc546db5a2caf74b2e7ac6e6ae3ffa16eb4a3a6",
+                  "reset_mask": 0.0,
+                  "action_binding": {
+                    "kind": "assign",
+                    "task_id": "inspect_air"
+                  }
+                }
+              ],
+              "evidence": {
+                "contract": "validated",
+                "native": "original_HAPPO.act_executed",
+                "simulation": "not_executed",
+                "physical": "N/A",
+                "benchmark": "not_evaluable"
+              },
+              "condition": "HARL-HAPPO-v2-local-compatibility-test",
+              "step": 1,
+              "contract_sha256": "4305f315dc704e6ece52a252917dd88d2bb4a5f44a9fe7be5b904d313e32344d",
+              "checkpoint_origin": {
+                "kind": "locally_trained",
+                "reference": "original HARL local training receipt",
+                "training_environment": "heterocoord.happo.two_actor_macro.v1"
+              },
+              "checkpoint_origin_verification": "caller_attested_hash_bound_not_independently_verified",
+              "paper_algorithm": "harl_happo",
+              "source_integrity": {
+                "root": "/home/airs/.cache/heterocoord/upstream/harl",
+                "commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+                "tree": "baaf128d5fa643fc78cc656e49e4972688a84081",
+                "code_sha256": "98783b65ea6cb865fffb05011430d24379d09962a8be6b5127c06ca082fdf359",
+                "code_files": 616
+              },
+              "adapter_source_sha256": "7daf2f2a10191f89ecc163f1b8688ce8378d10afb90470c98b7fa68692330e02",
+              "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+              "native_adapter_call": 1,
+              "decision_is_physical_evidence": false
+            }
+          }
+        },
+        {
+          "sequence": 1,
+          "kind": "verdict",
+          "payload": {
+            "status": "N/A",
+            "reason": "physical_evidence_required"
+          }
+        }
+      ],
+      "digest": "4ec9035010a50276b9c00cfaeea5bf1c17db42f814440558de18e14d796b0b60"
+    }
+  },
+  "provenance": {
+    "adapter": "NativeHAPPOAdapter",
+    "source_root": "/home/airs/.cache/heterocoord/upstream/harl",
+    "source_commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+    "manifest_sha256": "d76e69fa732156ba4010dcc51a21f43f2563c201e5b46a2aebb2402e298ff241",
+    "checkpoint_sha256": [
+      "483979bdce4e2041126683b2501a39013da9107c5d46fb808be7e5c7c09f37ec",
+      "ae1d1bcd71fdc86a75285b4a17ff8bc795f9205fe0cc64a7ab5693499c7f334e"
+    ],
+    "actor_outputs": [
+      {
+        "actor_index": 0,
+        "robot_id": "ground",
+        "action": 1,
+        "observation": [
+          1.0,
+          0.0,
+          0.0,
+          0.7516247630119324,
+          0.02999061532318592,
+          0.36062711477279663,
+          0.6783834099769592,
+          0.0,
+          0.0
+        ],
+        "available_actions": [
+          1.0,
+          1.0
+        ],
+        "rnn_input_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+        "rnn_output_sha256": "bffcc7880ac262bd12cb4e836d7d1bcbe7ec04cc7e83363d2d19e7d2fda4672f",
+        "reset_mask": 0.0,
+        "action_binding": {
+          "kind": "assign",
+          "task_id": "inspect_ground"
+        }
+      },
+      {
+        "actor_index": 1,
+        "robot_id": "air",
+        "action": 1,
+        "observation": [
+          1.0,
+          0.0,
+          0.0,
+          0.09416639804840088,
+          0.5339025855064392,
+          0.6194533109664917,
+          0.3137977421283722,
+          0.0,
+          0.0
+        ],
+        "available_actions": [
+          1.0,
+          1.0
+        ],
+        "rnn_input_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+        "rnn_output_sha256": "0fe1fe1b9dc09bcfd54ab88dfbc546db5a2caf74b2e7ac6e6ae3ffa16eb4a3a6",
+        "reset_mask": 0.0,
+        "action_binding": {
+          "kind": "assign",
+          "task_id": "inspect_air"
+        }
+      }
+    ],
+    "evidence": {
+      "contract": "validated",
+      "native": "original_HAPPO.act_executed",
+      "simulation": "not_executed",
+      "physical": "N/A",
+      "benchmark": "not_evaluable"
+    },
+    "condition": "HARL-HAPPO-v2-local-compatibility-test",
+    "step": 1,
+    "contract_sha256": "4305f315dc704e6ece52a252917dd88d2bb4a5f44a9fe7be5b904d313e32344d",
+    "checkpoint_origin": {
+      "kind": "locally_trained",
+      "reference": "original HARL local training receipt",
+      "training_environment": "heterocoord.happo.two_actor_macro.v1"
+    },
+    "checkpoint_origin_verification": "caller_attested_hash_bound_not_independently_verified",
+    "paper_algorithm": "harl_happo",
+    "source_integrity": {
+      "root": "/home/airs/.cache/heterocoord/upstream/harl",
+      "commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+      "tree": "baaf128d5fa643fc78cc656e49e4972688a84081",
+      "code_sha256": "98783b65ea6cb865fffb05011430d24379d09962a8be6b5127c06ca082fdf359",
+      "code_files": 616
+    },
+    "adapter_source_sha256": "7daf2f2a10191f89ecc163f1b8688ce8378d10afb90470c98b7fa68692330e02",
+    "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+    "native_adapter_call": 1,
+    "decision_is_physical_evidence": false
+  },
+  "elapsed_wall_s": 1.4067417029291391
+}

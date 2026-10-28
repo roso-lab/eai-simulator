@@ -1,0 +1,101 @@
+{
+  "endpoint": {
+    "model": "gpt-5.6-luna",
+    "completion_attempts": 2,
+    "failed_attempts": 0,
+    "total_tokens": 1520,
+    "max_calls": 12,
+    "reasoning_effort": "low",
+    "protocol_only": false
+  },
+  "responses": [
+    {
+      "call": 1,
+      "requested_model": "gpt-5.6-luna",
+      "reasoning_effort": "low",
+      "response": {
+        "id": "resp_0199a3400ff7af08016ae1ada0f768819bbef49544c2dc3f1a",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "{ur5_1||Pick the workbench carton object /World/Object at native coordinates [0.45, 0.475, 0] using the Cartesian pick skill, then place it at the destination [0.425, 0.475, 0.01]. Goal condition: the carton is successfully placed at the specified destination.}",
+              "refusal": null,
+              "role": "assistant",
+              "annotations": null,
+              "audio": null,
+              "function_call": null,
+              "tool_calls": null,
+              "reasoning_content": "**Specifying UR5_1 pick-and-place goals**"
+            }
+          }
+        ],
+        "created": 1793174946,
+        "model": "gpt-5.6-luna",
+        "object": "chat.completion",
+        "service_tier": "default",
+        "system_fingerprint": null,
+        "usage": {
+          "completion_tokens": 135,
+          "prompt_tokens": 475,
+          "total_tokens": 610,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": null,
+            "audio_tokens": null,
+            "reasoning_tokens": 57,
+            "rejected_prediction_tokens": null
+          },
+          "prompt_tokens_details": null
+        }
+      },
+      "status": "response_received",
+      "elapsed_wall_s": 13.098879756988026
+    },
+    {
+      "call": 2,
+      "requested_model": "gpt-5.6-luna",
+      "reasoning_effort": "low",
+      "response": {
+        "id": "resp_04106bf80564d6cb016ae1ada4e7808199af4177433f00fe0f",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "{{yes}}",
+              "refusal": null,
+              "role": "assistant",
+              "annotations": null,
+              "audio": null,
+              "function_call": null,
+              "tool_calls": null,
+              "reasoning_content": "**Assessing UR5 reach feasibility**"
+            }
+          }
+        ],
+        "created": 1793174953,
+        "model": "gpt-5.6-luna",
+        "object": "chat.completion",
+        "service_tier": "default",
+        "system_fingerprint": null,
+        "usage": {
+          "completion_tokens": 77,
+          "prompt_tokens": 833,
+          "total_tokens": 910,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": null,
+            "audio_tokens": null,
+            "reasoning_tokens": 68,
+            "rejected_prediction_tokens": null
+          },
+          "prompt_tokens_details": null
+        }
+      },
+      "status": "response_received",
+      "elapsed_wall_s": 6.253027104074135
+    }
+  ]
+}

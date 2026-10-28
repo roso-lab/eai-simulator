@@ -1,0 +1,268 @@
+{
+  "condition": "locally_trained_macro_smoke",
+  "seed": 20031,
+  "rounds": [
+    {
+      "task_id": "inference-holdout-20031-1",
+      "scene_id": "happo-symbolic-macro-smoke",
+      "branch_id": "fact",
+      "checkpoint": null,
+      "repeat_id": "",
+      "condition": {
+        "algorithm_id": "HARL-HAPPO-native-local-macro-smoke-v1",
+        "source_reference": "PKU-MARL/HARL@b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+        "implementation": "original_harl_HAPPO_act_strict_checkpoint",
+        "execution_scope": "native_inference_declared_symbolic_macro_contract",
+        "planner": "harl.algorithms.actors.happo.HAPPO",
+        "model_or_api": "not_applicable",
+        "checkpoint": "b716350d724c57d310f1881d53b1d663ab0ab837c845f11b9b3c67d5925f6bf8",
+        "prompt_revision": "not_applicable",
+        "supported_primitives": [
+          "two_actor_macro_inspection",
+          "recurrent_feedback"
+        ],
+        "unsupported_dimensions": [
+          "Fire_Rescue",
+          "benchmark_performance",
+          "physical_task_success"
+        ],
+        "physical_executor_owner": "eai_runtime",
+        "serial_action_loop": false,
+        "notes": "Locally trained smoke condition; upstream optimizer/trainer unchanged."
+      },
+      "assignments": [
+        {
+          "task_id": "inspect_ground",
+          "robot_id": "ground",
+          "source": "HARL-HAPPO-native-local-macro-smoke-v1",
+          "plan_version": ""
+        },
+        {
+          "task_id": "inspect_air",
+          "robot_id": "air",
+          "source": "HARL-HAPPO-native-local-macro-smoke-v1",
+          "plan_version": ""
+        }
+      ],
+      "unassigned_tasks": [],
+      "feedback": [
+        {
+          "task_id": "inspect_ground",
+          "robot_id": "ground",
+          "outcome": "macro_completed",
+          "failure_code": "none",
+          "message": "Symbolic macro boundary only; no physical execution.",
+          "timestamp_s": 0.0,
+          "world_changes": {}
+        },
+        {
+          "task_id": "inspect_air",
+          "robot_id": "air",
+          "outcome": "macro_completed",
+          "failure_code": "none",
+          "message": "Symbolic macro boundary only; no physical execution.",
+          "timestamp_s": 0.0,
+          "world_changes": {}
+        }
+      ],
+      "verdict": {
+        "status": "N/A",
+        "reason": "physical_evidence_required",
+        "unassigned_tasks": []
+      },
+      "ledger": {
+        "schema_version": "coordination.v1",
+        "events": [
+          {
+            "sequence": 0,
+            "kind": "algorithm_decision",
+            "payload": {
+              "algorithm_id": "HARL-HAPPO-native-local-macro-smoke-v1",
+              "assignments": [
+                {
+                  "task_id": "inspect_ground",
+                  "robot_id": "ground",
+                  "source": "HARL-HAPPO-native-local-macro-smoke-v1",
+                  "plan_version": ""
+                },
+                {
+                  "task_id": "inspect_air",
+                  "robot_id": "air",
+                  "source": "HARL-HAPPO-native-local-macro-smoke-v1",
+                  "plan_version": ""
+                }
+              ],
+              "unassigned_tasks": [],
+              "provenance": {
+                "adapter": "NativeHAPPOAdapter",
+                "source_root": "/tmp/heterocoord-algorithms-20261028/harl",
+                "source_commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+                "manifest_sha256": "b716350d724c57d310f1881d53b1d663ab0ab837c845f11b9b3c67d5925f6bf8",
+                "checkpoint_sha256": [
+                  "483979bdce4e2041126683b2501a39013da9107c5d46fb808be7e5c7c09f37ec",
+                  "ae1d1bcd71fdc86a75285b4a17ff8bc795f9205fe0cc64a7ab5693499c7f334e"
+                ],
+                "actor_outputs": [
+                  {
+                    "actor_index": 0,
+                    "robot_id": "ground",
+                    "action": 1,
+                    "observation": [
+                      1.0,
+                      0.0,
+                      0.0,
+                      0.7750799059867859,
+                      0.6831610798835754,
+                      0.7859675288200378,
+                      0.49163171648979187,
+                      0.0,
+                      0.0
+                    ],
+                    "available_actions": [
+                      1.0,
+                      1.0
+                    ],
+                    "rnn_input_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+                    "rnn_output_sha256": "e80d10f5d42f7e631cd26ff90d1c3361b5cce5d925065483858bec3d24c70310",
+                    "reset_mask": 0.0
+                  },
+                  {
+                    "actor_index": 1,
+                    "robot_id": "air",
+                    "action": 1,
+                    "observation": [
+                      1.0,
+                      0.0,
+                      0.0,
+                      0.8900159001350403,
+                      0.6310098767280579,
+                      0.4612981081008911,
+                      0.38708987832069397,
+                      0.0,
+                      0.0
+                    ],
+                    "available_actions": [
+                      1.0,
+                      1.0
+                    ],
+                    "rnn_input_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+                    "rnn_output_sha256": "793089307e381de91c2c4f84df88c238dfebf09d30426ec1241406b90a76d9c6",
+                    "reset_mask": 0.0
+                  }
+                ],
+                "evidence": {
+                  "contract": "validated",
+                  "native": "original_HAPPO.act_executed",
+                  "simulation": "not_executed",
+                  "physical": "N/A",
+                  "benchmark": "not_evaluable"
+                },
+                "condition": "locally_trained_macro_smoke",
+                "step": 1
+              }
+            }
+          },
+          {
+            "sequence": 1,
+            "kind": "assignment_applied",
+            "payload": {
+              "task_id": "inspect_ground",
+              "robot_id": "ground"
+            }
+          },
+          {
+            "sequence": 2,
+            "kind": "assignment_applied",
+            "payload": {
+              "task_id": "inspect_air",
+              "robot_id": "air"
+            }
+          },
+          {
+            "sequence": 3,
+            "kind": "verdict",
+            "payload": {
+              "status": "N/A",
+              "reason": "physical_evidence_required"
+            }
+          }
+        ],
+        "digest": "f3aae83630959f68b496d29a90a3da8f891f39e18d1105801c857aacaa52f17c"
+      },
+      "native_provenance": {
+        "adapter": "NativeHAPPOAdapter",
+        "source_root": "/tmp/heterocoord-algorithms-20261028/harl",
+        "source_commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+        "manifest_sha256": "b716350d724c57d310f1881d53b1d663ab0ab837c845f11b9b3c67d5925f6bf8",
+        "checkpoint_sha256": [
+          "483979bdce4e2041126683b2501a39013da9107c5d46fb808be7e5c7c09f37ec",
+          "ae1d1bcd71fdc86a75285b4a17ff8bc795f9205fe0cc64a7ab5693499c7f334e"
+        ],
+        "actor_outputs": [
+          {
+            "actor_index": 0,
+            "robot_id": "ground",
+            "action": 1,
+            "observation": [
+              1.0,
+              0.0,
+              0.0,
+              0.7750799059867859,
+              0.6831610798835754,
+              0.7859675288200378,
+              0.49163171648979187,
+              0.0,
+              0.0
+            ],
+            "available_actions": [
+              1.0,
+              1.0
+            ],
+            "rnn_input_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+            "rnn_output_sha256": "e80d10f5d42f7e631cd26ff90d1c3361b5cce5d925065483858bec3d24c70310",
+            "reset_mask": 0.0
+          },
+          {
+            "actor_index": 1,
+            "robot_id": "air",
+            "action": 1,
+            "observation": [
+              1.0,
+              0.0,
+              0.0,
+              0.8900159001350403,
+              0.6310098767280579,
+              0.4612981081008911,
+              0.38708987832069397,
+              0.0,
+              0.0
+            ],
+            "available_actions": [
+              1.0,
+              1.0
+            ],
+            "rnn_input_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+            "rnn_output_sha256": "793089307e381de91c2c4f84df88c238dfebf09d30426ec1241406b90a76d9c6",
+            "reset_mask": 0.0
+          }
+        ],
+        "evidence": {
+          "contract": "validated",
+          "native": "original_HAPPO.act_executed",
+          "simulation": "not_executed",
+          "physical": "N/A",
+          "benchmark": "not_evaluable"
+        },
+        "condition": "locally_trained_macro_smoke",
+        "step": 1
+      }
+    }
+  ],
+  "symbolic_completed_tasks": [
+    "inspect_air",
+    "inspect_ground"
+  ],
+  "simulation": "symbolic_macro_only",
+  "physical": "N/A",
+  "benchmark_performance": "not_evaluable"
+}

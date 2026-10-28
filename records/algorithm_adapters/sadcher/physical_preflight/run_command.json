@@ -1,0 +1,14 @@
+{
+  "schema": "heterocoord.sadcher.physical_preflight_command.v1",
+  "status": "prepared_only",
+  "executed": false,
+  "expected_native_gate": "ur5_1 -> __idle__",
+  "expected_dispatch_count": 0,
+  "expected_isaac_started": false,
+  "command_file": "/home/airs/hetrocoord/records/algorithm_adapters/sadcher/physical_preflight/run_command.sh",
+  "source_root": "/tmp/heterocoord-algorithms-20261028/sadcher",
+  "task": "/home/airs/hetrocoord/records/algorithm_adapters/sadcher/physical_preflight/task_host_aligned.json",
+  "config": "/home/airs/hetrocoord/records/algorithm_adapters/sadcher/physical_preflight/adapter_config.json",
+  "output": "/home/airs/hetrocoord/records/algorithm_adapters/sadcher/physical_preflight/future_isaac_run",
+  "physical_success": null
+}

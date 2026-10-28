@@ -1,0 +1,30 @@
+{
+  "source": {
+    "root": "/home/airs/.cache/heterocoord/upstream/harl",
+    "commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+    "tree": "baaf128d5fa643fc78cc656e49e4972688a84081",
+    "code_sha256": "98783b65ea6cb865fffb05011430d24379d09962a8be6b5127c06ca082fdf359",
+    "code_files": 616
+  },
+  "changed_files": [
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/native_adapter.py",
+      "sha256": "7daf2f2a10191f89ecc163f1b8688ce8378d10afb90470c98b7fa68692330e02"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/generic_manifest.py",
+      "sha256": "39d5335287e6085cb30b971b40c7f357510af5786273e94f9e56a34eb1e2b96d"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/tests/test_native_adapter.py",
+      "sha256": "2ccc08a006d0a7a34bd60e8ff8b7d7bd5e0b2931e233ee969364879d90f35f1c"
+    },
+    {
+      "path": "/home/airs/hetrocoord/algorithm/system/coordination/harl/NATIVE_ADAPTER.md",
+      "sha256": "ce637f04c7720d2e9d036c196ffa0090bcfab6653ab68d07a2ca60e3036fc890"
+    }
+  ],
+  "tests": "57 passed in 4.94s",
+  "official_checkpoint_executed": false,
+  "physical_evidence": "N/A"
+}

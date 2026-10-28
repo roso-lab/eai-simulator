@@ -1,0 +1,165 @@
+[
+  {
+    "kind": "plan",
+    "native": {
+      "ok": true,
+      "mission_id": "fc7b854451e14c68957796113ad87f25",
+      "task_contract_sha256": "6fee16fb879307fdc107a62b396127265a7b9127283516d557fbe27fcf14478d",
+      "native_algorithm": "ros_bt_py.assignment_manager.parallel_auction_manager.ParallelAuctionManager",
+      "native_tree": "ros_bt_py.nodes.parallel.Parallel",
+      "graph_mode": "dag",
+      "prerequisites": {
+        "move_left": [],
+        "move_right": [],
+        "inspect_join": [
+          "move_left",
+          "move_right"
+        ]
+      },
+      "endpoint_adapter_sha256": "18b0e354428ab7687a7b2d8a21a9f1e202be1144d2c939ecf804bddb03b662f7",
+      "source_commit": "5438f6e8d7599e39ec12104c0a9f0a8f1543838d",
+      "source_sha256": {
+        "ros_bt_py/src/ros_bt_py/assignment_manager/parallel_auction_manager.py": "4c45e7b99c44a66454cd07725bd1ce554633f4e4128b87ce4096c2fa4d32860d",
+        "ros_bt_py/src/ros_bt_py/nodes/sequence.py": "b963b33aee84fdcb2262c10fd481a009084456629ae9609d037b427cd49e9ccb",
+        "ros_bt_py/src/ros_bt_py/nodes/parallel.py": "81e72b496d4ac232c96f0390c169f8d3623885b8556102e2dc8ff930e0aa5f4e"
+      },
+      "tree_state": "RUNNING",
+      "assignments": [
+        {
+          "task_id": "move_left",
+          "robot_id": "ur5_1",
+          "implementation_name": "fc7b854451e14c68957796113ad87f25_0",
+          "executor_namespace": "/heterocoord_bt_physical/robot_0"
+        },
+        {
+          "task_id": "move_right",
+          "robot_id": "ur5_2",
+          "implementation_name": "fc7b854451e14c68957796113ad87f25_1",
+          "executor_namespace": "/heterocoord_bt_physical/robot_1"
+        }
+      ],
+      "cancelled_assignments": [],
+      "unassigned_tasks": [
+        "inspect_join"
+      ],
+      "leaf_states": [
+        {
+          "task_id": "move_left",
+          "state": "RUNNING",
+          "feedback": null,
+          "auction_error": null,
+          "waiting_for_slot": false
+        },
+        {
+          "task_id": "move_right",
+          "state": "RUNNING",
+          "feedback": null,
+          "auction_error": null,
+          "waiting_for_slot": false
+        },
+        {
+          "task_id": "inspect_join",
+          "state": "IDLE",
+          "feedback": null,
+          "auction_error": null,
+          "waiting_for_slot": false
+        }
+      ],
+      "auction_messages": [
+        {
+          "auction_id": "7a4c0524-9623-4045-bea3-2810456f318a",
+          "sender_id": "/heterocoord_bt_physical/dispatcher/",
+          "type": "ANNOUNCEMENT",
+          "bid": 0.0,
+          "executors": 0,
+          "result_id": "",
+          "implementation": ""
+        },
+        {
+          "auction_id": "7a4c0524-9623-4045-bea3-2810456f318a",
+          "sender_id": "/heterocoord_bt_physical/robot_0/",
+          "type": "BID",
+          "bid": 0.45,
+          "executors": 1,
+          "result_id": "",
+          "implementation": "fc7b854451e14c68957796113ad87f25_0"
+        },
+        {
+          "auction_id": "7a4c0524-9623-4045-bea3-2810456f318a",
+          "sender_id": "/heterocoord_bt_physical/robot_1/",
+          "type": "BID",
+          "bid": 2.5401771591761078,
+          "executors": 1,
+          "result_id": "",
+          "implementation": "fc7b854451e14c68957796113ad87f25_0"
+        },
+        {
+          "auction_id": "7a4c0524-9623-4045-bea3-2810456f318a",
+          "sender_id": "/heterocoord_bt_physical/dispatcher/",
+          "type": "CLOSE",
+          "bid": 0.0,
+          "executors": 0,
+          "result_id": "",
+          "implementation": ""
+        },
+        {
+          "auction_id": "7a4c0524-9623-4045-bea3-2810456f318a",
+          "sender_id": "/heterocoord_bt_physical/dispatcher/",
+          "type": "RESULT",
+          "bid": 0.54,
+          "executors": 0,
+          "result_id": "/heterocoord_bt_physical/robot_0/",
+          "implementation": "fc7b854451e14c68957796113ad87f25_0"
+        },
+        {
+          "auction_id": "30235fc8-bcf2-4b4d-9f6a-69d1c7c57687",
+          "sender_id": "/heterocoord_bt_physical/dispatcher/",
+          "type": "ANNOUNCEMENT",
+          "bid": 0.0,
+          "executors": 0,
+          "result_id": "",
+          "implementation": ""
+        },
+        {
+          "auction_id": "30235fc8-bcf2-4b4d-9f6a-69d1c7c57687",
+          "sender_id": "/heterocoord_bt_physical/robot_1/",
+          "type": "BID",
+          "bid": 0.45,
+          "executors": 1,
+          "result_id": "",
+          "implementation": "fc7b854451e14c68957796113ad87f25_1"
+        },
+        {
+          "auction_id": "30235fc8-bcf2-4b4d-9f6a-69d1c7c57687",
+          "sender_id": "/heterocoord_bt_physical/robot_0/",
+          "type": "BID",
+          "bid": 2.5401771591761078,
+          "executors": 0,
+          "result_id": "",
+          "implementation": "fc7b854451e14c68957796113ad87f25_1"
+        },
+        {
+          "auction_id": "30235fc8-bcf2-4b4d-9f6a-69d1c7c57687",
+          "sender_id": "/heterocoord_bt_physical/dispatcher/",
+          "type": "CLOSE",
+          "bid": 0.0,
+          "executors": 0,
+          "result_id": "",
+          "implementation": ""
+        },
+        {
+          "auction_id": "30235fc8-bcf2-4b4d-9f6a-69d1c7c57687",
+          "sender_id": "/heterocoord_bt_physical/dispatcher/",
+          "type": "RESULT",
+          "bid": 0.54,
+          "executors": 0,
+          "result_id": "/heterocoord_bt_physical/robot_1/",
+          "implementation": "fc7b854451e14c68957796113ad87f25_1"
+        }
+      ],
+      "evidence_scope": "native_ros_protocol_and_bt_feedback_only",
+      "simulation_evidence": "not_evaluated",
+      "physical_evidence": "not_evaluated"
+    }
+  }
+]

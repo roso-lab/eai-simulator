@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "/home/airs/.cache/heterocoord/envs/sadcher/bin/python",
+    "-m",
+    "tools.algorithm_adapters.run",
+    "--algorithm",
+    "sadcher",
+    "--source-root",
+    "/home/airs/.cache/heterocoord/upstream/sadcher",
+    "--task",
+    "records/algorithm_adapters/sadcher/review_20261028/final_evidence/unified_entry/ur5_idle.task.json",
+    "--config",
+    "records/algorithm_adapters/sadcher/review_20261028/final_evidence/unified_entry/ur5_idle.config.json",
+    "--report",
+    "records/algorithm_adapters/sadcher/review_20261028/final_evidence/unified_entry/ur5_idle.cli.json"
+  ],
+  "cwd": "/home/airs/hetrocoord",
+  "returncode": 0,
+  "environment_overrides": {
+    "CUDA_VISIBLE_DEVICES": "",
+    "OMP_NUM_THREADS": "1"
+  }
+}

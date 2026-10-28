@@ -21,24 +21,30 @@ def test_registry_has_exact_ordered_six_primary_and_eight_additional_conditions(
     assert primary_system_columns() == PRIMARY_SYSTEM_COLUMNS
     assert tuple(item["algorithm_id"] for item in primary_registry_records()) == PRIMARY_SYSTEM_COLUMNS
     assert validate_implementation_register() == PRIMARY_SYSTEM_COLUMNS
+def test_registry_matches_supplied_pdf_result_columns():
+    assert {item["algorithm_id"] for item in REGISTRY if item["active_paper_matrix"]} == {
+        "FMC-ATA", "BT-capabilities", "SADCHER", "HARL-HAPPO",
+        "TeamWeaver-adapted-to-EAI", "EMOS",
+    }
+    assert sum(item["paper_scope"] == "table_3_4_primary" for item in REGISTRY) == 6
 
 
 def test_registry_preserves_missing_artifact_boundaries():
     by_id = {item["algorithm_id"]: item for item in REGISTRY}
     assert by_id["Qrainbow"]["official_repo"] is None
     assert by_id["Qrainbow"]["paper_scope"] == "additional_candidate"
-    assert "N/A" in by_id["HARL-HAPPO"]["checkpoint"]
-    assert by_id["HARL-HAPPO"]["implementation"] == "official_source_reference_only_no_in_tree_EAI_adapter"
-    assert by_id["HARL-HAPPO"]["status"].startswith("N/A_")
-    assert "in_tree_EAI_adapter" in by_id["HARL-HAPPO"]["unsupported_dimensions"]
+    assert by_id["HARL-HAPPO"]["checkpoint"] == "explicit_compatible_manifest_or_checkpoint_required"
+    assert by_id["HARL-HAPPO"]["implementation"] == "original_source_io_adapter"
+    assert "runtime_acceptance" in by_id["HARL-HAPPO"]["status"]
+    assert by_id["HARL-HAPPO"]["historical_registration"]["status"].startswith("N/A_")
     assert by_id["LiP-LLM-adapted-to-EAI"]["implementation"] == "paper_derived_adapter_not_reproduction"
     assert by_id["LiP-LLM-adapted-to-EAI"]["status"].startswith("N/A_")
     assert by_id["MRTA-heuristic-adapted-to-EAI"]["source_commit"] == "c69509e8d2370f55824519dda0a13252e1817415"
     assert by_id["Hybrid-SUSD-MRTA-adapted-to-EAI"]["source_commit"] == "52473fe16f606dca6e6b3bcc99f3f164afdbe6ee"
     assert by_id["HeteroMRTA-adapted-to-EAI"]["source_commit"] == "db51e29535e34bcaa8cb75f70be3fd28b0027988"
     assert by_id["TeamWeaver-adapted-to-EAI"]["paper_scope"] == "table_3_4_primary"
-    assert "nonempty_history_reconstruction" in by_id["TeamWeaver-adapted-to-EAI"]["unsupported_dimensions"]
-    assert "task_graph_prerequisites" in by_id["TeamWeaver-adapted-to-EAI"]["unsupported_dimensions"]
+    assert "persistent_semantic_feedback_not_accepted" in by_id["TeamWeaver-adapted-to-EAI"]["unsupported_dimensions"]
+    assert "coalition_dispatch" in by_id["TeamWeaver-adapted-to-EAI"]["unsupported_dimensions"]
 
 
 def test_registry_records_system_layer_contract():
@@ -58,9 +64,10 @@ def test_implementation_register_fields_are_explicit_and_do_not_imply_qualificat
         item for item in primary_registry_records()
         if item["algorithm_id"] == "TeamWeaver-adapted-to-EAI"
     )
-    assert teamweaver["changed_components"].endswith("TeamWeaver_algorithm_unchanged")
+    assert "authorized_compatibility_recorded" in teamweaver["changed_components"]
+    assert teamweaver["historical_condition_registration"]["changed_components"].endswith("TeamWeaver_algorithm_unchanged")
     assert teamweaver["budget_accounting"].startswith("required_not_yet_bound")
-    assert teamweaver["world_graph"].startswith("N/A_")
+    assert teamweaver["world_graph"] == "public_task_package_and_explicit_method_observation"
     assert teamweaver["registration_status"] == "bounded_adapter_connected"
     assert teamweaver["comparison_condition_status"] == "pending"
 
@@ -110,3 +117,11 @@ def test_implementation_register_rejects_missing_fields_and_roster_drift():
     rows[4]["paper_scope"] = "additional_candidate"
     with pytest.raises(ValueError, match="manuscript column order"):
         validate_implementation_register(tuple(rows))
+def test_active_records_do_not_inherit_wrong_historical_sources_or_scope():
+    by_id = {item["algorithm_id"]: item for item in REGISTRY}
+    fmc = by_id["FMC-ATA"]
+    assert "Simulation_For_Research" in fmc["source_reference"]
+    assert fmc["source_commit"] in fmc["source_reference"]
+    teamweaver = by_id["TeamWeaver-adapted-to-EAI"]
+    assert "paper_table_3_4_primary_comparison" not in teamweaver["unsupported_dimensions"]
+    assert "persistent_semantic_feedback_not_accepted" in teamweaver["unsupported_dimensions"]

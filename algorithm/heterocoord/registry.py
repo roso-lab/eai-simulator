@@ -124,6 +124,23 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
         "status": "N/A_no_in_tree_EAI_adapter_or_verifiable_official_HAPPO_weights",
     },
     {
+        "algorithm_id": "HARL-HAPPO-adapted-to-EAI",
+        "paper_scope": "adapted_runtime",
+        "source_reference": "JMLR 2024 / PKU-MARL/HARL",
+        "official_repo": "https://github.com/PKU-MARL/HARL",
+        "source_commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+        "license": "repo_license_to_review",
+        "implementation": "official_source_checkpoint_gated_adapter",
+        "execution_scope": "observation_and_inference_contract_only",
+        "model_or_api": "official_HARL_source",
+        "checkpoint": "N/A_no_verifiable_official_HAPPO_checkpoint",
+        "training_access": "official_weights_N/A; self_training_is_a_separate_condition",
+        "supported_primitives": ["heterogeneous_observation_action", "fixed_actor_identity"],
+        "unsupported_dimensions": ["Fire_Rescue_inference_without_checkpoint", "environment_contract_not_registered", "physical_success_without_checkpoint"],
+        "physical_executor_owner": "eai_runtime",
+        "status": "adapter_ready_checkpoint_gated; current_Fire_Rescue_condition_N/A",
+    },
+    {
         "algorithm_id": "Qrainbow",
         "paper_scope": "additional_candidate",
         "source_reference": "RA-L 2024 / 10.1109/LRA.2023.3328448",
@@ -173,6 +190,57 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
         "unsupported_dimensions": ["serial_physics_loop", "D2_D4_D5_without_registered_evidence"],
         "physical_executor_owner": "eai_runtime",
         "status": "legacy_scenario_bridge_unit_tested; generic_runtime_readiness_N/A",
+    },
+    {
+        "algorithm_id": "SADCHER-adapted-to-EAI",
+        "paper_scope": "adapted_runtime",
+        "source_reference": "IEEE MRS 2025 / SADCHER",
+        "official_repo": "https://github.com/jakbichler/Sadcher",
+        "source_commit": "a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+        "license": "repo_license_to_review",
+        "implementation": "official_source_network_plus_eai_matching_adapter",
+        "execution_scope": "native_scheduler_assignment_only",
+        "model_or_api": "official_SADCHER_IL_checkpoint",
+        "checkpoint": "imitation_learning/checkpoints/8t3r3s_models/model_0/best_checkpoint.pt",
+        "training_access": "no_EAI_retraining",
+        "supported_primitives": ["heterogeneous_skills", "precedence", "coalition_assignment", "real_time_reassignment"],
+        "unsupported_dimensions": ["P3_continuous_service", "D2_paired_communication_retention", "D5_certified_cross_domain_transfer", "physical_success_without_eai_evidence"],
+        "physical_executor_owner": "eai_runtime",
+        "status": "Fire_Rescue_fixture_assignment_smoke_passed; physical_acceptance_pending",
+    },
+    {
+        "algorithm_id": "RobotFleet-adapted-to-EAI",
+        "paper_scope": "adapted_runtime",
+        "source_reference": "arXiv:2510.10379 / RobotFleet",
+        "official_repo": "https://github.com/therohangupta/robot-fleet",
+        "source_commit": "67c5f724727bf25d4955fedbfb1fd63f8ec29914",
+        "license": "repo_license_to_review",
+        "implementation": "in_memory_dag_allocator_adapter",
+        "execution_scope": "allocation_only_fire_rescue_hook",
+        "model_or_api": "MILP_semantics_without_postgresql_or_LLM_service",
+        "checkpoint": "not_applicable_classical_framework",
+        "training_access": "not_applicable",
+        "supported_primitives": ["task_DAG", "heterogeneous_capabilities", "allocation", "feedback_replan"],
+        "unsupported_dimensions": ["PostgreSQL_world_registry", "Docker_robot_executor", "D2_paired_communication_retention", "D5_certified_cross_domain_transfer"],
+        "physical_executor_owner": "eai_runtime",
+        "status": "Fire_Rescue_fixture_assignment_and_replan_smoke_passed; physical_acceptance_pending",
+    },
+    {
+        "algorithm_id": "LaMMA-P-adapted-to-EAI",
+        "paper_scope": "adapted_runtime",
+        "source_reference": "ICRA 2025 / arXiv:2409.20560 / LaMMA-P",
+        "official_repo": "https://github.com/tasl-lab/LaMMA-P",
+        "source_commit": "014ec981e0a7013e7bb7149c1c2dd12864800075",
+        "license": "repo_license_to_review",
+        "implementation": "dependency_order_and_skill_allocation_adapter",
+        "execution_scope": "allocation_only_fire_rescue_hook",
+        "model_or_api": "PDDL_semantics_without_AI2Thor_or_LLM_service",
+        "checkpoint": "not_applicable_classical_planner",
+        "training_access": "not_applicable",
+        "supported_primitives": ["task_dependency_order", "heterogeneous_skills", "parallel_ready_tasks"],
+        "unsupported_dimensions": ["AI2Thor_execution", "LLM_decomposition_without_registered_API", "Fast_Downward_household_domain_transfer", "D5_certified_cross_domain_transfer"],
+        "physical_executor_owner": "eai_runtime",
+        "status": "Fire_Rescue_fixture_assignment_and_replan_smoke_passed; physical_acceptance_pending",
     },
     {
         "algorithm_id": "LiP-LLM-adapted-to-EAI",
@@ -301,9 +369,13 @@ _SYSTEM_ROLES: dict[str, str] = {
     "BT-capabilities": "capability_auction_and_tree_dispatch",
     "SADCHER": "heterogeneous_coalition_precedence_scheduling",
     "HARL-HAPPO": "learned_policy_decision_only",
+    "HARL-HAPPO-adapted-to-EAI": "checkpoint_gated_heterogeneous_policy_inference",
     "Qrainbow": "asynchronous_macro_action_policy",
     "EMOS": "discussion_and_task_allocation",
     "COHERENT-adapted-to-EAI": "centralized_capability_assignment_feedback",
+    "SADCHER-adapted-to-EAI": "native_scheduler_network_and_matching",
+    "RobotFleet-adapted-to-EAI": "task_dag_allocator_and_feedback_replan",
+    "LaMMA-P-adapted-to-EAI": "dependency_order_and_skill_allocation",
     "LiP-LLM-adapted-to-EAI": "skill_dependency_dag_assignment",
     "Robust-Online-Epistemic-Replanning-adapted-to-EAI": "belief_and_failure_replanning",
     "MRTA-heuristic-adapted-to-EAI": "heuristic_assignment_and_delay_repair",
@@ -406,10 +478,49 @@ _PRIMARY_REGISTER_OVERRIDES: dict[str, dict[str, Any]] = {
 
 
 def _annotate_system_record(record: dict[str, Any]) -> dict[str, Any]:
-    """Add the layer contract without changing source/checkpoint metadata."""
+    """Retain history while aligning active entries to the supplied PDF."""
 
     result = dict(record)
     algorithm_id = str(result["algorithm_id"])
+    paper = json.loads(Path(__file__).with_name("paper_algorithms.json").read_text())
+    keys = {
+        "FMC-ATA": "fmc_ata", "BT-capabilities": "bt_capabilities",
+        "SADCHER": "sadcher", "HARL-HAPPO": "harl_happo",
+        "TeamWeaver-adapted-to-EAI": "teamweaver", "EMOS": "emos",
+    }
+    # Preserve the old record for interpreting historical artifacts. It is
+    # never an active source/implementation identity for a new run.
+    result["historical_registration"] = dict(record)
+    if algorithm_id in keys:
+        key = keys[algorithm_id]
+        source = paper["algorithms"][key]
+        result.update(
+            paper_scope="table_3_4_primary", paper_algorithm_key=key,
+            official_repo=source["repository"], source_commit=source["commit"],
+            source_reference=f"{source['repository']}@{source['commit']}",
+            license="see_frozen_upstream_license",
+            implementation="original_source_io_adapter",
+            decision_provider="benchmark.native_algorithms.build_native_adapter",
+            status="native_adapter_requires_recorded_runtime_acceptance",
+            acceptance_report="algorithm/heterocoord/NATIVE_ALGORITHM_ADAPTATION_REPORT_20261028.zh-CN.md",
+        )
+        scopes = {
+            "fmc_ata": ("native_static_independent_single_mission_tasks", "original_Python_FMC_ATA", ["fractional_cooperative_execution", "dynamic_arrivals", "lossy_communication"]),
+            "bt_capabilities": ("native_auction_and_dependency_DAG_batches", "original_ros_bt_py_ROS1", ["full_MissionControl", "automatic_reauction"]),
+            "sadcher": ("native_supplied_graph_three_skill_scheduler", "official_complete_checkpoint_required", ["nonplanar_geometry", "extra_skill_dimensions", "coalition_dispatch", "event_cadence_parity"]),
+            "harl_happo": ("checkpoint_bound_macro_inference", "original_HAPPO_actor", ["unverified_checkpoint_environment_transfer", "unregistered_actor_roster", "continuous_control"]),
+            "teamweaver": ("native_HRCS_and_single_batch_LLMPlanner", "original_HRCS_CVXPY_Gurobi_and_LLMPlanner", ["persistent_semantic_feedback_not_accepted", "coalition_dispatch"]),
+            "emos": ("native_discussion_and_assignment", "explicit_metered_model_endpoint", ["native_decentralized_action_loop", "external_native_chat_restore", "coalition_dispatch"]),
+        }
+        scope, model, unsupported = scopes[key]
+        result.update(execution_scope=scope, model_or_api=model,
+                      checkpoint="explicit_compatible_manifest_or_checkpoint_required" if key in ("sadcher", "harl_happo") else "not_applicable",
+                      training_access="recorded_per_run_condition",
+                      supported_primitives=[scope],
+                      unsupported_dimensions=unsupported + ["physical_success_without_evaluator"])
+    elif result["paper_scope"] == "table_3_4_primary":
+        result["paper_scope"] = "related_work_only"
+    result["active_paper_matrix"] = algorithm_id in keys
     result.update(
         {
             "layer": "system",
@@ -453,6 +564,30 @@ def _annotate_system_record(record: dict[str, Any]) -> dict[str, Any]:
         }
     )
     result.update(_PRIMARY_REGISTER_OVERRIDES.get(algorithm_id, {}))
+    if algorithm_id in keys:
+        # Preserve the remote's earlier condition identity for interpreting old
+        # artifacts; native connectivity never freezes a paper comparison.
+        result["historical_condition_registration"] = dict(
+            _PRIMARY_REGISTER_OVERRIDES.get(algorithm_id, {})
+        )
+        result.update(
+            source_version=result["source_commit"],
+            model_version=result["checkpoint"],
+            adapter_version=f"benchmark.native_algorithms.v1::{keys[algorithm_id]}",
+            cognition_configuration=result["model_or_api"],
+            registration_status="bounded_adapter_connected",
+            paper_column_coverage_status="bounded_native_evidence_only",
+            supported_task_subset=list(result["supported_primitives"]),
+            changed_components="input_output_adapter; authorized_compatibility_recorded_in_source_register",
+            runtime_information="recorded_per_run; full_paper_runtime_not_qualified",
+            solver=result["model_or_api"],
+            admissible_task_subset=result["execution_scope"],
+            actor_identities="registered_EAI_robot_ids_preserved",
+            action_encoding="native_output_to_typed_assignments_without_reallocation",
+            semantic_model="explicit_native_input_contract_per_method",
+            world_graph="public_task_package_and_explicit_method_observation",
+            replanning_policy="method_specific; see_native_adapter_and_acceptance_report",
+        )
     return result
 
 

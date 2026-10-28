@@ -1,0 +1,19 @@
+{
+  "method": "compile unchanged source bytes; no module execution or file changes",
+  "errors": [
+    {
+      "file": "TeamWeaver/planner/HRCS/plan_module/execution_manager.py",
+      "line": 73,
+      "message": "invalid syntax",
+      "source_line": "iflen(self.execution_history['actions']) > self.max_history_length:",
+      "sha256": "f4a96b9eb35456865a9dfde3e487353d5d5fcfa79e2afa25d1fbb7e03d671f7a"
+    },
+    {
+      "file": "TeamWeaver/planner/miqp_planner/optimizer/adaptive_optimizer_v2.py",
+      "line": 381,
+      "message": "invalid syntax",
+      "source_line": "iflen(x_i) > 2:",
+      "sha256": "a3fa6bcf8587c67a1b686abf80291b0267e8d807e959c027d24878a9c4d3b745"
+    }
+  ]
+}

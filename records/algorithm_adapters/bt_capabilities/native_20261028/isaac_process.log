@@ -1,0 +1,54 @@
+[INFO][AppLauncher]: Using device: cpu
+[INFO][AppLauncher]: Loading experience file: /home/airs/IsaacLab/apps/isaaclab.python.headless.kit
+
+[36m======================================================================================[0m
+[36m[1m[INFO][IsaacLab]: Logging to file: /tmp/isaaclab/logs/isaaclab_2026-10-28_15-10-12.log[0m
+[36m======================================================================================[0m
+
+[33m15:10:12 [simulation_context.py] WARNING: The `enable_external_forces_every_iteration` parameter in the PhysxCfg is set to False. If you are experiencing noisy velocities, consider enabling this flag. You may need to slightly increase the number of velocity iterations (setting it to 1 or 2 rather than 0), together with this flag, to improve the accuracy of velocity updates.[0m
+SCENE_AUDIT {"arm_collider_count": 18, "instance_proxy_colliders_before": 18, "enabled_arm_colliders": 18, "fixed_base": true, "jacobian_shape": [1, 15, 6, 12], "ee_jacobian_row": 5}
+PAYLOAD SETTLED [0.45, 0.0, 0.475]
+{"trial": 1, "mode": "cartesian_pose", "pick": true, "place": true, "pick_duration_s": 13.259999703615904, "place_duration_s": 7.419999834150076, "pick_last_active_sample": {"operation": "pick", "phase": "lift", "simulation_time_s": 15.25999965891242, "ee_position_world_m": [0.3750087022781372, 1.1717652341758367e-05, 0.7549012303352356], "goal_world_m": [0.3749426216570701, 8.796611700827363e-08, 0.755118501683127], "position_error_m": 0.00022739555118086083, "orientation_error_rad": 0.00018594559314614236, "joint_position_rad": [-0.31367596983909607, -1.866012454032898, 2.2167506217956543, -2.1712796688079834, -1.4908467531204224, -1.8744561672210693, 0.3760719299316406, 0.37607184052467346, -0.3760716915130615, 0.37607142329216003, -0.37607207894325256, -0.3760715425014496]}, "place_last_active_sample": {"operation": "place", "phase": "lift", "simulation_time_s": 25.009999440982938, "ee_position_world_m": [0.35016652941703796, 0.01001218892633915, 0.7543668150901794], "goal_world_m": [0.3499481596809638, 0.009995980194628043, 0.7551272509333224], "position_error_m": 0.0007913347813368145, "orientation_error_rad": 0.000267436089855509, "joint_position_rad": [-0.30771955847740173, -1.939216136932373, 2.264155626296997, -2.146019697189331, -1.4923137426376343, -1.8686590194702148, -1.7089240245127257e-08, -3.2043534492487424e-12, 7.361886673606932e-07, -1.3881535778637044e-06, -9.148283197646379e-07, 5.98019028075214e-07]}, "hold_steps": 120, "lift_m": 0.135033, "final_origin_error_m": 1.1e-05, "attaches": 1, "releases": 1, "phase_after": "idle", "last_error": null, "object_owner_cleared": true, "resources_cleared": true, "proxy_cleared": true, "source_collision_restored": true, "source_dynamic_restored": true, "source_gravity_restored": true, "payload_filter_restored": true, "payload_filter_snapshot_after": {"has_api": false, "authored_targets": false, "targets": []}, "payload_filter_steps": 583, "pick_target_world_m": [0.4500000774860382, 3.624076327923831e-08, 0.4749999940395355], "place_target_world_m": [0.425, 0.01, 0.475], "final_position_world_m": [0.42501088976860046, 0.009996726177632809, 0.4749999940395355], "gripper_animation": {"passed": true, "closing_intermediate_samples": 8, "opening_intermediate_samples": 8, "max_hold_closed_error_rad": 5.7510693295403925e-06, "final_hold_closed_error_rad": 1.131709359447619e-06, "final_open_error_rad": 5.4394337922758496e-09}, "grasp_tool": {"position_ee_m": [0.0, 0.0, 0.15], "orientation_ee_wxyz": [0.0, 1.0, 0.0, 0.0], "open_position_rad": 0.0, "closed_position_rad": 0.37608939331366853, "width_m": 0.050000018970022556, "depth_m": 0.06123724531353636}, "tcp_alignment_passed": true, "ok": true}
+{"passed": true, "output": "algorithm/system/coordination/bt_capabilities/evidence/isaac_ur5_20261028"}
+Loading user config located at: '/home/airs/miniconda3/envs/env_isaaclab/lib/python3.11/site-packages/isaacsim/kit/data/Kit/Isaac-Sim/5.1/user.config.json'
+[Info] [carb] Logging to file: /home/airs/miniconda3/envs/env_isaaclab/lib/python3.11/site-packages/isaacsim/kit/logs/Kit/Isaac-Sim/5.1/kit_20261028_151008.log
+2026-10-28T07:10:08Z [189ms] [Warning] [omni.usd_config.extension] Enable omni.materialx.libs extension to use MaterialX
+2026-10-28T07:10:09Z [882ms] [Warning] [carb] Acquiring non optional plugin interface which is not listed as dependency: [omni::physx::IPhysxBenchmarks v1.0] (plugin: <default plugin>), by client: omni.physics.physx.plugin. Add it to CARB_PLUGIN_IMPL_DEPS() macro of a client.
+2026-10-28T07:10:09Z [891ms] [Warning] [omni.isaac.dynamic_control] omni.isaac.dynamic_control is deprecated as of Isaac Sim 4.5. No action is needed from end-users.
+2026-10-28T07:10:11Z [3,549ms] [Warning] [gpu.foundation.plugin] Skipping unsupported non-NVIDIA GPU: Intel(R) UHD Graphics 770 (ADL-S GT1)
+2026-10-28T07:10:11Z [3,549ms] [Warning] [gpu.foundation.plugin] Skipping unsupported non-NVIDIA GPU: Intel(R) UHD Graphics 770 (ADL-S GT1)
+
+|---------------------------------------------------------------------------------------------|
+| Driver Version: 580.159.03    | Graphics API: Vulkan
+|=============================================================================================|
+| GPU | Name                             | Active | LDA | GPU Memory | Vendor-ID | LUID       |
+|     |                                  |        |     |            | Device-ID | UUID       |
+|     |                                  |        |     |            | Bus-ID    |            |
+|---------------------------------------------------------------------------------------------|
+| 0   | NVIDIA GeForce RTX 3090          | Yes: 0 |     | 24822   MB | 10de      | 0          |
+|     |                                  |        |     |            | 2204      | 45d5380a.. |
+|     |                                  |        |     |            | 1         |            |
+|---------------------------------------------------------------------------------------------|
+| 1   | Intel(R) UHD Graphics 770 (ADL.. |        |     | 23835   MB | 8086      | 0          |
+|     |                                  |        |     |            | 4680      | 86808046.. |
+|     |                                  |        |     |            | 0         |            |
+|=============================================================================================|
+| OS: 22.04.5 LTS (Jammy Jellyfish) ubuntu, Version: 22.04.5, Kernel: 6.8.0-117-lowlatency
+| XServer Vendor: The X.Org Foundation, XServer Version: 12101004 (1.21.1.4)
+| Processor: 12th Gen Intel(R) Core(TM) i9-12900K
+| Cores: 16 | Logical Cores: 24
+|---------------------------------------------------------------------------------------------|
+| Total Memory (MB): 31781 | Free Memory: 21773
+| Total Page/Swap (MB): 16383 | Free Page/Swap: 8288
+|---------------------------------------------------------------------------------------------|
+2026-10-28T07:10:12Z [3,811ms] [Warning] [gpu.foundation.plugin] IOMMU is enabled.
+2026-10-28T07:10:12Z [3,811ms] [Warning] [gpu.foundation.plugin] Detected IOMMU is enabled. Running CUDA peer-to-peer bandwidth and latency validation.
+Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)
+   D\D     0 
+     0 833.33 
+P2P=Enabled Latency (P2P Writes) Matrix (us)
+   GPU     0 
+     0   1.58 
+
+   CPU     0 
+     0   1.45 

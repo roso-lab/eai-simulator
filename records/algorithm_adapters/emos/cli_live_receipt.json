@@ -1,0 +1,36 @@
+{
+  "schema": "heterocoord.emos_native_cli_receipt.v1",
+  "algorithm": "EMOS",
+  "timestamp_utc": "2026-10-28T07:10:23.660064+00:00",
+  "mode": "native_api_only",
+  "algorithm_acceptance": "not_passed",
+  "physical_acceptance": "not_evaluated",
+  "fallback_used": false,
+  "model_requests": 0,
+  "endpoint_environment": {
+    "api_key_env": {
+      "name": "EMOS_API_KEY",
+      "is_set": false
+    },
+    "base_url_env": {
+      "name": "EMOS_BASE_URL",
+      "is_set": false
+    },
+    "model_env": {
+      "name": "EMOS_MODEL",
+      "is_set": false
+    }
+  },
+  "source_receipt": {
+    "root": "/tmp/emos-1793068059",
+    "commit": "e9501db45d634b087bf5d1a14228266685e8feeb",
+    "tree": "1d32ac13f304288776627f8027ff34c3c289a557",
+    "code_sha256": "fb1bd342d4e3de36a1081554c026078db03b53cdd7d2a85e14178243d5106e86",
+    "code_files": 778
+  },
+  "status": "blocked",
+  "error_type": "NativeEmosUnavailable",
+  "reason": "no configured EMOS/OpenAI model credential",
+  "raw_native_subtasks": {},
+  "elapsed_wall_s": 0.022360885981470346
+}

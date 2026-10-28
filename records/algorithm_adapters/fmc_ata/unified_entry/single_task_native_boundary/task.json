@@ -1,0 +1,50 @@
+{
+  "task_id": "fmc-ata-unified-1-tasks",
+  "scene_id": "native-only-no-physical-scene",
+  "metadata": {
+    "fmc_ata": {
+      "domain": "independent_single_mission_single_player"
+    }
+  },
+  "robots": [
+    {
+      "robot_id": "r0",
+      "capabilities": [
+        "work"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "metadata": {
+        "fmc_ata": {
+          "speed": 1,
+          "productivity": 1,
+          "status": "idle"
+        }
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "t0",
+      "description": "Independent native mission 0",
+      "required_capabilities": [
+        "work"
+      ],
+      "metadata": {
+        "fmc_ata": {
+          "position": [
+            1000,
+            0,
+            0
+          ],
+          "workload": 17,
+          "importance": 1000,
+          "max_players": 1
+        }
+      }
+    }
+  ]
+}

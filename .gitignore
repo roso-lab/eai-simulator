@@ -407,3 +407,18 @@ test_*.py
 # Calibrated G1 grasp profiles are runtime source data.
 !/task/executors/g1_manipulation/inspire_grips.json
 !/tools/validation/test_topology_current_storage.py
+
+# Maintained Cartesian manipulation regression tests.
+!/source/EAI/test/test_idealized_manipulation_cartesian.py
+!/tools/validation/test_pick_place_clearance.py
+
+# Frozen native benchmark source register and maintained adapter tests/examples.
+!/algorithm/heterocoord/paper_algorithms.json
+!/algorithm/system/coordination/harl/tests/
+!/algorithm/system/coordination/harl/tests/*.py
+!/algorithm/system/coordination/sadcher/tests/
+!/algorithm/system/coordination/sadcher/tests/*.py
+!/algorithm/system/coordination/emos/configs/
+!/algorithm/system/coordination/emos/configs/*.json
+!/tools/algorithm_adapters/examples/
+!/tools/algorithm_adapters/examples/*.json

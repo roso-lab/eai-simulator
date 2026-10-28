@@ -1,0 +1,25 @@
+{
+  "official_weights_changed_by_old_strict_reload": [],
+  "official_rewards_equal": true,
+  "official_schedule_equal": true,
+  "audit_masks_loaded_state_mismatch": {
+    "passed_after_deliberate_model_drift": true,
+    "value_before_audit": 1.0383150577545166,
+    "value_after_audit": 0.038315076380968094
+  },
+  "live_observation_before_fix": {
+    "native_t0_status": "PENDING",
+    "native_remaining_duration": 5.0,
+    "robot_remaining_workload": 5.0,
+    "observed_status": "IN_PROGRESS",
+    "observed_remaining_duration": 2
+  },
+  "factory_keyword_replan": {
+    "type": "TypeError",
+    "error": "VerifiedNativeAdapter.__getattr__.<locals>.<lambda>() got an unexpected keyword argument 'task'"
+  },
+  "factory_env_source_ignored": {
+    "requested_env": "/tmp/sadcher-intentionally-missing-review-root",
+    "actual_source": "/home/airs/.cache/heterocoord/upstream/sadcher"
+  }
+}

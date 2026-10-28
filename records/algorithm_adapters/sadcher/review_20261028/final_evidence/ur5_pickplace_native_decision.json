@@ -1,0 +1,244 @@
+{
+  "input": {
+    "robot_id": "ur5_1",
+    "robot_capabilities": [
+      "manipulate"
+    ],
+    "required_capabilities": [
+      "manipulate"
+    ],
+    "skill_names": [
+      "manipulate",
+      "inspect",
+      "transport"
+    ],
+    "robot_position": [
+      0,
+      0,
+      0
+    ],
+    "task_position": [
+      0.45,
+      0.05,
+      0
+    ],
+    "duration_s": 30,
+    "start_position": [
+      0,
+      0,
+      0
+    ],
+    "end_position": [
+      0,
+      0,
+      0
+    ]
+  },
+  "decision_provenance": {
+    "source_root": "/home/airs/.cache/heterocoord/upstream/sadcher",
+    "checkpoint_audit": {
+      "checkpoint": "/home/airs/.cache/heterocoord/upstream/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+      "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+      "expected_keys": 116,
+      "checkpoint_keys": 116,
+      "missing_keys": [],
+      "unexpected_keys": [],
+      "shape_mismatches": {},
+      "nonfinite_keys": [],
+      "strict_complete": true,
+      "audit_mutates_model": false
+    },
+    "checkpoint_selection": "explicit",
+    "predicted_rewards_including_sentinels": [
+      [
+        -1000.0,
+        1.5554152727127075,
+        1.8599233627319336,
+        -1000.0
+      ]
+    ],
+    "skill_order": [
+      "manipulate",
+      "inspect",
+      "transport"
+    ],
+    "native_assignments": {
+      "0": 2
+    },
+    "robot_index": [
+      "ur5_1"
+    ],
+    "task_index": [
+      "__start__",
+      "pick_place",
+      "__idle__",
+      "__end__"
+    ],
+    "coalitions": {},
+    "idle_robot_ids": [
+      "ur5_1"
+    ],
+    "end_robot_ids": [],
+    "start_robot_ids": [],
+    "unselected_robot_ids": [],
+    "task_adjacency": [
+      [
+        0
+      ]
+    ],
+    "task_runner_compatible": true,
+    "evidence": {
+      "contract": "translated",
+      "native": "executed_complete_checkpoint",
+      "simulation": "not_executed",
+      "physical": "N/A"
+    },
+    "normalization": {
+      "duration": 30.0,
+      "location": 0.45
+    }
+  },
+  "predicted_rewards_including_sentinels": [
+    [
+      -1000.0,
+      1.5554152727127075,
+      1.8599233627319336,
+      -1000.0
+    ]
+  ],
+  "independent_native_parity": true,
+  "run": {
+    "task_id": "sadcher-ur5-physical-input-smoke",
+    "scene_id": "parent-owned-Isaac",
+    "branch_id": "fact",
+    "checkpoint": null,
+    "repeat_id": "",
+    "condition": {
+      "algorithm_id": "SADCHER-native-to-EAI",
+      "source_reference": "jakbichler/Sadcher@a6b5363a4ab9bccb540f0ecf7f10709b8c7911ae",
+      "implementation": "unchanged_upstream_SadcherScheduler",
+      "execution_scope": "native_assignment_only",
+      "planner": "neural_rewards+CachedBipartiteMatcher+filter_redundant_assignments+filter_overassignments",
+      "model_or_api": "official_SADCHER_IL_checkpoint",
+      "checkpoint": "/home/airs/.cache/heterocoord/upstream/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+      "prompt_revision": "not_applicable",
+      "supported_primitives": [
+        "three_binary_skills",
+        "DAG",
+        "native_coalitions",
+        "native_idle"
+      ],
+      "unsupported_dimensions": [
+        "nonplanar_geometry",
+        "extra_skill_dimensions",
+        "coalition_dispatch_in_current_TaskRunner",
+        "physical_success_without_eai_evidence"
+      ],
+      "physical_executor_owner": "eai_runtime",
+      "serial_action_loop": false,
+      "notes": ""
+    },
+    "assignments": [],
+    "unassigned_tasks": [
+      "pick_place"
+    ],
+    "feedback": [],
+    "verdict": {
+      "status": "N/A",
+      "reason": "physical_evidence_required",
+      "unassigned_tasks": [
+        "pick_place"
+      ]
+    },
+    "ledger": {
+      "schema_version": "coordination.v1",
+      "events": [
+        {
+          "sequence": 0,
+          "kind": "algorithm_decision",
+          "payload": {
+            "algorithm_id": "SADCHER-native-to-EAI",
+            "assignments": [],
+            "unassigned_tasks": [
+              "pick_place"
+            ],
+            "provenance": {
+              "source_root": "/home/airs/.cache/heterocoord/upstream/sadcher",
+              "checkpoint_audit": {
+                "checkpoint": "/home/airs/.cache/heterocoord/upstream/sadcher/imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
+                "sha256": "8c391003af62d9b99399563e85790e4af6b65162120c79917077dc02882bb10e",
+                "expected_keys": 116,
+                "checkpoint_keys": 116,
+                "missing_keys": [],
+                "unexpected_keys": [],
+                "shape_mismatches": {},
+                "nonfinite_keys": [],
+                "strict_complete": true,
+                "audit_mutates_model": false
+              },
+              "checkpoint_selection": "explicit",
+              "predicted_rewards_including_sentinels": [
+                [
+                  -1000.0,
+                  1.5554152727127075,
+                  1.8599233627319336,
+                  -1000.0
+                ]
+              ],
+              "skill_order": [
+                "manipulate",
+                "inspect",
+                "transport"
+              ],
+              "native_assignments": {
+                "0": 2
+              },
+              "robot_index": [
+                "ur5_1"
+              ],
+              "task_index": [
+                "__start__",
+                "pick_place",
+                "__idle__",
+                "__end__"
+              ],
+              "coalitions": {},
+              "idle_robot_ids": [
+                "ur5_1"
+              ],
+              "end_robot_ids": [],
+              "start_robot_ids": [],
+              "unselected_robot_ids": [],
+              "task_adjacency": [
+                [
+                  0
+                ]
+              ],
+              "task_runner_compatible": true,
+              "evidence": {
+                "contract": "translated",
+                "native": "executed_complete_checkpoint",
+                "simulation": "not_executed",
+                "physical": "N/A"
+              },
+              "normalization": {
+                "duration": 30.0,
+                "location": 0.45
+              }
+            }
+          }
+        },
+        {
+          "sequence": 1,
+          "kind": "verdict",
+          "payload": {
+            "status": "N/A",
+            "reason": "physical_evidence_required"
+          }
+        }
+      ],
+      "digest": "50a43627d82e292d8e9708c667a95495364e5b5ac2d16b6fa899e9117e8075e8"
+    }
+  },
+  "physical_smoke_status": "not_dispatched_native_selected_idle"
+}

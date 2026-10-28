@@ -66,6 +66,14 @@ def _algorithm_key(specification: str) -> str:
         return "coherent"
     if "teamweaver" in value:
         return "teamweaver"
+    if "sadcher" in value:
+        return "sadcher"
+    if "robot_fleet" in value or "robot-fleet" in value or "robotfleet" in value:
+        return "robot_fleet"
+    if "lamma" in value or "lamma-p" in value or "lamma_p" in value:
+        return "lammap"
+    if "harl" in value or "happo" in value:
+        return "harl_happo"
     if "mrta_heuristic" in value or "mrta-heuristic" in value:
         return "mrta_heuristic"
     if "hybrid_susd" in value or "hybrid-susd" in value or "susd" in value:
@@ -94,6 +102,22 @@ def _condition_for(key: str) -> AlgorithmCondition:
         return condition_record()
     if key == "teamweaver":
         from algorithm.system.coordination.TeamWeaver.eai_adapter.benchmark_condition import condition_record
+
+        return condition_record()
+    if key == "sadcher":
+        from algorithm.system.coordination.sadcher.benchmark_condition import condition_record
+
+        return condition_record()
+    if key == "robot_fleet":
+        from algorithm.system.coordination.robot_fleet.benchmark_condition import condition_record
+
+        return condition_record()
+    if key == "lammap":
+        from algorithm.system.coordination.lammap.benchmark_condition import condition_record
+
+        return condition_record()
+    if key == "harl_happo":
+        from algorithm.system.coordination.harl.benchmark_condition import condition_record
 
         return condition_record()
     if key == "mrta_heuristic":
@@ -421,6 +445,88 @@ class FireRescueCoordinationBridge:
                     ),
                     allocation_provider="fixed_default_assignment;heteromrta_native_decision_N/A",
                 )
+            elif self.key == "sadcher":
+                from algorithm.system.coordination.sadcher.fire_rescue_policy import assign
+
+                mapping = assign(request)
+                assignments = tuple(
+                    Assignment(task_id, robot_id, self.condition.algorithm_id, "sadcher-native-r1")
+                    for robot_id, task_id in sorted(mapping.items())
+                )
+                result = BridgePlan(
+                    self.condition.algorithm_id,
+                    PlanStatus.PLANNED,
+                    assignments=assignments,
+                    mapping=dict(mapping),
+                    allocation_provider="sadcher_native_network_and_matching",
+                )
+            elif self.key == "robot_fleet":
+                from algorithm.system.coordination.robot_fleet.fire_rescue_policy import assign
+
+                mapping = assign(request)
+                assignments = tuple(
+                    Assignment(task_id, robot_id, self.condition.algorithm_id, "robot-fleet-dag-r1")
+                    for robot_id, task_id in sorted(mapping.items())
+                )
+                result = BridgePlan(
+                    self.condition.algorithm_id,
+                    PlanStatus.PLANNED,
+                    assignments=assignments,
+                    mapping=dict(mapping),
+                    allocation_provider="robot_fleet_in_memory_dag_allocator",
+                    reason=(
+                        "RobotFleet's PostgreSQL/Docker service boundary is represented by "
+                        "the typed EAI task contract and in-memory allocator for this hook."
+                    ),
+                )
+            elif self.key == "lammap":
+                from algorithm.system.coordination.lammap.fire_rescue_policy import assign
+
+                mapping = assign(request)
+                assignments = tuple(
+                    Assignment(task_id, robot_id, self.condition.algorithm_id, "lamma-p-order-r1")
+                    for robot_id, task_id in sorted(mapping.items())
+                )
+                result = BridgePlan(
+                    self.condition.algorithm_id,
+                    PlanStatus.PLANNED,
+                    assignments=assignments,
+                    mapping=dict(mapping),
+                    allocation_provider="lamma_p_dependency_skill_adapter",
+                    reason=(
+                        "The Fire Rescue task contract is already frozen by EAI; no "
+                        "AI2-THOR household PDDL or unregistered LLM decomposition is claimed."
+                    ),
+                )
+            elif self.key == "harl_happo":
+                from algorithm.system.coordination.harl.fire_rescue_policy import (
+                    HAPPOCheckpointUnavailable,
+                    assign,
+                )
+
+                # This branch intentionally fails closed when no registered
+                # HAPPO checkpoint/environment contract is available.
+                try:
+                    mapping = assign(request)
+                except HAPPOCheckpointUnavailable as exc:
+                    result = BridgePlan(
+                        self.condition.algorithm_id,
+                        PlanStatus.NOT_APPLICABLE,
+                        reason=str(exc),
+                        allocation_provider="happo_native_policy_checkpoint_required",
+                    )
+                else:
+                    assignments = tuple(
+                        Assignment(task_id, robot_id, self.condition.algorithm_id, "happo-native-r1")
+                        for robot_id, task_id in sorted(mapping.items())
+                    )
+                    result = BridgePlan(
+                        self.condition.algorithm_id,
+                        PlanStatus.PLANNED,
+                        assignments=assignments,
+                        mapping=dict(mapping),
+                        allocation_provider="happo_native_policy",
+                    )
             else:
                 result = BridgePlan(
                     self.condition.algorithm_id,
@@ -597,13 +703,19 @@ class FireRescueCoordinationBridge:
             open_tasks=sorted(set(open_tasks)),
             timestamp_s=float(timestamp_s),
         )
-        if self.key in {"mrta_heuristic", "hybrid_susd"} and self._last_request is not None and open_tasks:
+        if self.key in {"mrta_heuristic", "hybrid_susd", "robot_fleet", "lammap"} and self._last_request is not None and open_tasks:
             if self.key == "mrta_heuristic":
                 from algorithm.system.coordination.mrta_heuristic.fire_rescue_policy import repair
                 provider = "MRTA-heuristic-planRepair-equivalent"
-            else:
+            elif self.key == "hybrid_susd":
                 from algorithm.system.coordination.hybrid_susd.fire_rescue_policy import repair
                 provider = "Hybrid-SUSD-adapter-reallocation"
+            elif self.key == "robot_fleet":
+                from algorithm.system.coordination.robot_fleet.fire_rescue_policy import repair
+                provider = "RobotFleet-feedback-reallocation"
+            else:
+                from algorithm.system.coordination.lammap.fire_rescue_policy import repair
+                provider = "LaMMA-P-adapter-reallocation"
 
             previous = (
                 dict(self.plan_result.mapping or {})

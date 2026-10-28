@@ -1,0 +1,64 @@
+{
+  "task_id": "sadcher-ur5-physical-input-smoke",
+  "scene_id": "parent-owned-Isaac",
+  "metadata": {
+    "sadcher": {
+      "start_position": [
+        0,
+        0,
+        0
+      ],
+      "end_position": [
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "task_id": "pick_place",
+      "description": "Pick and place",
+      "required_capabilities": [
+        "manipulate"
+      ],
+      "metadata": {
+        "position": [
+          0.45,
+          0.05,
+          0
+        ],
+        "duration_s": 30,
+        "target_position": [
+          0.425,
+          0.01,
+          0.475
+        ],
+        "pick_place": {
+          "object_position_world_m": [
+            0.45,
+            0.0,
+            0.475
+          ],
+          "approach_degrees": 15.0,
+          "timeout_s": 100.0,
+          "mode": "cartesian_pose"
+        }
+      },
+      "target_ref": "/World/Object"
+    }
+  ],
+  "robots": [
+    {
+      "robot_id": "ur5_1",
+      "capabilities": [
+        "manipulate"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

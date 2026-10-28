@@ -1,0 +1,43 @@
+{
+  "schema": "heterocoord.native_adapter_run.v1",
+  "algorithm": "emos",
+  "started_at_utc": "2026-10-28T08:01:12.302827+00:00",
+  "evidence_scope": "native_decision_only",
+  "physical_success": null,
+  "simulation_acceptance_passed": false,
+  "task_sha256": "388b65c34261a6af5b75b0dda447aecb7eee0afaf0835418b858d09b5b4a8752",
+  "config_sha256": "712461a9db3a9060ed3a99ab26b3b68553a44bda68472ae869a05c0d7346346d",
+  "status": "not_passed",
+  "error_type": "NativeOutputScopeError",
+  "error": "native subtask has no unambiguous exact task binding",
+  "rejected_native_subtasks": {
+    "m20_1": "Nothing to do until scene-perception data for the hazard, extinguisher, sensor relay, and rescue channel button objects is provided.",
+    "m20_2": "Nothing to do until [x,z,y] coordinates and workspace/reachability data for the hazard, extinguisher, sensor relay, rescue channel button, and extinguisher-delivery destination objects are provided.",
+    "carter_1": "Nothing to do until a manipulation-capable agent and verified access to the sensor relay and rescue channel button objects are provided.",
+    "scout_1": "Nothing to do until a manipulation-capable agent and verified access to the extinguisher and rescue-destination objects are provided."
+  },
+  "model_requests": 20,
+  "endpoint_receipt": {
+    "model": "gpt-5.6-luna",
+    "completion_attempts": 20,
+    "failed_attempts": 0,
+    "total_tokens": 25397,
+    "max_calls": 20,
+    "reasoning_effort": "low",
+    "protocol_only": false
+  },
+  "native_source_provenance": {
+    "paper_algorithm": "emos",
+    "source_integrity": {
+      "root": "/tmp/emos-1793068059",
+      "commit": "e9501db45d634b087bf5d1a14228266685e8feeb",
+      "tree": "1d32ac13f304288776627f8027ff34c3c289a557",
+      "code_sha256": "fb1bd342d4e3de36a1081554c026078db03b53cdd7d2a85e14178243d5106e86",
+      "code_files": 778
+    },
+    "adapter_source_sha256": "226b98e11268fc6a4b223d769d1588e2dc32baedf1e8796e97aa2ffc784ad157",
+    "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+    "decision_is_physical_evidence": false
+  },
+  "elapsed_wall_s": 296.77226723206695
+}

@@ -1,0 +1,61 @@
+{
+  "status": "blocked_before_physical_dispatch",
+  "native_attempts": [
+    {
+      "report": "native_attempt.json",
+      "timeout_seconds": 10,
+      "status": "native_decision_rejected_or_failed",
+      "error": "native solver wall timeout; worker killed and reaped",
+      "worker_pid": 3234257,
+      "worker_alive_after": false,
+      "worker_reaped": true,
+      "host_ready": false
+    },
+    {
+      "report": "native_attempt_30s.json",
+      "timeout_seconds": 30,
+      "status": "native_decision_rejected_or_failed",
+      "error": "native solver wall timeout; worker killed and reaped",
+      "worker_pid": 3250370,
+      "worker_alive_after": false,
+      "worker_reaped": true,
+      "host_ready": false
+    }
+  ],
+  "native_decisions_returned": 0,
+  "native_attempt_type": "unchanged_direct_adapter; independently_verified_source_before_after",
+  "protected_files_unchanged": {
+    "algorithm/system/coordination/fmc_ata/native_adapter.py": true,
+    "algorithm/system/coordination/fmc_ata/tests/test_native_adapter.py": true,
+    "tools/algorithm_adapters/isaac_pick_place.py": false,
+    "tools/algorithm_adapters/run.py": true,
+    "benchmark/native_algorithms.py": true,
+    "tools/validation/unified_pick_place_smoke.py": true
+  },
+  "protected_files_after_sha256": {
+    "algorithm/system/coordination/fmc_ata/native_adapter.py": "8b49f025b592caf8f73c4c5b21630823ad845892a569f97a8896a43b52157bf6",
+    "algorithm/system/coordination/fmc_ata/tests/test_native_adapter.py": "cbd71005459a7c6fa7dca65be578e6293e76f42e0ea818446ed0df2a6ce217e2",
+    "tools/algorithm_adapters/isaac_pick_place.py": "d5f6f601a3c81fc1f7b07d87da3e8acf9fcf20a103d0cbe2eeb12782871c2f6a",
+    "tools/algorithm_adapters/run.py": "5b0281bd35e01c506e53c3dc0dbcac61543570d09067ddc47400a7f33addc172",
+    "benchmark/native_algorithms.py": "51cece19e7dd16ccdb00ca9cde0878c7cf84bbe47cf14d33340c1b3eb4e1e80d",
+    "tools/validation/unified_pick_place_smoke.py": "0f2c3b81cc548f2547d78c75112b754900eed5549e0bf690a5027236e3debf4f"
+  },
+  "shared_host_change_note": "Observed hash changed after baseline; this task performed no shared-file writes; author not inferred",
+  "source_files_unchanged": true,
+  "source_receipt_unchanged": true,
+  "host_contract_revalidated": true,
+  "shell_syntax_returncodes": {
+    "run_host.sh": 0,
+    "run_native_only.sh": 0
+  },
+  "host_script_executed": false,
+  "native_only_script_executed": false,
+  "isaac_started": false,
+  "physical_execution_performed": false,
+  "skill_dispatch_count": 0,
+  "execution_feedback_count": 0,
+  "physical_success": null,
+  "benchmark_scores_available": false,
+  "feedback_to_native": "not_supported; not_fabricated",
+  "fmc_adapter_unchanged": true
+}

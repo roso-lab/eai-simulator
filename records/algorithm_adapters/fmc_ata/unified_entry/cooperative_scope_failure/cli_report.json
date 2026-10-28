@@ -1,0 +1,11 @@
+{
+  "schema": "heterocoord.native_adapter_run.v1",
+  "algorithm": "fmc_ata",
+  "evidence_scope": "native_decision_only",
+  "physical_success": null,
+  "simulation_acceptance_passed": false,
+  "status": "not_passed",
+  "error_type": "UnsupportedFMCATADomain",
+  "error": "explicit max_players=1 required; fractions cannot be rounded",
+  "elapsed_wall_s": 0.040349205024540424
+}

@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-28T08:28:21.258433+00:00",
+  "physical_execution_performed": false,
+  "isaac_started": false,
+  "gpu_started": false,
+  "native_call_count": 1,
+  "source_root": "/tmp/heterocoord-algorithms-20261028/fmc-ata",
+  "status": "native_decision_rejected_or_failed",
+  "error_type": "NativeFMCATAError",
+  "error": "native solver wall timeout; worker killed and reaped",
+  "evidence": {
+    "native_execution": "timeout",
+    "worker_pid": 3234257,
+    "worker_reaped": true,
+    "simulation_evidence": "not_run"
+  },
+  "host_ready": false,
+  "gpu_process_snapshot_after": "2213436, /opt/todesk/bin/ToDesk_Session, 324 MiB"
+}

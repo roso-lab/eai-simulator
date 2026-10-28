@@ -1,0 +1,29 @@
+{
+  "task_id": "move_right",
+  "robot_id": "ur5_2",
+  "pick": true,
+  "place": true,
+  "start_tick": 400,
+  "end_tick": 4853,
+  "minimum_hold_lift_m": 0.13505361161254648,
+  "final_position_world_m": [
+    0.42501091957092285,
+    1.259997010231018,
+    0.4749999940395355
+  ],
+  "target_position_world_m": [
+    0.425,
+    1.26,
+    0.475
+  ],
+  "final_error_m": 1.1321474428357362e-05,
+  "source_restored_and_owner_cleared": true,
+  "phase_after": "idle",
+  "last_error": null,
+  "attachment_semantics": "idealized_follow_proxy_pick_place; not contact grasp",
+  "attaches": 1,
+  "releases": 1,
+  "passed": true,
+  "shared_resources_and_proxies_cleared": true,
+  "all_robot_table_clearance_passed": true
+}

@@ -1,0 +1,7 @@
+{
+  "scope": "full_semantic",
+  "semantic_python_executable": "/home/airs/.cache/heterocoord/envs/teamweaver-semantic/bin/python",
+  "partnr_root": "/home/airs/.cache/heterocoord/upstream/teamweaver-partnr",
+  "habitat_lab_root": "/home/airs/.cache/heterocoord/upstream/teamweaver-habitat-lab",
+  "live_llm_probe": true
+}

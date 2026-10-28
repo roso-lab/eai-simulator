@@ -1,0 +1,1117 @@
+{
+  "schema": "heterocoord.native_adapter_run.v1",
+  "algorithm": "teamweaver",
+  "started_at_utc": "2026-10-28T10:58:44.808808+00:00",
+  "evidence_scope": "native_decision_only",
+  "physical_success": null,
+  "simulation_acceptance_passed": false,
+  "task_sha256": "4615a588c8bebc72f4c02a3153b6f47c3edff4487f6749b6cb43048365f28977",
+  "config_sha256": "b4c7bbc8e0cd7dc297d179413c7db1b31c5d2659fc270ad2989ee59db66d4191",
+  "status": "not_passed",
+  "error_type": "NativeSolverError",
+  "error": "native semantic planning failed; full receipt retained",
+  "rejected_native_result": {
+    "full_semantic_status": "native_planner_executed",
+    "source_compatibility": {
+      "schema": "heterocoord.teamweaver.source_compat_overlay.v1",
+      "source_root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+      "destination": "/tmp/teamweaver-namespace-hhl1xnyh/compat",
+      "package": "TeamWeaver",
+      "source_unchanged": true,
+      "source_file_count": 389,
+      "copied_file_count": 389,
+      "patches": [
+        {
+          "file": "TeamWeaver/planner/HRCS/plan_module/execution_manager.py",
+          "before_sha256": "f4a96b9eb35456865a9dfde3e487353d5d5fcfa79e2afa25d1fbb7e03d671f7a",
+          "after_sha256": "706889bf6acfeaba0720c7ac9f8d287ffeb7b91b983af34db61ee82cb19bf3cb",
+          "diff": "--- TeamWeaver/planner/HRCS/plan_module/execution_manager.py (original)\n+++ TeamWeaver/planner/HRCS/plan_module/execution_manager.py (compatibility overlay)\n@@ -70,7 +70,7 @@\n         self.execution_history['timestamps'].append(timestamp)\n         \n         # Keep history within limits\n-        iflen(self.execution_history['actions']) > self.max_history_length:\n+        if len(self.execution_history['actions']) > self.max_history_length:\n             for key in self.execution_history:\n                 self.execution_history[key] = self.execution_history[key][-self.max_history_length:]\n         \n",
+          "replacement_count": 1,
+          "semantic_scope": "syntax_only_iflen_to_if_len"
+        },
+        {
+          "file": "TeamWeaver/planner/miqp_planner/optimizer/adaptive_optimizer_v2.py",
+          "before_sha256": "a3fa6bcf8587c67a1b686abf80291b0267e8d807e959c027d24878a9c4d3b745",
+          "after_sha256": "0450d4d822081021b74596b428335b2cecaa4bc78ed390296a03a9716b6a5824",
+          "diff": "--- TeamWeaver/planner/miqp_planner/optimizer/adaptive_optimizer_v2.py (original)\n+++ TeamWeaver/planner/miqp_planner/optimizer/adaptive_optimizer_v2.py (compatibility overlay)\n@@ -378,7 +378,7 @@\n                 gradient[:2] = -2 * weights['coverage'] * (current_pos - poi)\n             \n             # 2. Gradient towards cost\n-            iflen(x_i) > 2:\n+            if len(x_i) > 2:\n                 angle_to_poi = np.arctan2(poi[1] - current_pos[1], poi[0] - current_pos[0])\n                 gradient[2] = -2 * (current_angle - angle_to_poi)\n                 \n",
+          "replacement_count": 1,
+          "semantic_scope": "syntax_only_iflen_to_if_len"
+        }
+      ],
+      "compile": {
+        "python_files": 215,
+        "syntax_failures": [],
+        "warnings": [
+          {
+            "file": "TeamWeaver/planner/miqp_planner/RTA.py",
+            "category": "DeprecationWarning",
+            "message": "invalid escape sequence \\d",
+            "line": 20
+          }
+        ],
+        "all_syntax_valid": true,
+        "scope": "diagnostic_only_no_import_or_execution"
+      },
+      "unknown_source_rejected": true,
+      "semantic_change": false,
+      "scope": "only_two_source_locked_syntax_repairs; algorithm_behavior_not_executed_or_certified",
+      "source_manifest_sha256": {
+        "TeamWeaver/.gitignore": "dd33113166e1952cd27e9295f3f5d33abf432ff6f4c299ba454c4d8bbbc141cf",
+        "TeamWeaver/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "TeamWeaver/agent/__init__.py": "aabb40e558b56a8d8ccce2bd7deca076da93074b3a72ae6c9a5d7641753ac816",
+        "TeamWeaver/agent/agent.py": "d544f39ef020ceeb33e1d7ed6ef29ddcb348103d7b20dccbfb7e352e2834381c",
+        "TeamWeaver/concept_graphs/README.md": "2894d493991b5302204a5d22a40b28d59c7fc6141c08a674be86a8da723eef3d",
+        "TeamWeaver/concept_graphs/datautils.py": "bd227ee47ad18936657d20dd73cc9dff4db30cc9a4935213d33b56eaabc848bd",
+        "TeamWeaver/concept_graphs/hab_dataset.py": "05b968098eca0ab9c81e07f751e9679d14eb1fb69de99f70afc4d1b5c19526db",
+        "TeamWeaver/concept_graphs/typecasting_utils.py": "4296323fa07ad78b913bc8da732374c80b766d9e29f6b3384b754f9dff7b23e2",
+        "TeamWeaver/conf/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "TeamWeaver/conf/agent/nn_rearrange_agent.yaml": "66283c08dc41790182730871b9e22a493f459b11b2328aca6cbcf7b40f050cb9",
+        "TeamWeaver/conf/agent/nn_rearrange_agent_motortoolsonly.yaml": "4401b1e490cdf6a7da8935cb86f31a69bc11842cd72f1f18416e30420b16c610",
+        "TeamWeaver/conf/agent/oracle_nav_agent.yaml": "a4d501b0a87af34b7bbae93628f69997678f999a7c5df09a28b5bf2c18b70f66",
+        "TeamWeaver/conf/agent/oracle_point_skills_agent.yaml": "55bcfeece2950a902efc169646fba5907b50d9b571002c084d755387b7fe59f0",
+        "TeamWeaver/conf/agent/oracle_rearrange_agent.yaml": "5a8142487aee2b7b66b198ec2b1a62d84c460586cd41969d55c885b7c483e87c",
+        "TeamWeaver/conf/agent/oracle_rearrange_agent_motortoolsonly.yaml": "dcd4010457a9fa53d939079e403b779d68b1886f4ac0233e9795767dcb544dc7",
+        "TeamWeaver/conf/agent/oracle_rearrange_agent_no_explore.yaml": "4bc9be2230f0f28974f9519a38390ed3bb91dc250d2234dfc021a82561afc132",
+        "TeamWeaver/conf/agent/oracle_rearrange_agent_no_find_agent_action.yaml": "db1ab6fa564c2986fb28e904b497510ab1d8e463b70be5f53e020d3c98337144",
+        "TeamWeaver/conf/agent/oracle_rearrange_object_states_agent.yaml": "bf942ac39c8b018d92587b54c2fb096c03c94c44deeb0448dccfd2463a70b4d4",
+        "TeamWeaver/conf/agent/oracle_rearrange_object_states_agent_motortoolsonly.yaml": "67f8649f1e38f372ce4f7ddde608a29e244b124d9fafcb543640c2fbe1e8d02e",
+        "TeamWeaver/conf/agent/rl_rearrange_agent.yaml": "84284d20c0bbd94c58755ffeeb11e8d1624c2d414f322d2dc698794481e9ba99",
+        "TeamWeaver/conf/agent/search_engine_agent.yaml": "422b99c17c5f327a60632f462bb3964d7ca2d591e40e457c8be221efeba59fc1",
+        "TeamWeaver/conf/baselines/EXAMPLE_centralized_zero_shot_react_summary.yaml": "2ac0c50f622fad958b49e4da753fe7ee010b396e017fb64375b904db46efd389",
+        "TeamWeaver/conf/baselines/centralized_zero_shot_react_summary.yaml": "d93224382fa1850e9603eb65572e7b1be668dbba53717d6efe6358659f49f87e",
+        "TeamWeaver/conf/baselines/debug_centralized_zero_shot_react_summary.yaml": "403fb8e51b41e184e4f70a37122565dfa810fe98f3885e545e19f8c23ec10e4b",
+        "TeamWeaver/conf/baselines/debug_decentralized_zero_shot_react_summary.yaml": "5fb2fc46c61fa95e5369ef0c921d697e56b46ec890a1d2c2b6d98ae1a4cc4a0d",
+        "TeamWeaver/conf/baselines/decentralized_ft_human_react_summary.yaml": "47a8f6672073848c904cce7449b077a234739d74458b606fb55b1d66579b73e0",
+        "TeamWeaver/conf/baselines/decentralized_react_baseline.yaml": "e9f6c166ab37295527eee7f13afcbcba457d00248d8383e94080e220de2cf869",
+        "TeamWeaver/conf/baselines/decentralized_state_based_baseline.yaml": "c7a8d12f5671719e6c5eeb5ffb3c0a88bd3c67c5deef75ba80ef55653847a95f",
+        "TeamWeaver/conf/baselines/decentralized_zero_shot_human_summary_robot_tools.yaml": "87e3b5b27d80d5aebfc5ed4d79aa9218603cfc24c028fd8587ab2dc0a660fea8",
+        "TeamWeaver/conf/baselines/decentralized_zero_shot_human_tools_robot_summary.yaml": "083da4ee7af90d0a73dcbcf3e2623e468fbcff56f24ada3d1d6a21f7ed2fe801",
+        "TeamWeaver/conf/baselines/decentralized_zero_shot_react_summary.yaml": "39440030d71a882cde4e756aa8fdde620ecfe8ee799deab74480e37fa02dffc3",
+        "TeamWeaver/conf/baselines/decentralized_zero_shot_react_summary_nn.yaml": "91b139c778523a772d8116e668e5947cdd3fc0d4807a964c13c869863498d1b2",
+        "TeamWeaver/conf/baselines/decentralized_zero_shot_react_tools.yaml": "aedeb8d905ca0ecd86b65254976231224da265b97bc416b3d7614ebcbaa57834",
+        "TeamWeaver/conf/baselines/heuristic_full_obs.yaml": "622f306f615cc96d8138c2cdcb31da720955c0908c7b9cf6a9f52e0752929c65",
+        "TeamWeaver/conf/baselines/single_agent_zero_shot_react_summary.yaml": "ec7094d66b3dc504a631f9d4b6783117a34c943e02448d66b650ba3b20c39154",
+        "TeamWeaver/conf/baselines/test_multi_agent_baseline.yaml": "d13f37387012274fca498cc6facb7f8d6f8e5eb1d4f2e5e9f2f1ea272471fb8e",
+        "TeamWeaver/conf/benchmark_gen/evaluation_validation.yaml": "1ea671844e1bb45fe0928b482c4a4102c0929953e53057c3959f33b5185224ab",
+        "TeamWeaver/conf/concept_graphs/README.md": "2894d493991b5302204a5d22a40b28d59c7fc6141c08a674be86a8da723eef3d",
+        "TeamWeaver/conf/concept_graphs/datautils.py": "bd227ee47ad18936657d20dd73cc9dff4db30cc9a4935213d33b56eaabc848bd",
+        "TeamWeaver/conf/concept_graphs/hab_dataset.py": "05b968098eca0ab9c81e07f751e9679d14eb1fb69de99f70afc4d1b5c19526db",
+        "TeamWeaver/conf/concept_graphs/typecasting_utils.py": "4296323fa07ad78b913bc8da732374c80b766d9e29f6b3384b754f9dff7b23e2",
+        "TeamWeaver/conf/evaluation/centralized_evaluation_runner_motortoolsonly_multiagent.yaml": "266617bd4c078d41c5815c176f599c9890877cda9b5c08b0687cf1906b32ec3e",
+        "TeamWeaver/conf/evaluation/centralized_evaluation_runner_multi_agent.yaml": "4707cb4346716f61ebdbea8c6fb197b5c949977531b32255a8a3e217f21b3149",
+        "TeamWeaver/conf/evaluation/centralized_evaluation_runner_multi_agent_nn_skills.yaml": "e8c465a0d3a420c4a02259c7d4a8438731f1cfd3a1f9c99a839c4abaf1f2bdc5",
+        "TeamWeaver/conf/evaluation/centralized_evaluation_runner_single_agent.yaml": "88ef9770743a33a6e85a8137cb1cd81688dc4c6e126b24587ff2b835df571fe0",
+        "TeamWeaver/conf/evaluation/centralized_evaluation_runner_statebased_multiagent.yaml": "acfb4d4c1d5a753a4dbd15f4babfe3d6c24eb72c883a1d063cc307162ff19148",
+        "TeamWeaver/conf/evaluation/decentralized_evaluation_runner_multi_agent.yaml": "6c01641cee780b1c88034c74d12129b7b0a1b88a7cd86748f8abfc8d386aa38d",
+        "TeamWeaver/conf/evaluation/decentralized_evaluation_runner_multi_agent_nn_skills.yaml": "ececadce58c4c066fe81f9ecaf1cfd160220631a73aaec9152f5108a041e24e4",
+        "TeamWeaver/conf/evaluation/decentralized_evaluation_runner_multi_agent_no_explore.yaml": "775dd9815af692287389682d40d7e60167eab1c5c3082712159887d442f42256",
+        "TeamWeaver/conf/evaluation/decentralized_evaluation_runner_single_agent.yaml": "d1b39455d36ab80245f578a54e00b1d4d236f0f5b088764136b730f45ff90bb1",
+        "TeamWeaver/conf/evaluation/decentralized_evaluation_runner_statebased_multiagent.yaml": "70ac6d6c932f0b5bda5d33b952d03296044071df9ef19ae6fd1b11ede9583aa2",
+        "TeamWeaver/conf/evaluation/decentralized_evaluation_runner_statebased_reacthuman.yaml": "0336a5f46fabde041d15b7b91b35935124d80877fe77b3f0674a55a52648dda2",
+        "TeamWeaver/conf/examples/centralized_full_obs.yaml": "95df1f4963aa3e9ba6c527974a8d6840adf761d6c1703135243ab29ff8805da5",
+        "TeamWeaver/conf/examples/centralized_planner_single_agent_demo_config.yaml": "169934f5345af9f7625cbba99e4de7e6303dcd6229e643a8a2faeeb535e28aa6",
+        "TeamWeaver/conf/examples/planner_multi_agent_demo_config.yaml": "0b0eca34ac6cccce39a38b0a600159cb90b2959f0a423efb4139cb4600708661",
+        "TeamWeaver/conf/examples/random_rearrange.yaml": "775530bdbe64fb3858963528c2113426c736c7b98fd4dd95f02f3dba8d753225",
+        "TeamWeaver/conf/examples/simple_lm_miqp_demo.yaml": "eccb147a3205525ef5f24a2bf9be554c371e3ac47e3d76feecda575becdc27e8",
+        "TeamWeaver/conf/examples/single_agent_scene_mapping.yaml": "1ae93b1262a74b95084a250507fe2938cf22f2ebaf5c8cc674585414eafbaf40",
+        "TeamWeaver/conf/examples/skill_runner_default_config.yaml": "9bd62dfb51b667c89fb7f2450027d8324b1fe8bf4fd6ae00c1e296eec1d92821",
+        "TeamWeaver/conf/examples/spot_oracle_config_with_explore.yaml": "9ac678ae91f697825ef8260991defd716634ed229d22143f347b72dd7365bc66",
+        "TeamWeaver/conf/finetuning/finetuning.yaml": "c7e1ab10b7d556532a9f0db61ac1c768cb98afdea2dd22f38d27b7514643a0fd",
+        "TeamWeaver/conf/finetuning/hydra/launcher/slurm_train.yaml": "cee15152f9b2f9158aef7dbadc96aa19fe6733b51587bc29382113fae3623784",
+        "TeamWeaver/conf/habitat_conf/dataset/collaboration_hssd.yaml": "84021fd3baa3ee44200d983b34047201944caf1ac5767936fbc8a409c422b51c",
+        "TeamWeaver/conf/habitat_conf/habitat_agent/rgbd_head_rgbd_arm_agent_vis.yaml": "921176692c2dae5f15819fe44bc36bbd67ea9cdddae3e37870724f9c4bbfa9ae",
+        "TeamWeaver/conf/habitat_conf/habitat_agent/rgbd_head_rgbd_arm_rgbd_jaw_agent_vis.yaml": "ded3f10bebc7c3d33170e666f7aa19180c341b1c71c991e37d7f6b0c0b0a0e99",
+        "TeamWeaver/conf/habitat_conf/oracle_spot_kinematic.yaml": "db7e263feeaa570946535c1c6593f0127ba4bb8e42ce382e50495cc93b91fd6d",
+        "TeamWeaver/conf/habitat_conf/oracle_spot_kinematic_multi_agent.yaml": "f419315122f164b35806d98c664fcb94280be017db5c96637be4a90f683f84bf",
+        "TeamWeaver/conf/habitat_conf/oracle_spot_kinematic_single_agent.yaml": "0372aec7c4e1722df88108165517efdee77c74ceb2043303e6a8abacd84baec9",
+        "TeamWeaver/conf/habitat_conf/rl_fetch_dynamic.yaml": "4f225aaa056e2ed34202ab8cd92c0ecab159aa09bf8a791949e509904932a505",
+        "TeamWeaver/conf/habitat_conf/sandbox.yaml": "88dcf68ecf7d89c4073f1da4a6e7554ba95f6591a007e1f48a06d400fdec0f08",
+        "TeamWeaver/conf/habitat_conf/task/rearrange_easy.yaml": "e7eb4819471c518de4c1922f493d1b04ff8b7657b273213ccafca7bb7fb4594c",
+        "TeamWeaver/conf/habitat_conf/task/rearrange_easy_multi_agent.yaml": "1c4819227786a46b5b2627d4798b473b5bf4c01d437c20c3eafbe0eb01122ef8",
+        "TeamWeaver/conf/habitat_conf/task/rearrange_easy_multi_agent_nn.yaml": "5645d2fa981603b528b455641f144b579807e6f26c04d1a22015e34534df6fee",
+        "TeamWeaver/conf/habitat_conf/task/rearrange_easy_single_agent.yaml": "08371ef81a800cb8c440e052b6374adfe7a32f8bd3e7486cf5a6d96acf7870bd",
+        "TeamWeaver/conf/habitat_conf/task/rearrange_single_agent_mapping.yaml": "e53003e1214278de4139e4e3318a1d727d18c6d7ca818d00070385c693df8167",
+        "TeamWeaver/conf/habitat_conf/task/sandbox.yaml": "88f9cb93bfac26720c90d57040d7e119660a9a70447a14fe9e3bcada4c3800cb",
+        "TeamWeaver/conf/hydra/output/output.yaml": "94b25598589c57b80bf2916a9c05ac66863681eac3acbad2d58e86e138166d66",
+        "TeamWeaver/conf/instruct/EXAMPLE_few_shot_centralized_motoronly.yaml": "ae64b0b81448cb36fe14f16c8a860178585875291fbfe704cff5adf4c54c9019",
+        "TeamWeaver/conf/instruct/few_shot_centralized_full_obs_multiagent.yaml": "2c233b2d5bcae2e1bf1b94a8ba067518dae5d5d22a56daeed6628e50afa28b84",
+        "TeamWeaver/conf/instruct/few_shot_centralized_full_obs_multiagent_motoronly.yaml": "e06892a7d7edc39c6bd2e38a5af77e67959c04ab1f8ebdc95f75ee997e0c223e",
+        "TeamWeaver/conf/instruct/few_shot_centralized_full_obs_multiagent_spatial.yaml": "e2d8092c449a229219207a2f95d1b7018f71912ccf64477391cbf813fd2aa535",
+        "TeamWeaver/conf/instruct/few_shot_centralized_multiagent_proposition.yaml": "5f80f2a60cfb151dc9b65720a1aeea1bab4d33bb7db93ec45ee4459c88b11e9f",
+        "TeamWeaver/conf/instruct/few_shot_centralized_partial_obs_multiagent.yaml": "30133e14c5b2737878038df62ff20c544605f761ca2a849a0041c0c62f709c42",
+        "TeamWeaver/conf/instruct/few_shot_centralized_state_replan.yaml": "0f9ff795fee64ae5b76eb9f0ffb9e9b55e3ba117fa1719f9166778a64973b1a4",
+        "TeamWeaver/conf/instruct/few_shot_centralized_state_replan_llama.yaml": "163d73d865ff8fa3e4b84d9be4287b1fbd4c6044794148689a3f41df6bffe847",
+        "TeamWeaver/conf/instruct/few_shot_dc_partial_state_human.yaml": "a7140e012a25297dec61b0220c238496d4039a79ce0ae3503eae471606e7369e",
+        "TeamWeaver/conf/instruct/few_shot_dc_partial_state_human_llama.yaml": "f7e116946fd1363fdc6984abeebdc9903e8f61996eb28c892d193d9804a01199",
+        "TeamWeaver/conf/instruct/few_shot_dc_partial_state_robot.yaml": "1b1df64c2ec45211727456f7058f0d3505aaa2204217b962e726e2f330b9e919",
+        "TeamWeaver/conf/instruct/few_shot_dc_partial_state_robot_llama.yaml": "9be94336c590184aac5ec11ef3c88408f9d16b29778f90df1832598eaefeeb53",
+        "TeamWeaver/conf/instruct/few_shot_dc_partial_state_robot_llamainstruct.yaml": "26871f263d4484d20ae6490a7d969f0a331113f524de6ed6a5955412e221c787",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_full_obs_coordinated_human.yaml": "620e79fc0be024d237edf43e9f250a3b08fbcd37a494fee2ff4be12637645f63",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_full_obs_coordinated_human_spatial.yaml": "ead41fef4e3df89037788a6c24b07bf6076a9b6beddac7471e8e66e3ccab07e8",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_full_obs_coordinated_robot.yaml": "546e3177a4b47dff3dce110abbe12eae6a68853befee635d00d352d05c0c625c",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_full_obs_coordinated_robot_spatial.yaml": "ead41fef4e3df89037788a6c24b07bf6076a9b6beddac7471e8e66e3ccab07e8",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_full_obs_uncoordinated.yaml": "709494324b5b10fe9c048513ee09573ddafc55e8cc7565b44b40f8ff2ff52278",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_full_obs_uncoordinated_spatial.yaml": "e093211c3f0aa6ece3e92e2a7b415f9ceaa276dbb4dc7f47e3e322022ded0ffc",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_fullobs_human_spatialobjstates.yaml": "3dbe7b124e1a06bf439cb2781c127592d5e99931e21e66d0d840925b434a5b44",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_fullobs_human_spatialobjstates_instruct.yaml": "9fc24c85c70af0e6cf8274ca56c23035088f148acec278b115b7e01bf4599deb",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_fullobs_robot_spatialobjstates.yaml": "2e3a00a05d478a5383c62a6a2a2a0e94a80491d7255c1e2dd0c3dfffcb41a57f",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_fullobs_robot_spatialobjstates_instruct.yaml": "8804965ae0494d4f46aa398ad8f000e898d9805e8820daaf6cb67102086d0fab",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_partial_human_spatialobjstates_instruct.yaml": "e34f236ae835760e6df51c0ee8a45585eee4b8e28a689e19733328d55a070942",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_partial_obs_coordinated_human.yaml": "a6c9d7376f42da6a00e5d65e1a7c92f7825337221b80d8b08df559e6bb400e98",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_partial_obs_coordinated_human_spatial.yaml": "e09858878bc4c2cc01ba04a183aa081e4f1dab4832004e9c59fbf78cf42af863",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_partial_obs_coordinated_robot.yaml": "04bab332c721772e579ad9bccd1bdf898c42f27c24e14559da8be1270e2e7ccc",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_partial_obs_coordinated_robot_spatial.yaml": "e09858878bc4c2cc01ba04a183aa081e4f1dab4832004e9c59fbf78cf42af863",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_partial_obs_uncoordinated.yaml": "2dff24fe482e2e16b2203f777de0aae7c2fa43b20dfdcb1c1f59d5129570c21b",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_partial_obs_uncoordinated_spatial.yaml": "c87da18ac4c2551e0b7afb60099c219d16fa3ff8552cfdb8f4477ff588d5ac66",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_partial_robot_spatialobjstates_instruct.yaml": "2b6bb44b851bb8179fb7f1620e4a047ff7f08a6e695c923e5f34ef379ca3b931",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_state_replan_human.yaml": "cd9ab2d71debbea8ff5cc5cce8c1a678211970ee0b9c22f3cecacbc6a08e7c22",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_state_replan_human_llama.yaml": "30d91bf402c2cfa4bc028cb8e49108c118a2cdc76cceb9480537c9ac83123fd3",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_state_replan_robot.yaml": "f2f16f20e0b6024e85b256163eafb299cd182213ace4fc7c2d4ce3cee515d732",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_state_replan_robot_llama.yaml": "3ee9c07ea4eca4817e44ae519f325f922cce27b24266f12896151452e93a5976",
+        "TeamWeaver/conf/instruct/few_shot_decentralized_state_replan_robot_llamainstruct.yaml": "b2a59762dda2964ec64d1a3f55844fa3a4f3fd36e7456f5c102d9242b317146e",
+        "TeamWeaver/conf/instruct/finetuned_zero_shot.yaml": "76377d561e442fcb9d19c60a6ebb044d54d279e783f986845b307d5209a32930",
+        "TeamWeaver/conf/instruct/zero_shot_centralized.yaml": "90ce94a633b262445bad6ce4e8d30a48bfdf595f1295841cdb7639e41ffc346d",
+        "TeamWeaver/conf/instruct/zero_shot_prompt.yaml": "30d0b1c7af1e8692233f757fcb926a763e5eecbf5dd636663c9f5993d0a369fa",
+        "TeamWeaver/conf/llm/EXAMPLE.yaml": "d0764dd72cb493e668af1ddca500b542f7f7ad5f7ecd71ea071033983ac7eba4",
+        "TeamWeaver/conf/llm/llama.yaml": "5e241ca04bc5beb679b8538d5b13e948ea01723270078f4dc7206b140d51f7b4",
+        "TeamWeaver/conf/llm/llama_non_instruct.yaml": "0ecc799728d2135551f690eae5e9b0c1c11b9bf5804b4fb10f1403dc72ac2cbf",
+        "TeamWeaver/conf/llm/mock.yaml": "06a42c1ae65d9fcc2981ad0ddef743e3e8da76c28aa206cb92e823b58fcdba25",
+        "TeamWeaver/conf/llm/multimodal_llama.yaml": "911db1783c461d6a353159eef1438789909c3801714b531d94eaa0cb19319d69",
+        "TeamWeaver/conf/llm/openai_chat.yaml": "0b304fea8d3b58707d5d072584b7bd407caa3dbcff81cc40110f66376284783e",
+        "TeamWeaver/conf/logging/logging_defaults.yaml": "1169ce0e197da74a6df0169dc9afa41e0da4770ec29f7a670a91cf03d81f507a",
+        "TeamWeaver/conf/map/semantic_map.yaml": "c14785c3f682b86367c77817c266a2f42ca0943b212ff4ec688adfd9471eb438",
+        "TeamWeaver/conf/planner/EXAMPLE_llm_centralized_motortoolsonly.yaml": "59a997cbfd94838e849b7ff9b2662ea50c58e57cae7baf5bbc0dd7a28ce74a2e",
+        "TeamWeaver/conf/planner/dag_centralized_planner.yaml": "ac22b24171044dbcacacc39e88217ae8dc5cdac9fcf07f4fe9ec22d72b92b6c7",
+        "TeamWeaver/conf/planner/llm_centralized_motortoolsonly.yaml": "23c089b22b19d934f383cee28e33980cdb0f756a36d027bca90d77b2abad570a",
+        "TeamWeaver/conf/planner/llm_centralized_planner.yaml": "9cd2f48235107034ebc218d2819696cfdb60d6d9429a063fd2c2a7036d66d053",
+        "TeamWeaver/conf/planner/llm_centralized_state_planner.yaml": "896026a8135bb5b91b8d89ac144bd8890c0ba9f0e7fe986a401f790c653aeb29",
+        "TeamWeaver/conf/planner/llm_decentralized_state_planner.yaml": "080c8bd5293825fb22a13efd3806d2dbb2c7992de83af77e626fdbf863cbf86b",
+        "TeamWeaver/conf/planner/llm_decentralized_thoughtless_planner.yaml": "4ddd998b6f2bcbdbd06d3b09b824bc075a89d6b8a9bb253c46c378f9d4366a97",
+        "TeamWeaver/conf/planner/llm_planner.yaml": "49bea04dba9ca992d7f1232dfe330af545ffdad6f74eeaa14544c3759b96368e",
+        "TeamWeaver/conf/planner/llm_zero_shot_react_planner.yaml": "bd7921254ff8836940b3e35662bc8f7c9d9ecb73a0238d5c709119448ce7d690",
+        "TeamWeaver/conf/planner/random_rearrange_planner.yaml": "72a601ab195c024bceedfc7e03f0ff13d3972cd5a1d053b80ffdaf5db11ffad2",
+        "TeamWeaver/conf/rlm/base.yaml": "81f1eb36a992bb1070c38d9c58362ea4befd52887a1b4cb7e259981ed80f1596",
+        "TeamWeaver/conf/tools/general/active_user_feedback_tool.yaml": "7ba7f71f49e703265ee3a77e1cf241e08e51ef7931506dc5b0ad289a4ffa5650",
+        "TeamWeaver/conf/tools/general/calculator_tool.yaml": "f3413cfc980322045c251bade7e43bae4f5661257b8811b65a391e5d5e250787",
+        "TeamWeaver/conf/tools/general/greet_user_tool.yaml": "dddb2d2ac274a7981f46a3f5f68471fcb257ff5c03cfd52f4d049348295e85c1",
+        "TeamWeaver/conf/tools/general/search_engine_tool.yaml": "f3c03be04773c25e4f6c57789f75963335864df3b80c800711b3627ba2213f5c",
+        "TeamWeaver/conf/tools/motor_skills/explore.yaml": "668f812c07979817313d663bfbc84d82eed1f9bfe889c0c0c3939e494f099641",
+        "TeamWeaver/conf/tools/motor_skills/nn_close.yaml": "b93eabd2db392f1b8370ebb9b99c37a03b28dbe000caeb5f2f3b367017403e37",
+        "TeamWeaver/conf/tools/motor_skills/nn_explore.yaml": "acbfe6e59b916026c23504a749482346787b99aa0f8c73f710aa2a3da318fb48",
+        "TeamWeaver/conf/tools/motor_skills/nn_nav.yaml": "f11e5fe2d1cf6fcdd13a21e2d0b92761bed1da01ebcaab717c15af4a3397334f",
+        "TeamWeaver/conf/tools/motor_skills/nn_open.yaml": "e88c6ea5450728f0bcf7af955828caf0fa05cb01f7a890e95d49331aea5a7744",
+        "TeamWeaver/conf/tools/motor_skills/nn_pick.yaml": "a6b2298079ab830e31a57f25f43a143b6e2a21a9379c5826434b20b78883bc35",
+        "TeamWeaver/conf/tools/motor_skills/nn_place.yaml": "6a04a792254942525dd705a0f950795feed4cccb0dd9782ef7d4552472d2f2ac",
+        "TeamWeaver/conf/tools/motor_skills/nn_rearrange.yaml": "8530827b6b173840cb76cbcd4b62cdc2830fd9db4adad09ae7d80e16b440bbcb",
+        "TeamWeaver/conf/tools/motor_skills/oracle_clean.yaml": "4633e787144a06d40813078ac327631e25fa1f3517c49cb76d7b70a48a7082db",
+        "TeamWeaver/conf/tools/motor_skills/oracle_clean_in_place.yaml": "f51d326c52d8b68b3b50f169bc1641f216e35944e48ece797d10beb2cf030549",
+        "TeamWeaver/conf/tools/motor_skills/oracle_close.yaml": "b8b0bd5f09061f571e717e87a7a84eb54f9482903ee4f8fa5e4b65d43205edd6",
+        "TeamWeaver/conf/tools/motor_skills/oracle_explore.yaml": "9ce69a1441fb279d1b9c5786550c039d317cd147533aeac4bdbfd453e07905a5",
+        "TeamWeaver/conf/tools/motor_skills/oracle_fill.yaml": "49215d9ceb24ac8aa70191bfce3537fa84e9add7287c7112c119fd101b66a512",
+        "TeamWeaver/conf/tools/motor_skills/oracle_fill_in_place.yaml": "57954e2878b5cede8ad430da51042dc0c049e8956a3f424e1a41c5661f1b4dbb",
+        "TeamWeaver/conf/tools/motor_skills/oracle_nav.yaml": "23500a37cfb8779c99d9a10bfd58d608e2281998c5ccd1e68a18d011951bd99c",
+        "TeamWeaver/conf/tools/motor_skills/oracle_open.yaml": "00c74eaf49a98cbed12fe2744d3c0114b28a28e4319486d51b215d194e10fdb4",
+        "TeamWeaver/conf/tools/motor_skills/oracle_pick.yaml": "3b6b086850ca4eb29bd0b75821fd8d5ace5b4055345f4e5c8f2c22dbfca67a98",
+        "TeamWeaver/conf/tools/motor_skills/oracle_place.yaml": "26b2e693c073d376a1e0fdf9ff093bbeee8a86522d1038a30061ac9e8ba6b0ad",
+        "TeamWeaver/conf/tools/motor_skills/oracle_point_nav.yaml": "76deb0bce176567326b4671107743c5f6c055e7072213fa7f074487205f2ca88",
+        "TeamWeaver/conf/tools/motor_skills/oracle_point_pick.yaml": "368881d401bf763ef647aa3a40f90dcf2b17c313c50831a37b48006521016774",
+        "TeamWeaver/conf/tools/motor_skills/oracle_pour.yaml": "a53742f8ec099c71211ce1e03e620cd30eec2fda955660f7ac5d21189d788af1",
+        "TeamWeaver/conf/tools/motor_skills/oracle_pour_in_place.yaml": "3f6504f3f4e760c0fd6fa47575d7759f7b739494a302515699609536a645f707",
+        "TeamWeaver/conf/tools/motor_skills/oracle_power_off.yaml": "bd2e6a77a2c44ddf744441fa7bbee7a0c5e54165ae0ee54548ec0e7de0ba34e9",
+        "TeamWeaver/conf/tools/motor_skills/oracle_power_off_in_place.yaml": "e9b2e553a6c9353bb1087769f922aa02c438ebeecc617337869bb2dcb0bf7597",
+        "TeamWeaver/conf/tools/motor_skills/oracle_power_on.yaml": "2d95bcfb5e61e007d5a4f68ccd1c533f2447239839290d85b30f31c3dde83137",
+        "TeamWeaver/conf/tools/motor_skills/oracle_power_on_in_place.yaml": "2ddd2ff41ca24ed446588bfaf4cfe8960904f42f067f474c5d023ef715af967b",
+        "TeamWeaver/conf/tools/motor_skills/oracle_rearrange.yaml": "e3e70d70b3088cadece455965aa56bedf64c1536012ea45a5a33fc64f7fc67ca",
+        "TeamWeaver/conf/tools/motor_skills/wait.yaml": "42b652a05dcf2ef3e0ed160641847b69156efb252f1fbab71453b28433b7443b",
+        "TeamWeaver/conf/tools/perception/find_agent_action_tool.yaml": "e071be7aff7d2704f3f0559c0ff4359bfc0b89b3cdbbf6b8636000036117090a",
+        "TeamWeaver/conf/tools/perception/find_object_tool.yaml": "a3e8fd89bf3b1f75c327eb60e670c9ec7818d2a95c00a12d1b07ac690a7e432e",
+        "TeamWeaver/conf/tools/perception/find_receptacle_tool.yaml": "85e1aa3f22b2c332145138ebf4ded0b56b2209149d40b543a90a004f7143fdb9",
+        "TeamWeaver/conf/tools/perception/find_room_tool.yaml": "ceca99ec43cd769d6e84133a74c212633766b8e02089a106172a70ea245e8892",
+        "TeamWeaver/conf/tools/perception/query_map_tool.yaml": "fee72686dffd63b432bf821fc9eb1cc98b5a007b3006e8b6982f891766fda51f",
+        "TeamWeaver/conf/training/base_train.yaml": "4eeb4b6f3f01314e1e333e8467ada0ae528cfdcc09383eec4c1bfe2dd219f22f",
+        "TeamWeaver/conf/trajectory/trajectory_logger.yaml": "fd4eac4b4ab1b20f5a67cf28db992d5ae89d8720c3e351990ade5a9bbc084b83",
+        "TeamWeaver/conf/wandb_conf/own.yaml": "2bdfca191daf567e15955dac166d29e159b2e83f51a4ea7d1050c27b82bc825d",
+        "TeamWeaver/conf/world_model/concept_graph.yaml": "3bed14b625a45a7d9905a3010954e1979001e75081d1c8ddd86216968f35c779",
+        "TeamWeaver/conf/world_model/gt_graph.yaml": "52d6c65592dfe613cedaadf7c0505bc23b5d7cf3b3a0489b215eeddad24f3e5a",
+        "TeamWeaver/embodied_tasks.py": "cc49d99e536be1b2bf5d98a6f7b568720f50c2d32f3b31dc09a63ae4a464ab03",
+        "TeamWeaver/evaluation/__init__.py": "862e4730698bd5eca393785b5e79328c2bbf719799984a9ae68659cb9fafe6c6",
+        "TeamWeaver/evaluation/centralized_evaluation_runner.py": "ba9e4f3e175f79d8c2852d445b88d6a9a27282d6f8ad9a14bf97eeb52d1ba25b",
+        "TeamWeaver/evaluation/coherence_evaluator.py": "a25c29566f572c5a4b3303c8f6ec1b30966885b4006bb4fac5de9893d9d8e520",
+        "TeamWeaver/evaluation/decentralized_evaluation_runner.py": "1288704e5856aa332c8201ff5e17c88afad85a45381e4644a247cb73fc5b07ec",
+        "TeamWeaver/evaluation/evaluation_runner.py": "870c4760b017b1fd2273a3a6101092016f37ab4ef2708f3db8e681b88c64fdfd",
+        "TeamWeaver/evaluation/hallucination_experiment.py": "4f7a192dba461f4fcca2632c79b9fdf4bebb8281c7263e395982d7663eb34cdc",
+        "TeamWeaver/evaluation/hrcs_centralized_evaluation_runner.py": "2e6f6d985e8e84cc786fc8699450ea483a92349bd679bdafbd9fce19ed7c9726",
+        "TeamWeaver/evaluation/hrcs_centralized_evaluation_runner_test.py": "6e88e68f409739f6cecd6af232d53605fee9854be5453f4efc249740ed1190b5",
+        "TeamWeaver/evaluation/truthfulness_evaluator.py": "ee807f1b5aa99c7d77ec54f8fcb3c870bea9917e96bd13f4c037d46670ef8eb8",
+        "TeamWeaver/examples/debug_planner_demo.py": "2718f7cfba19c88186315b60ee5cf02a6bd5c42b3f6dba8f8b1e9f587e1a6c3d",
+        "TeamWeaver/examples/example_utils.py": "deaf4a0733d218d391391fc394614d8f02d83d3ab349ed9d1f3202a692c68339",
+        "TeamWeaver/examples/fix_episode_placements.py": "1d921855921fb62e04ccd1e3ff822d9b25f003362df23cf7bb9f8a3fdd518294",
+        "TeamWeaver/examples/planner_demo.py": "65ae8520f0146b3d419ad1c410ad6eb9bb78a507d5ebb1ec4606163912f0ef3c",
+        "TeamWeaver/examples/scene_mapping.py": "c54866710cc7e61ee362cb814fe6d62e753172818da7f78e3ba95319fe794809",
+        "TeamWeaver/examples/skill_runner.py": "fc7f4b05073ee01342c7751c34762db29143b77ac8d23ae4a6f91e5b0720be19",
+        "TeamWeaver/examples/verify_episodes.py": "db9e12c83c43c0df95058617083496233210141e2cf57fd9a976daba128ec703",
+        "TeamWeaver/finetuning/README.md": "b92d8f3e2af11fc9c1878838297fdf8338af3987de4932a6ed0815d45aed7e62",
+        "TeamWeaver/finetuning/build_trace_dataset.py": "5b9c4d4acd25a253b3b1f9cfbe27d073d6828e655f1d7ae08bde2635ae4a6296",
+        "TeamWeaver/finetuning/build_trace_react.py": "0efeca51e882082b28533d7726d72da8313a4a6c87481ea9e35782f7d4e99917",
+        "TeamWeaver/finetuning/dataset.py": "eb11add0686d38fc7a0f0204f3dfaf672f80889ccdccb4060c651045f7e48c61",
+        "TeamWeaver/finetuning/flatten_checkpoint.py": "1200db082b06e79cf0162d67877ff4d79e4dfcb8ea6f2c425d435f60eb9e3a93",
+        "TeamWeaver/finetuning/ft_utils.py": "b99d52081db091e1624f8f9c622e22c526445ee83ae0a3f77be245dd6f6172cd",
+        "TeamWeaver/finetuning/trainer.py": "639b2bf76c7396d7726a9c8cdfe19da00d44c18940b3f9230ffc7ccbdd093cb5",
+        "TeamWeaver/llm/README.md": "5df2fcf6fc9e0d9c44aee209596a6e25c3ceb7a5086ddc2e33cabaa54f09a16f",
+        "TeamWeaver/llm/__init__.py": "b7db11e2f72dad4c02135da71323b4b574a4dbdb47288c85630c4359d94e9544",
+        "TeamWeaver/llm/base_llm.py": "c20f9c00145b34c3490d437edfd1078652568bcddc7177cd3cd9b587bb42ac82",
+        "TeamWeaver/llm/hf_model.py": "001dda299d59ac62030a210eb278149b2482d93ac11bc8b0b23ccc2a7ee7e471",
+        "TeamWeaver/llm/instruct/utils.py": "b44bf7a6e0292abc6500f4c452f440a9d5e024154ed33d2a4158f2b0760385d4",
+        "TeamWeaver/llm/llama.py": "ba4cec71f20d8b0919bee7907f0b811851c286b8a69e2ba9e41492b013eecfbf",
+        "TeamWeaver/llm/mock.py": "301eeaf39fb18e47bd8f96ee407e4d7f887760e316cc0a515c879293243fa8b5",
+        "TeamWeaver/llm/multimodal_llama.py": "6eaabd58dbb72a95a27689373986e58af7d962dc36bcba9c30080f8486f0286e",
+        "TeamWeaver/llm/openai_chat.py": "1506d8e087082a31ace2b1a2fd535f0ec2cf1793c366103e4f6b320bc1a0e45d",
+        "TeamWeaver/llm/rlm_lock.py": "9c59e0cf3ae8c8381b4a70fc0619d14d947dd4a8c4612f0505e760753cee5ac2",
+        "TeamWeaver/perception/__init__.py": "e9082ef888ba2d12082313eb4244932ddad2bbe7cc399e2db88042394d6d1e8e",
+        "TeamWeaver/perception/perception.py": "f19c5d839f30f46c8a05c6c280318e56ef416eb11196d15e1deac0f27329a4a5",
+        "TeamWeaver/perception/perception_obs.py": "a604dd8885a8089e5126a815bd1c08c86af48d69ba081fb54e2000dda722cc96",
+        "TeamWeaver/perception/perception_sim.py": "1076afce0558ce2b03b32c2f096112d7d0005aeab85f556b6b8c91ec22281cd0",
+        "TeamWeaver/planner/HRCS/ablation_runner.py": "45236df763617f207350ba0be80989b7b628e72de35c6e0fbced77eda6afe9f7",
+        "TeamWeaver/planner/HRCS/analysis/__init__.py": "3d5a2f782568cc47a20414450db5858593c408b1be3454860e4113022eb2d1ad",
+        "TeamWeaver/planner/HRCS/analysis/coherence_semantic_entropy.py": "eeb42b3cd00382ac52f5fa851cb1c8b2fccf2cfcadff620ee7d63c8d16366777",
+        "TeamWeaver/planner/HRCS/class_def/GlobalVarsManager_task.py": "d2885665b5f14887cd8fd5dbc8161303e2f6d6a2ef148d91ed03add8b3a67995",
+        "TeamWeaver/planner/HRCS/class_def/RTA_task.py": "3473f51d4f20c402c7d26483dc043495a0289e900d6e856400fe9baee14e0f5d",
+        "TeamWeaver/planner/HRCS/class_def/RTA_task_analyzer.py": "269c2b71906635eb1470fcc7d7c841eb7c64cd6901b032d281848f14c4ef0ec3",
+        "TeamWeaver/planner/HRCS/class_def/RTA_task_temp.py": "2b1b8f42bc6ed692366eb20c7e2dfeeca276d4cda70832b1bd313ad3295c5e91",
+        "TeamWeaver/planner/HRCS/class_def/SingleIntegrator.py": "487e2cd5f1fe76ee54cf4c71006944b8949a6c5b23244f1aa96dfe6e123641d0",
+        "TeamWeaver/planner/HRCS/class_def/Swarm_task.py": "6e7ca33520754d1399a23e22d32aac012a0fdb83b6d54febb02b5eb589193c16",
+        "TeamWeaver/planner/HRCS/class_def/task_utility_normalizer.py": "31d9543aabd5e0deeed510f499eacd7c867328eb04269f68af1947003aac8afc",
+        "TeamWeaver/planner/HRCS/connector/README.md": "faa91843a7e66e0631a359c7a11c32abf80bb9c799ba9edeaa491caf93592c32",
+        "TeamWeaver/planner/HRCS/connector/action_updater.py": "e217e273a1196e03996f460f9f75d3b33dfdc9b5c74437312d40c86476072afd",
+        "TeamWeaver/planner/HRCS/connector/dependency_enhancer.py": "bc0ff53dd4d920be96df4b91fc21efbd03c4da6cdc7126c2ec0d5325217c36ef",
+        "TeamWeaver/planner/HRCS/connector/matrix_updater.py": "ca27179b19ee15c0c9f186c03d980c0e85abcc1b516e7388d322ceabe1c22e2e",
+        "TeamWeaver/planner/HRCS/connector/phase_manager.py": "34112d5944a1a2fa810949a8b1d0d8957c4716e39f53cbcf0ad4535416e8e12e",
+        "TeamWeaver/planner/HRCS/connector/phase_manager2.py": "34112d5944a1a2fa810949a8b1d0d8957c4716e39f53cbcf0ad4535416e8e12e",
+        "TeamWeaver/planner/HRCS/connector/planner_utils.py": "e886bb3b27e18085c00276049c91a65573e96c0cbe1eb630dc318e1cd365777b",
+        "TeamWeaver/planner/HRCS/connector/world_describer.py": "b30014efb282dfe13eba21b1566f1879071be5f39d6fc5f189d7c346c11a39eb",
+        "TeamWeaver/planner/HRCS/newTask.py": "4f43e5f2277e5513d8a3afcf1bdbafb45e74585e315951b31dde53f731e2819f",
+        "TeamWeaver/planner/HRCS/newTask_zh.py": "b529fb2d664a812f56a2196c84c34945cd94172d2636418d76ec614de82b52e1",
+        "TeamWeaver/planner/HRCS/params_module/opt_params_task.py": "f0fe65f47a77e780721e8e2b0cebf53dbf36adae189316a86df6edd2a7884381",
+        "TeamWeaver/planner/HRCS/params_module/scenario_params_task.py": "01e5ad467dfe9ac503851b3b966b591fc62ed08ef967f6a1d83a2aa9103676ee",
+        "TeamWeaver/planner/HRCS/plan_module/README.md": "a19e76998623af326a0e78098116de02096e8970856c3c3f30d11a7781044ade",
+        "TeamWeaver/planner/HRCS/plan_module/__init__.py": "47aa0e9a92013a37ffcf34268f5bda34d2b25e799abc947a85d4fc93cde48d1f",
+        "TeamWeaver/planner/HRCS/plan_module/action_manager.py": "cbeb680160a29b67260b05eae023d2a3e116a5f875d07d47b4f280376279be6e",
+        "TeamWeaver/planner/HRCS/plan_module/action_validator.py": "f1ead13820ed9d2cf5c1dc921587eb428165a1071f870d235b8fcdae6ec45025",
+        "TeamWeaver/planner/HRCS/plan_module/error_handler.py": "583ebf5fb11d67e980f06e4d394aa3e8078dcd05c121c2ac9f1243985f513b2b",
+        "TeamWeaver/planner/HRCS/plan_module/execution_manager.py": "f4a96b9eb35456865a9dfde3e487353d5d5fcfa79e2afa25d1fbb7e03d671f7a",
+        "TeamWeaver/planner/HRCS/plan_module/feedback_manager.py": "039edec3bdc76109f315f666b4a846544cd780788284647071e0afafea848521",
+        "TeamWeaver/planner/HRCS/plan_module/miqp_solver_wrapper.py": "30575f5e4b0d808c6a245b16c9f4d7157d6bbcf8d0adf0d9d332da5365376f1b",
+        "TeamWeaver/planner/HRCS/plan_module/prompt_builder.py": "a0e2cdb66baa3825a37c07145257ab2acfcc70ef71ef7ef0f72249d0bf4b6c95",
+        "TeamWeaver/planner/HRCS/plan_module/task_helper.py": "9d8003f3b793dddd49f0b8ea104ef5fd87d8c44e59e3f4de5a7c35e649872590",
+        "TeamWeaver/planner/HRCS/plan_module/task_helper2.py": "415963fb3777e9cff98a7282dce104f1f66f4c0d90647fe0699d73ff9938b3ae",
+        "TeamWeaver/planner/HRCS/sys_module/control_module.py": "c4b68c34732d796ea713de0ec516de4712cb956ff12895a4e543f7856230c097",
+        "TeamWeaver/planner/HRCS/sys_module/debug_logger.py": "d63bb2443e6d08a5b453fc297eae29fc7f30f7d3edf1f6ad4b6a3050071bd938",
+        "TeamWeaver/planner/HRCS/sys_module/disturbance_module.py": "07aed0bdd6185741bb96593982af047c97e644afdfaf1a3b42301a963c359f58",
+        "TeamWeaver/planner/HRCS/sys_module/environment_module.py": "ee0e197e74f8ba6fd93c05f606fcc5ba6f1e8e8b57bcbe0f4a9bbe93bca5d55f",
+        "TeamWeaver/planner/HRCS/sys_module/robot_dynamics_module.py": "8cb0daa8e915ef65057bc705f5fce7524218e1c72dfbe58dec67201081101032",
+        "TeamWeaver/planner/HRCS/sys_module/robot_features_module.py": "ee65f640c2accf148bbe461997d2536af476ad6f1dee9239ace693fbe7bd895e",
+        "TeamWeaver/planner/HRCS/sys_module/simulation_module.py": "0ccee4b0f281135fec15eb183c8773dca7c8c27465626e1d08b83e190efe56bf",
+        "TeamWeaver/planner/HRCS/sys_module/task_config_module.py": "18711a4444b7c89138dab39aff01981f5f9d0926b49a7569b75f53d000bf84f0",
+        "TeamWeaver/planner/HRCS/sys_module/tools_util.py": "bc526e106d2c92dad50d6319aa706f84fcd1fe3a1c3e9d234fd9bdb5cd6668f6",
+        "TeamWeaver/planner/HRCS/sys_module/visualization_module.py": "78f8c279c0487382191eb29b951f95c04c010595d5e0b743ada96bd99a0099ce",
+        "TeamWeaver/planner/HRCS/sys_module/visualization_module_eng.py": "bf49616025f5733a1915e9847b050de370570b09acc5363173b612d0a0435f96",
+        "TeamWeaver/planner/HRCS/task_module/clean_module.py": "792477b07e05c4e0d7f878e9eb0fb84efa54d3d55b3cc151ea5f2747f9116274",
+        "TeamWeaver/planner/HRCS/task_module/close_module.py": "748c015fc6ce0e0b4689ff917c8e80a7d1a72e7b016d71d12f93be9c5fe1819c",
+        "TeamWeaver/planner/HRCS/task_module/explore_module.py": "0a776d10cfcb87a48be3e86d02c8a7a7f1bb08f6cc6752c211649b1b87362c16",
+        "TeamWeaver/planner/HRCS/task_module/manipulation_module.py": "0d85a14794b669f241546c17eb1cbdc787e2f0694ebe5f649293a46912941dbe",
+        "TeamWeaver/planner/HRCS/task_module/navi_module.py": "9421330aa0461166a0037cb9f5af6e8c0a86d719e0491c31baff516095aa35d8",
+        "TeamWeaver/planner/HRCS/task_module/open_module.py": "fb3d33ebf3caf0feb6b403ae7fd1324a5f268a4150b95a8c3bfc6eb68aa3e0d6",
+        "TeamWeaver/planner/HRCS/task_module/pick_module.py": "771b75e785137e25c8c6deff7497bbd6ae1e69f5dde2f2bce747f9e31b979c8c",
+        "TeamWeaver/planner/HRCS/task_module/place_module.py": "919c033d5791fca3ae44e6c6f1a81a4c80ef653f318d3d9a78c03bd4ffd6da90",
+        "TeamWeaver/planner/HRCS/task_module/state_manipulation_modules.py": "eb94e709c28afd10cd3d574966e6548ef99ae437de549afb5fdec1f560d9069b",
+        "TeamWeaver/planner/HRCS/task_module/wait_module.py": "94900f68442f2eb6a9a09a39808a67299492ff1c491103ddd34aa44353ca1478",
+        "TeamWeaver/planner/HRCS/test_simplified_config.py": "bc9abbd4d32ce496e0ce676bb8433b50f345eda148fb778d80ecc3b91adc0bca",
+        "TeamWeaver/planner/__init__.py": "0c4e762ccfc4a96fdd7cf1fb64b6b339d2e9368225323e35b8ca9c9aea69fefd",
+        "TeamWeaver/planner/centralized_llm_planner.py": "0ce379f6167e315f9ed432f20d11674f9972b54462eef224a1a532f013c4baeb",
+        "TeamWeaver/planner/debug_llm_planner.py": "3749fdeabdd60bf15a40d263277b0de32663a12b7effda51fa11a3c23cce4a9a",
+        "TeamWeaver/planner/hrcs_llm_planner.py": "a06e2208d00bb8a39598a61039f6523b4a45279fb81cf8d0de788b52b283b647",
+        "TeamWeaver/planner/human_modeling/HumanCareerModel.py": "d350c1c4a774ff06759876674cd124383fa4d301d24b53b3d5c88a55ebc26de6",
+        "TeamWeaver/planner/human_modeling/HumanModelingSystem.py": "7ac3edbd5c01da77367a77774df00986e7c817b252311a3d60550167a7e1ca4e",
+        "TeamWeaver/planner/human_modeling/LLMProfessionTagger.py": "02a560768302db370a037bb86682f072bb134dadbde27ee948c07d386de7e4a2",
+        "TeamWeaver/planner/human_modeling/PerformanceEvaluator.py": "2b4c37cd94add7e63fe1e8ebaa79be8bafc7a3ccdeff07c434bbac1cc8b77d0a",
+        "TeamWeaver/planner/llm_planner.py": "63f441ab92f90064418d73edabf681d3bba1da93428c0ceadd70a60dc692efa4",
+        "TeamWeaver/planner/llm_planner_comparison/llm_planner.py": "70b60eb8faf81db007684eaf655f33f801fd204690a77ba48accc54bda3d016a",
+        "TeamWeaver/planner/llm_planner_comparison/llm_planner_emos.py": "72fc9e12abef3c035b2b84693e48724e45855217849e5365d6a858cf971c69e3",
+        "TeamWeaver/planner/llm_planner_comparison/llm_planner_miqp.py": "65f392327029c253594ebefaaae9cea595780441b8cf954fb7565e361b408067",
+        "TeamWeaver/planner/llm_planner_comparison/llm_planner_partnr.py": "88f92a2492a3437b1822f767830e4ee2fd6097dd78509c5359361d1e2746d2b8",
+        "TeamWeaver/planner/llm_planner_comparison/llm_planner_server.py": "1e3f1ecf79e5b8740613f69ac8884504302ce545ddaad24ae58a04458f298973",
+        "TeamWeaver/planner/llm_planner_comparison/llm_planner_sm.py": "9f9ed34ffefea7331322fb53758bf200f71a3de483a11472fce576524f2f4278",
+        "TeamWeaver/planner/llm_planner_comparison/llm_planner_smart_llm.py": "72a9dd53f48f8b9a0ab43699fc9bda3995df51d98628c83c264bc7bccd211138",
+        "TeamWeaver/planner/miqp_planner/GlobalVarsManager.py": "de519a00d248fcdae560e197d3b573138bf3b2dc70cc677fb836a51962340e98",
+        "TeamWeaver/planner/miqp_planner/RTA.py": "230ca94b25700756f4185453fa5cd9f6bfc75edfad293159009f15591be34113",
+        "TeamWeaver/planner/miqp_planner/SingleIntegrator.py": "a4ad9510e8e006384db48f44a68de4956da3d618404ccc6744e9d4b10d54b7af",
+        "TeamWeaver/planner/miqp_planner/Swarm.py": "119cfa2a65e6cf80fed21409a03fa4ef7d12e4d851082d7bbb8d25bfe1620e35",
+        "TeamWeaver/planner/miqp_planner/central.py": "85b8befbbc12a2dd3a177c7cb8b0e5efd4d3dfe0c17301a02f642796ea23163c",
+        "TeamWeaver/planner/miqp_planner/human_central.py": "f19c9500873d260826957435258d138cd1e35255540ec73e23b9dbfefa6f72bb",
+        "TeamWeaver/planner/miqp_planner/newTask.py": "4f4092f2f1fb6d535399243fd9180bed702bd66fba7bf5426f2f1377b91e748b",
+        "TeamWeaver/planner/miqp_planner/optimizer/adaptive_optimizer.py": "ba10453ab882de52f34bd587b8bbf9f9f535d904366bde7971434e53de73c44e",
+        "TeamWeaver/planner/miqp_planner/optimizer/adaptive_optimizer_v2.py": "a3fa6bcf8587c67a1b686abf80291b0267e8d807e959c027d24878a9c4d3b745",
+        "TeamWeaver/planner/miqp_planner/optimizer/rl_adapter/adaptive_scenario_config.py": "c06c943d76b1682f3ae303fa58cf278ad52781ef7a12b521780281ee5036b304",
+        "TeamWeaver/planner/miqp_planner/optimizer/rl_adapter/rl_task_adapter.py": "17bdee68cc8ee0d0182c0558fdc651bc657bb2d906c884dc6f462f2df8e447fe",
+        "TeamWeaver/planner/miqp_planner/optimizer/rl_test.py": "fcb0b5acb3f2bcd3d252550995e45d620c5530d3180b156510f0b6cb2812aa0b",
+        "TeamWeaver/planner/miqp_planner/task_utils/coverage_module.py": "f57827b1cb88cdbc53cce457eef99d5cfc0aece7844a57b1f9f8e4578cdc4329",
+        "TeamWeaver/planner/miqp_planner/task_utils/disturbance.py": "99ba53632b794ac5b10f09a28ccb80ce21db3281b2ff657a92208f58d6d0f8c2",
+        "TeamWeaver/planner/miqp_planner/task_utils/opt_params.py": "05421904b3138874b7092d889cbf9c2463a0409548a5c0b3c508fe775c09d1d6",
+        "TeamWeaver/planner/miqp_planner/task_utils/scenario_params.py": "56c17305a4c9bd45fe04f5a02e6d5f9c30ddef2e31c54ad98bb33c8d8177f69a",
+        "TeamWeaver/planner/miqp_planner/task_utils/tools_util.py": "23203bbfb39fc6cb0f16a4c7325baef45bf4186f3e9abccac63fcb761d378fa1",
+        "TeamWeaver/planner/miqp_planner/task_utils/transport_module.py": "b915b2356ef65d425f6701b2c4d26b0ff9e6c1593c019907548d46cb7f00524f",
+        "TeamWeaver/planner/miqp_prompts.py": "86cd7818735bb09f5d58d693bc12f1748e9495c8b61a41a9320fadeed2454acd",
+        "TeamWeaver/planner/perception_connector.py": "406f8cd83cd6dc72ead1cf0625a16ce533d96e283dced90a2c92b4bfd59aed3c",
+        "TeamWeaver/planner/planner.py": "3c7052ee1f34bee8d2b470a4ef63024af75439015c39ae0b7e5070504d0f36d0",
+        "TeamWeaver/planner/rag.py": "5dd6362c50b9be55a86ca0c9604320a375228496c333a1fdf9aaf28ee23802e3",
+        "TeamWeaver/planner/random_rearrange_planner.py": "621ad64ddaeca008c37f87da13b6313b1243cdf5b813eaa57018329a60ec8456",
+        "TeamWeaver/planner/scripted_centralized_planner.py": "2dd56b2e6b9ce36a89703c89a37fe7282533d151f3141d0f68cfc7c03a9a1492",
+        "TeamWeaver/planner/thoughtless_llm_planner.py": "5cdaa191180a189a333e26d196a8e30958d3d686f0ef8f42af9a416469eed1e3",
+        "TeamWeaver/planner/zero_shot_react_planner.py": "edcd312b550a0a3b66a3a69a0fe802b571044f4585990257577666513129b681",
+        "TeamWeaver/sims/collaboration_sim.py": "c9cef782794e58da2b68eb72e581b106a80f8f9e8c0ac61729fa2f6c8e2256b3",
+        "TeamWeaver/sims/metadata_interface.py": "eba79a27fbc1e3ab3e1487a208728e3a872a8166daef74ad9f731ff36309527c",
+        "TeamWeaver/tests/test_cg_graph.py": "e713d328f63095d72c37fc634951ad5e70b3212044a3429a1e845951fbb8d827",
+        "TeamWeaver/tests/test_constrained_generation.py": "7e1f6a52e2ea66dbf1978daab03130418790d2d87fab5ef532238c21cc41bb38",
+        "TeamWeaver/tests/test_dataset.py": "872fd33c8eb17b59566c37a393d9ec409e655e4a298c7e43c1852ca3ceab134b",
+        "TeamWeaver/tests/test_evaluation.py": "47ece5a8c83de8f800fe6a86591220b04533ca4bccc05215394d4d1db4adfcb9",
+        "TeamWeaver/tests/test_generation.py": "01a9900547ba43ae5b79c0106deec0a26e30c5ddf3c941dfacadcacf43badcf3",
+        "TeamWeaver/tests/test_graph.py": "3fe6ecf70ad3048f09ed9bfdbb6c5e67e6bdc34194952384f70bab289e89c799",
+        "TeamWeaver/tests/test_imports.py": "14ad3ff8a7a425e6f8a2b1004b535a396eee981c384ce8324d02afb3ce429555",
+        "TeamWeaver/tests/test_metadata_interface.py": "3c86156c334a4b810eec0df7397c2fbf223dd34294d60b8e8e1f9c5d511445c2",
+        "TeamWeaver/tests/test_planner.py": "b592de2346a73fb02624245e92aafe9026cd6935cb474d5264b6dea0cd2e6360",
+        "TeamWeaver/tests/test_skills.py": "77b735b7d73e33b9a4540e5484b5c9e1a6e408c6a7bca1fdf528313fb657cae7",
+        "TeamWeaver/tests/test_verification.py": "ed12f5d809ae759bece101044c23a8065a1347ab2515b41dac5265f41e47b18e",
+        "TeamWeaver/tests/test_world_graph.py": "f54b32ff8028d453896128277607f87055f0c98bc5e8ddabc72913bd9ff45185",
+        "TeamWeaver/tools/__init__.py": "63fcabe8fd5e9dac91b09022458ae5b79e0ff771b894faa0c235d016d643fd96",
+        "TeamWeaver/tools/motor_skills/README.md": "75472a99447656f3af456df72017a8e73e3a86db71c71ebde665302d89f143ff",
+        "TeamWeaver/tools/motor_skills/__init__.py": "e597035a84704f9d9d5e1d44581b43de873764003fa7435b21dcea03c6475322",
+        "TeamWeaver/tools/motor_skills/art_obj/nn_art_obj_skill.py": "d4295409f09928b4a2e796586cc0526a6c7c8ca102c9256df2c4dc2a4c91cdc7",
+        "TeamWeaver/tools/motor_skills/art_obj/nn_close_skill.py": "5019a20a8e80f4ec833bf1404d2c894a657703cbed4337fff49eabc08df7fae3",
+        "TeamWeaver/tools/motor_skills/art_obj/nn_open_skill.py": "fda34c9429aec06c1e66116334820ca0db68cc91acb7d9fd4b43a9db0878fac4",
+        "TeamWeaver/tools/motor_skills/art_obj/oracle_open_close_skill.py": "93e85dbb981d38c8371e0373a92c33642d1c089a7369dac979f4de39aa4c994a",
+        "TeamWeaver/tools/motor_skills/compound_skill.py": "96eb004f5209bb7ef78658556e99da3b8365bd2ac3824ef31224a837ab70ed81",
+        "TeamWeaver/tools/motor_skills/explore/explore_skill.py": "4201aa38f92a0ee53c0a2667e536aa1e61a13f325fb515b3bf92b4d8bb5298f5",
+        "TeamWeaver/tools/motor_skills/explore/nn_explore_skill.py": "934944390d4fb69be14c00d7d9c7a8bd5811a068e6b5dcab507212c9ecf7dffa",
+        "TeamWeaver/tools/motor_skills/explore/oracle_explore_skill.py": "34059fc17f93c1db179cab0b3bcdedaca2e7b0f87cf3c3c29e375cf7afdfeb6b",
+        "TeamWeaver/tools/motor_skills/motor_skill_tool.py": "c32b4c8bae091ad107d7c0287cfaf807004c90d5bfb80ba0fec7c7482fecad5e",
+        "TeamWeaver/tools/motor_skills/nav/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "TeamWeaver/tools/motor_skills/nav/nn_nav_skill.py": "0c548703f0f14d647ef3da1a3b25b7bb6b0794e6fe8c7a93fb78c22709d11653",
+        "TeamWeaver/tools/motor_skills/nav/oracle_nav_skill.py": "21d56de02f1a4d4a61d25956138b297c6177c34d4d115cec1e59b64383095dbe",
+        "TeamWeaver/tools/motor_skills/nav/oracle_point_nav_skill.py": "532e6b3d406ccdd5c776c7a3e9fa51222b5d82f54e10b90ae4653a1f89c7a319",
+        "TeamWeaver/tools/motor_skills/nn_skill.py": "6adecc76ed1d80770cd44c889c0095924577ed698d706193555027e651f7b01e",
+        "TeamWeaver/tools/motor_skills/object_states/oracle_clean_skills.py": "0f5f2165d1e4c1646ea67e339f356cb9a4bb4eb926f8ae68af725099df6a8873",
+        "TeamWeaver/tools/motor_skills/object_states/oracle_fill_skills.py": "9e05d98460e7302ba30b35360ac064f6597af48a75c8f4a7102789ce2f1d598b",
+        "TeamWeaver/tools/motor_skills/object_states/oracle_object_state_skill.py": "0f6a43471143039769b359d9196e4e6d9100ce8f57bca0ce7e9ab5d6fbb73160",
+        "TeamWeaver/tools/motor_skills/object_states/oracle_pour_skills.py": "8d00c7abd6650dc0e608c925780ddee4579258566bf794109c31f00b587ddf0e",
+        "TeamWeaver/tools/motor_skills/object_states/oracle_power_skills.py": "09064fa05f993d9a2cdf3428fec163e87da68ffdc241a68314a2d102cc3e73fe",
+        "TeamWeaver/tools/motor_skills/pick/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "TeamWeaver/tools/motor_skills/pick/nn_pick_skill.py": "ce9d23d1eff54cdca618f739b88445cd3ce45a8e3e1df41abc8ad4fd8e738989",
+        "TeamWeaver/tools/motor_skills/pick/oracle_pick_skill.py": "fa67675121de8e141d8f93976edaec301c0d804ecf3646a53bd66381a29ea081",
+        "TeamWeaver/tools/motor_skills/pick/oracle_point_pick_skill.py": "2fedb441a23d1974aeef70406a7a95b99f0e6a8d7ea94fc22eac1d67fd5f5b06",
+        "TeamWeaver/tools/motor_skills/place/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "TeamWeaver/tools/motor_skills/place/nn_place_skill.py": "1286677fb8ab6d4eca4e8b3541c7d8ae6ca56b01b19c9e540d430bad74762295",
+        "TeamWeaver/tools/motor_skills/place/oracle_place_skill.py": "4062fdf18aeba4f516b8d6e3467e49c201a0f21e91dbc598fedc965f6b2a6deb",
+        "TeamWeaver/tools/motor_skills/rearrange/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "TeamWeaver/tools/motor_skills/rearrange/nn_rearrange_skill.py": "ba888914d4c937d7a789935e3181221c6726ab6d19986fb656627eb1b4d1da81",
+        "TeamWeaver/tools/motor_skills/rearrange/oracle_rearrange_skill.py": "cf325b2f6f586e79305e8bee8fd87b924c7b7a0aade907ca79e4d8027cea9de2",
+        "TeamWeaver/tools/motor_skills/reset_arm/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "TeamWeaver/tools/motor_skills/reset_arm/reset_arm_skill.py": "331851c7a77f341929b68a76816ac353510ada466246586e5072df5b125f6b7a",
+        "TeamWeaver/tools/motor_skills/skill.py": "25555054f9ea9424b75719e076657f879a41742202a56c22dc8af38988fa733d",
+        "TeamWeaver/tools/motor_skills/wait/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "TeamWeaver/tools/motor_skills/wait/wait_skill.py": "294f685973b73184a8b124f3cec5d1fdf0b4b1146048e83822bbea817b6b0ae6",
+        "TeamWeaver/tools/perception/__init__.py": "530f6f5d8ab3c9aa58a7628f2241b8a29a694ecfd719080eea062696126b11a3",
+        "TeamWeaver/tools/perception/find_agent_action_tool.py": "e9c6211833771978ed93a45d1a8184c441d20f6bbe502305b9b37c86633b62e8",
+        "TeamWeaver/tools/perception/find_object_tool.py": "f47c7c6a1054d4592d4d08196901f091a1d3f7f65a244483b7a1f105b5a05011",
+        "TeamWeaver/tools/perception/find_receptacle_tool.py": "93fe385224f84efa2f777cd721a8cb457efd84974859bdcf547e67d3faf425a0",
+        "TeamWeaver/tools/perception/find_room_tool.py": "3f38101fda13d5a255d907639749c330a36cad21fb6b200775d3f4c9b583c02a",
+        "TeamWeaver/tools/perception/query_map_tool.py": "0c1609483bff96598931c017c0285d4f34ede78c80861769bb44fb3a108b2795",
+        "TeamWeaver/tools/prompts.py": "9839300114a90bf5d049d5a8c66b0959e2181b90c3d7eacae3e9e01bde05c156",
+        "TeamWeaver/tools/tool.py": "9316f98b81bd44c65800cce58cd720e3cad88442d7b652d6d4d09670a1c1800f",
+        "TeamWeaver/utils/__init__.py": "eb3014c7d0b785c13599a4ba69609df25ac40b12380a3b8583124fd4830eb365",
+        "TeamWeaver/utils/core.py": "7649ba6f9f61af84c9eb0a253151a35a0dd9e6b375783fc6b7c5d8ae10aa2812",
+        "TeamWeaver/utils/geometric.py": "cee8833da04b970e2dae4e3b005ed03fa616dab48050385ad1c8dfa4b70abf2e",
+        "TeamWeaver/utils/grammar.py": "679735757c07a4de3778d438878b0b4a586b4b578fd58ac2068b1f5dde484bc4",
+        "TeamWeaver/utils/init_llama_remote.sh": "d109d93a8c1a8749a189f67295ede7dd412038a56dd3232b1147278cdc7c0920",
+        "TeamWeaver/utils/semantic_constants.py": "a1bfc5caeb015d33227c49884dc319c432b852917a445e680424bc1986252876",
+        "TeamWeaver/utils/sim.py": "7f0990a10a847c028bb5f71164b679c37dbe09550d6805ac596753d6a3a4b217",
+        "TeamWeaver/utils/world_graph.py": "6e7fd3ef9191736ee6209f11d33cc118cdf2f85b730046242901d2ddec32f803",
+        "TeamWeaver/world_model/README.md": "c88f905bcdd10eaa34f2c58dec49620e792363616bb5cf35441dc3caa4fb7157",
+        "TeamWeaver/world_model/__init__.py": "12048a688b04bbf87a392e7284a4162c5026edd1faa6c4e006682aca83ab11ab",
+        "TeamWeaver/world_model/dynamic_world_graph.py": "aa1f174a8d9c52d814c2a56250f2a2fad11a604036f5586a99469c3fc9059036",
+        "TeamWeaver/world_model/entities/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "TeamWeaver/world_model/entities/floor.py": "a0f7769295a4797e69c816e15eaca86d306e792c4323d2222f71fb10223fd770",
+        "TeamWeaver/world_model/entities/furniture.py": "6ce21a961a2438ae00469e705c4d1db8d2a0e8b29b1f1e4203f5ed30760c20eb",
+        "TeamWeaver/world_model/entity.py": "47b7758ba7afeeb4d0b52500f18c6d9231a83bfe14864e86d80f087b4f5976c1",
+        "TeamWeaver/world_model/graph.py": "fe22b9f0e7c5d9e403e1cad7c44cdb6f04955ff9db8d7fca3da905ab00bf9c7d",
+        "TeamWeaver/world_model/object_states.py": "90e840ecb19cf9f90c09fdf816d7cfffaf3332b32a04b337501004f51a5fb7ea",
+        "TeamWeaver/world_model/world_graph.py": "07ec0c02fe242ea3faf56ec178323febabe8557b244f9c77f9e9077081516418"
+      },
+      "receipt_path": "/tmp/teamweaver-namespace-hhl1xnyh/compat/source_compat_receipt.json",
+      "applied": true
+    },
+    "semantic_mapping": {
+      "instruction": "Move the mobile robot to inspection_area and the sensing-capable robot to counter. These are two separate navigation goals; use both robots.",
+      "world_graph": {
+        "node_names": [
+          "agent_0",
+          "agent_1",
+          "counter",
+          "inspection_area",
+          "kitchen"
+        ],
+        "edge_count": 4,
+        "file": "/tmp/teamweaver-namespace-hhl1xnyh/compat/TeamWeaver/world_model/world_graph.py",
+        "nodes": [
+          {
+            "name": "kitchen",
+            "type": "Room",
+            "properties": {
+              "translation": [
+                0,
+                0,
+                0
+              ],
+              "type": "entity_node"
+            }
+          },
+          {
+            "name": "counter",
+            "type": "Furniture",
+            "properties": {
+              "translation": [
+                1,
+                0,
+                1
+              ],
+              "type": "entity_node"
+            }
+          },
+          {
+            "name": "inspection_area",
+            "type": "Object",
+            "properties": {
+              "translation": [
+                0,
+                0,
+                0
+              ],
+              "states": {},
+              "type": "entity_node"
+            }
+          },
+          {
+            "name": "agent_0",
+            "type": "SpotRobot",
+            "properties": {
+              "translation": [
+                -1.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "type": "entity_node"
+            }
+          },
+          {
+            "name": "agent_1",
+            "type": "SpotRobot",
+            "properties": {
+              "translation": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "type": "entity_node"
+            }
+          }
+        ],
+        "world_description": "Furniture:\nkitchen: counter\n\nThe following furnitures have a faucet: \nObjects:\ninspection_area: counter in kitchen"
+      },
+      "agents": [
+        {
+          "uid": 0,
+          "robot_id": "mobile",
+          "tool_names": [
+            "Close",
+            "Navigate",
+            "Open",
+            "Pick",
+            "Place",
+            "Wait"
+          ],
+          "tool_descriptions": "- Close: Used for closing an articulated entity. You must provide the name of the furniture you want to close. Example (Close[chest_of_drawers_1])\n- Navigate: Used for navigating to an entity. You must provide the name of the entity you want to navigate to. Example (Navigate[counter_22])\n- Open: Used for opening an articulated entity. You must provide the name of the furniture you want to open. Example (Open[chest_of_drawers_1])\n- Pick: Used for picking up an object. You must provide the name of the object to be picked. The agent cannot hold more than one object at a time. Example (Pick[cup_1])\n- Place: Used for placing an object on a target location. You need to provide the name of the object to be placed, the name of the furniture where it should be placed, spatial relation (\"on\" or \"within\") describing the relation between the object and furniture. The object to be placed must already be held by the agent (i.e. picked previously). In addition to these, you can request to place the object near another object. For that you can optionally provide a spatial constraints (\"next_to\") and the name of the reference object. To place next to an object, the reference object must already be on the target furniture. API template - Place[<object_to_be_placed>, <spatial_relation>, <furniture to be placed on>, <spatial_constraint>, <reference_object>]. spatial_constraint and reference_object should be set to \"None\" when necessary.\n- Wait: Used to make agent stay idle for some time. Example (Wait[])",
+          "dry_run": false
+        },
+        {
+          "uid": 1,
+          "robot_id": "sensor",
+          "tool_names": [
+            "Close",
+            "Navigate",
+            "Open",
+            "Pick",
+            "Place",
+            "Wait"
+          ],
+          "tool_descriptions": "- Close: Used for closing an articulated entity. You must provide the name of the furniture you want to close. Example (Close[chest_of_drawers_1])\n- Navigate: Used for navigating to an entity. You must provide the name of the entity you want to navigate to. Example (Navigate[counter_22])\n- Open: Used for opening an articulated entity. You must provide the name of the furniture you want to open. Example (Open[chest_of_drawers_1])\n- Pick: Used for picking up an object. You must provide the name of the object to be picked. The agent cannot hold more than one object at a time. Example (Pick[cup_1])\n- Place: Used for placing an object on a target location. You need to provide the name of the object to be placed, the name of the furniture where it should be placed, spatial relation (\"on\" or \"within\") describing the relation between the object and furniture. The object to be placed must already be held by the agent (i.e. picked previously). In addition to these, you can request to place the object near another object. For that you can optionally provide a spatial constraints (\"next_to\") and the name of the reference object. To place next to an object, the reference object must already be on the target furniture. API template - Place[<object_to_be_placed>, <spatial_relation>, <furniture to be placed on>, <spatial_constraint>, <reference_object>]. spatial_constraint and reference_object should be set to \"None\" when necessary.\n- Wait: Used to make agent stay idle for some time. Example (Wait[])",
+          "dry_run": false
+        }
+      ],
+      "environment_interface": {
+        "class": "habitat_llm.agent.env.environment_interface.EnvironmentInterface",
+        "file": "/home/airs/.cache/heterocoord/upstream/teamweaver-partnr/habitat_llm/agent/env/environment_interface.py",
+        "imported": true,
+        "instantiated": false,
+        "reason": "Original constructor requires a real Habitat environment/simulator; none supplied."
+      },
+      "motor_skills_bound": false,
+      "tool_grammar_verified": false,
+      "prompt": {
+        "source": "/tmp/teamweaver-namespace-hhl1xnyh/compat/TeamWeaver/conf/instruct/few_shot_centralized_full_obs_multiagent.yaml",
+        "sha256": "2c233b2d5bcae2e1bf1b94a8ba067518dae5d5d22a56daeed6628e50afa28b84",
+        "original_sha256": "fb254a3fde6348b322008951519cbe4df096eca08ac2f2f956cc71d01a74db8c",
+        "rendered_sha256": "9ce03b192dbe6d73325e0cabd8ff26c3f86505864a8979bb64cd2a13cae5194b",
+        "output_seam": {
+          "enabled": true,
+          "upstream_template_modified": false,
+          "suffix": "\nEAI input/output contract (adapter addition):\n{\"agents\": [{\"native_uid\": 0, \"robot_id\": \"mobile\", \"tools\": [\"Close\", \"Navigate\", \"Open\", \"Pick\", \"Place\", \"Wait\"]}, {\"native_uid\": 1, \"robot_id\": \"sensor\", \"tools\": [\"Close\", \"Navigate\", \"Open\", \"Pick\", \"Place\", \"Wait\"]}], \"entities\": [{\"name\": \"kitchen\", \"type\": \"Room\"}, {\"name\": \"counter\", \"type\": \"Furniture\"}, {\"name\": \"inspection_area\", \"type\": \"Object\"}, {\"name\": \"agent_0\", \"type\": \"SpotRobot\"}, {\"name\": \"agent_1\", \"type\": \"SpotRobot\"}], \"instruction\": \"Move the mobile robot to inspection_area and the sensing-capable robot to counter. These are two separate navigation goals; use both robots.\", \"rules\": [\"Use exact entity identifiers; never guess or rename them.\", \"Emit one Agent_<uid>_Action: Tool[arguments] directive per agent.\", \"Choose only an exact declared task action, or Wait[] without claiming completion.\", \"Unsupported, ambiguous, duplicate or coalition task outputs will be rejected.\", \"This boundary supplies no simulated execution feedback.\"], \"scope\": \"I/O boundary only; this does not choose allocations\", \"task_action_catalog\": [{\"action\": \"Navigate\", \"arguments\": [\"inspection_area\"], \"prerequisites\": [], \"required_capabilities\": [\"navigation\"], \"task_id\": \"move_mobile\"}, {\"action\": \"Navigate\", \"arguments\": [\"counter\"], \"prerequisites\": [], \"required_capabilities\": [\"navigation\", \"sensing\"], \"task_id\": \"move_sensor\"}]}",
+          "suffix_sha256": "9f82398b31f94312b6527ad4d946e8fcec6239b47897c421299de7c05cb2e461"
+        },
+        "rendered": "- Overview:\nSolve the given multi-agent planning problem as best as you can. The task assigned to you will be situated in a house and will generally involve navigating to objects, picking and placing them on different receptacles to achieve rearrangement. Below is the detailed description of the actions you can use for solving the task. You can assign them to Agent_0 and/or Agent_1 as required.\n\n- Close: Used for closing an articulated entity. You must provide the name of the furniture you want to close. Example (Close[chest_of_drawers_1])\n- Navigate: Used for navigating to an entity. You must provide the name of the entity you want to navigate to. Example (Navigate[counter_22])\n- Open: Used for opening an articulated entity. You must provide the name of the furniture you want to open. Example (Open[chest_of_drawers_1])\n- Pick: Used for picking up an object. You must provide the name of the object to be picked. The agent cannot hold more than one object at a time. Example (Pick[cup_1])\n- Place: Used for placing an object on a target location. You need to provide the name of the object to be placed, the name of the furniture where it should be placed, spatial relation (\"on\" or \"within\") describing the relation between the object and furniture. The object to be placed must already be held by the agent (i.e. picked previously). In addition to these, you can request to place the object near another object. For that you can optionally provide a spatial constraints (\"next_to\") and the name of the reference object. To place next to an object, the reference object must already be on the target furniture. API template - Place[<object_to_be_placed>, <spatial_relation>, <furniture to be placed on>, <spatial_constraint>, <reference_object>]. spatial_constraint and reference_object should be set to \"None\" when necessary.\n- Wait: Used to make agent stay idle for some time. Example (Wait[])\n\nHere are some examples:\n\nExample 1:\nTask: Move all objects from sofa to sink\nThought: First I should ask one agent to find the objects that are on the sofa. In parallel, I should ask the other to find the sink.\nAgent_0_Action: FindObjectTool[Objects on the sofa]\nAgent_1_Action: FindReceptacleTool[sink]\nAssigned!\nAgent_0_Observation: - cherry_0 in Sofa\n- banana_0 in Sofa\nAgent_1_Observation: sink_0\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan.\nAgent_0_Action: Rearrange[cherry_0, on, sink_0, None, None]\nAgent_1_Action: Rearrange[banana_0, on, sink_0, None, None]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Action \"Rearrange[banana_0, on, sink_0, None, None]\" is still in progress.\nThought: Agent 0 successfully transferred the target. Agent 1 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Wait[]\nAgent_1_Action: Rearrange[banana_0, on, sink_0, None, None]\nAssigned!\nAgent_0_Observation: Waiting\nAgent_1_Observation: Successful execution!\nThought: All objects were successfully moved, so I am done!\nFinal Thought: Exit!\n\nExample 2:\nTask: Move pillow to bed and then move apple to kitchen counter\nThought: First I should ask one agent to find the pillow. In parallel, I should ask the other to find bed.\nAgent_0_Action: FindObjectTool[pillow]\nAgent_1_Action: FindReceptacleTool[bed]\nAssigned!\nAgent_0_Observation: - pillow_0 in sofa\n- pillow_1 in couch\nAgent_1_Observation: bed_0, bed_1\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan. Since there are many beds, I will pick any one of them.\nAgent_0_Action: Rearrange[pillow_0, on, bed_0, None, None]\nAgent_1_Action: Rearrange[pillow_1, on, bed_0, None, None]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Action \"Rearrange[pillow_1, on, bed_0, None, None]\" is still in progress.\nThought: Agent 0 successfully transferred the target. Agent 1 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Wait[]\nAgent_1_Action: Rearrange[pillow_1, on, bed_0, None, None]\nAssigned!\nAgent_0_Observation: Waiting\nAgent_1_Observation: Successful execution!\nThought: Now that both pillows have been successfully moved, I will move on to the next part of the task. I should ask one agent to find the apple. In parallel, I should ask the other to find kitchen counter.\nAgent_0_Action: FindObjectTool[apple]\nAgent_1_Action: FindReceptacleTool[kitchen counter]\nAssigned!\nAgent_0_Observation: - apple_0 in sofa\nAgent_1_Observation: counter_0, counter_1, counter_2 are in kitchen\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan. Since there are multiple counters in kitchen, I will pick any one of them.\nAgent_0_Action: Rearrange[apple_0, on, counter_0, None, None]\nAgent_1_Action: Wait[]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Waiting\nThought: All objects were successfully moved, so I am done!\nFinal Thought: Exit!\n\nExample 3:\nTask: Move bowl, cup and basket to the chair in living room\nThought: First I should ask one agent to find bowl, cup and basket. In parallel, I should ask the other to find the chair in living room.\nAgent_0_Action: FindObjectTool[bowl, cup, basket]\nAgent_1_Action: FindReceptacleTool[chair in living room]\nAssigned!\nAgent_0_Observation: - bowl_0 in Sofa\n- cup_1 in Sofa\n- basket_2 in Sofa\nAgent_1_Observation: chair_0, chair_1, chair_2, chair_3 found in living room.\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan. Since there are many chairs, I will pick any one of them.\nAgent_0_Action: Rearrange[bowl_0, on, chair_0, None, None]\nAgent_1_Action: Rearrange[cup_1, on, chair_0, None, None]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Action \"Rearrange[banana_0, on, sink_0, None, None]\" is still in progress.\nThought: Agent 0 successfully transferred the target. So I will assign next action to it. Agent 1 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Rearrange[basket_2, on, chair_0, None, None]\nAgent_1_Action: Rearrange[cup_1, on, chair_0, None, None]\nAssigned!\nAgent_0_Observation: Action \"Rearrange[basket_2, on, chair_0, None, None]\" is still in progress.\nAgent_1_Observation: Successful execution!\nThought: Agent 1 successfully transferred the target. Agent 0 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Rearrange[basket_2, on, chair_0, None, None]\nAgent_1_Action: Wait[]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Waiting\nThought: All objects were successfully moved, so I am done!\nFinal Thought: Exit!\n\nTask: Move the mobile robot to inspection_area and the sensing-capable robot to counter. These are two separate navigation goals; use both robots.\nThought:\nEAI input/output contract (adapter addition):\n{\"agents\": [{\"native_uid\": 0, \"robot_id\": \"mobile\", \"tools\": [\"Close\", \"Navigate\", \"Open\", \"Pick\", \"Place\", \"Wait\"]}, {\"native_uid\": 1, \"robot_id\": \"sensor\", \"tools\": [\"Close\", \"Navigate\", \"Open\", \"Pick\", \"Place\", \"Wait\"]}], \"entities\": [{\"name\": \"kitchen\", \"type\": \"Room\"}, {\"name\": \"counter\", \"type\": \"Furniture\"}, {\"name\": \"inspection_area\", \"type\": \"Object\"}, {\"name\": \"agent_0\", \"type\": \"SpotRobot\"}, {\"name\": \"agent_1\", \"type\": \"SpotRobot\"}], \"instruction\": \"Move the mobile robot to inspection_area and the sensing-capable robot to counter. These are two separate navigation goals; use both robots.\", \"rules\": [\"Use exact entity identifiers; never guess or rename them.\", \"Emit one Agent_<uid>_Action: Tool[arguments] directive per agent.\", \"Choose only an exact declared task action, or Wait[] without claiming completion.\", \"Unsupported, ambiguous, duplicate or coalition task outputs will be rejected.\", \"This boundary supplies no simulated execution feedback.\"], \"scope\": \"I/O boundary only; this does not choose allocations\", \"task_action_catalog\": [{\"action\": \"Navigate\", \"arguments\": [\"inspection_area\"], \"prerequisites\": [], \"required_capabilities\": [\"navigation\"], \"task_id\": \"move_mobile\"}, {\"action\": \"Navigate\", \"arguments\": [\"counter\"], \"prerequisites\": [], \"required_capabilities\": [\"navigation\", \"sensing\"], \"task_id\": \"move_sensor\"}]}"
+      },
+      "credentials_present": {
+        "DONGLI_API_KEY": true,
+        "DONGLI_BASE_URL": true,
+        "DONGLI_MODEL": true,
+        "DONGLI_REASONING_EFFORT": true
+      },
+      "llm_calls_made": false
+    },
+    "native_planner": {
+      "native_replan_invoked": true,
+      "semantic_solver_invoked": true,
+      "environment": "EAI_explicit_world_graph_no_Habitat_simulator",
+      "motor_skills_executed": false,
+      "calls": [
+        {
+          "native_requested_model": "moonshot-v1-32k",
+          "requested_model": "gpt-5.6-luna",
+          "reasoning_effort": "low",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are an expert robotic task planner. Your goal is to decompose a high-level instruction into a sequence of executable subtasks for one or more robots.\n\n**INPUT:**\n1.  **Instruction:** The user's command (e.g., \"put the apple on the table\").\n2.  **World Description:** A list of all known rooms, furniture, and objects with their current locations (e.g., \"apple is on counter_1\").\n3.  **Agent Status:** The current state of each robot, including their position.\n\n**CRITICAL RULES:**\n1.  **Navigate Before Interaction:** This is the most important rule. Before any `Pick` or `Open` action, there MUST be a preceding `Navigate` task to the object's parent furniture. Do not assume the robot is already there. The only exception is if another task in the same phase has already navigated to that exact location.\n2.  **Handling Unknown Objects:** If the instruction mentions an object NOT in the \"World Description\", your first step MUST be an `Explore` task. The `Explore` target should be the most likely `ROOM` or `FURNITURE`. Do not explore for the object name itself.\n3.  **Prioritize Exploration:** If you are uncertain about any aspect of the environment, start with an `Explore` task.\n4.  **Output Format:** Your response MUST be a valid JSON list of task objects.\n\n**EXAMPLE of Good vs. Bad Plans:**\n-   **Instruction:** \"Pick up the apple.\"\n-   **World State:** `agent_0` is in `living_room`, `apple` is on `kitchen_counter`.\n-   **BAD Plan (X):** `[{\"task_type\": \"Pick\", \"target\": \"apple\", ...}]`\n-   **GOOD Plan (✓):** `[{\"task_type\": \"Navigate\", \"target\": \"kitchen_counter\", ...}, {\"task_type\": \"Pick\", \"target\": \"apple\", ...}]`\n\nFollow these rules strictly. A plan without a necessary `Navigate` before `Pick` is an invalid plan."
+            },
+            {
+              "role": "user",
+              "content": "Decompose the instruction into a JSON array of subtasks with dependencies, focusing on carrying-state logic.\n\nINSTRUCTION: Move the mobile robot to inspection_area and the sensing-capable robot to counter. These are two separate navigation goals; use both robots.\n\nWORLD STATE:\nFurniture:\nkitchen: counter\n\nThe following furnitures have a faucet: \nObjects:\ninspection_area: counter in kitchen\n\nAGENT STATUS:\n- agent_0: Position [-1.00, 0.00, 0.00], hands free\n- agent_1: Position [1.00, 0.00, 0.00], hands free\n\nAGENT CAPABILITIES:\n- Agent 0: Navigate, Explore, Pick, Place, Open, Close, Rearrange, Wait\n- Agent 1: All Agent 0 skills + Clean, Fill, Pour, PowerOn, PowerOff\n\nDEPENDENCY RULES:\n- A \"Navigate\" task for placing items is a \"carrying navigation\" and MUST depend on ALL relevant \"Pick\" tasks.\n- Example: For \"Put A and B on C\", the \"Navigate to C\" task must have prerequisites pointing to \"Pick A\" and \"Pick B\".\n- A \"Place\" task must depend on its corresponding \"Pick\" and \"carrying navigation\" tasks.\n\nJSON OUTPUT FORMAT (JSON only, no comments):\n[\n  {\n    \"task_id\": \"task_0\",\n    \"task_type\": \"Navigate|Pick|Place|etc.\",\n    \"target\": \"object_or_location\",\n    \"description\": \"description of the subtask\",\n    \"priority\": 1-5,\n    \"prerequisites\": [\"task_id_1\"],\n    \"can_parallel\": false\n  }\n]\n"
+            }
+          ],
+          "status": "returned",
+          "response_id": "resp_017967005e2bad61016ae1d56d6f38819baab614600875c8f9",
+          "returned_model": "gpt-5.6-luna",
+          "text": "[\n  {\n    \"task_id\": \"task_0\",\n    \"task_type\": \"Navigate\",\n    \"target\": \"inspection_area\",\n    \"description\": \"Navigate agent_0, the mobile robot, to inspection_area.\",\n    \"priority\": 1,\n    \"prerequisites\": [],\n    \"can_parallel\": true\n  },\n  {\n    \"task_id\": \"task_1\",\n    \"task_type\": \"Navigate\",\n    \"target\": \"counter\",\n    \"description\": \"Navigate agent_1, the sensing-capable robot, to the counter in the kitchen.\",\n    \"priority\": 1,\n    \"prerequisites\": [],\n    \"can_parallel\": true\n  }\n]",
+          "usage": {
+            "completion_tokens": 257,
+            "prompt_tokens": 798,
+            "total_tokens": 1055,
+            "completion_tokens_details": {
+              "reasoning_tokens": 107
+            }
+          }
+        },
+        {
+          "native_requested_model": "gpt-5.6-luna",
+          "requested_model": "gpt-5.6-luna",
+          "reasoning_effort": "low",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are an expert at task planning."
+            },
+            {
+              "role": "user",
+              "content": "- Overview:\nSolve the given multi-agent planning problem as best as you can. The task assigned to you will be situated in a house and will generally involve navigating to objects, picking and placing them on different receptacles to achieve rearrangement. Below is the detailed description of the actions you can use for solving the task. You can assign them to Agent_0 and/or Agent_1 as required.\n\n- Close: Used for closing an articulated entity. You must provide the name of the furniture you want to close. Example (Close[chest_of_drawers_1])\n- Navigate: Used for navigating to an entity. You must provide the name of the entity you want to navigate to. Example (Navigate[counter_22])\n- Open: Used for opening an articulated entity. You must provide the name of the furniture you want to open. Example (Open[chest_of_drawers_1])\n- Pick: Used for picking up an object. You must provide the name of the object to be picked. The agent cannot hold more than one object at a time. Example (Pick[cup_1])\n- Place: Used for placing an object on a target location. You need to provide the name of the object to be placed, the name of the furniture where it should be placed, spatial relation (\"on\" or \"within\") describing the relation between the object and furniture. The object to be placed must already be held by the agent (i.e. picked previously). In addition to these, you can request to place the object near another object. For that you can optionally provide a spatial constraints (\"next_to\") and the name of the reference object. To place next to an object, the reference object must already be on the target furniture. API template - Place[<object_to_be_placed>, <spatial_relation>, <furniture to be placed on>, <spatial_constraint>, <reference_object>]. spatial_constraint and reference_object should be set to \"None\" when necessary.\n- Wait: Used to make agent stay idle for some time. Example (Wait[])\n\nHere are some examples:\n\nExample 1:\nTask: Move all objects from sofa to sink\nThought: First I should ask one agent to find the objects that are on the sofa. In parallel, I should ask the other to find the sink.\nAgent_0_Action: FindObjectTool[Objects on the sofa]\nAgent_1_Action: FindReceptacleTool[sink]\nAssigned!\nAgent_0_Observation: - cherry_0 in Sofa\n- banana_0 in Sofa\nAgent_1_Observation: sink_0\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan.\nAgent_0_Action: Rearrange[cherry_0, on, sink_0, None, None]\nAgent_1_Action: Rearrange[banana_0, on, sink_0, None, None]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Action \"Rearrange[banana_0, on, sink_0, None, None]\" is still in progress.\nThought: Agent 0 successfully transferred the target. Agent 1 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Wait[]\nAgent_1_Action: Rearrange[banana_0, on, sink_0, None, None]\nAssigned!\nAgent_0_Observation: Waiting\nAgent_1_Observation: Successful execution!\nThought: All objects were successfully moved, so I am done!\nFinal Thought: Exit!\n\nExample 2:\nTask: Move pillow to bed and then move apple to kitchen counter\nThought: First I should ask one agent to find the pillow. In parallel, I should ask the other to find bed.\nAgent_0_Action: FindObjectTool[pillow]\nAgent_1_Action: FindReceptacleTool[bed]\nAssigned!\nAgent_0_Observation: - pillow_0 in sofa\n- pillow_1 in couch\nAgent_1_Observation: bed_0, bed_1\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan. Since there are many beds, I will pick any one of them.\nAgent_0_Action: Rearrange[pillow_0, on, bed_0, None, None]\nAgent_1_Action: Rearrange[pillow_1, on, bed_0, None, None]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Action \"Rearrange[pillow_1, on, bed_0, None, None]\" is still in progress.\nThought: Agent 0 successfully transferred the target. Agent 1 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Wait[]\nAgent_1_Action: Rearrange[pillow_1, on, bed_0, None, None]\nAssigned!\nAgent_0_Observation: Waiting\nAgent_1_Observation: Successful execution!\nThought: Now that both pillows have been successfully moved, I will move on to the next part of the task. I should ask one agent to find the apple. In parallel, I should ask the other to find kitchen counter.\nAgent_0_Action: FindObjectTool[apple]\nAgent_1_Action: FindReceptacleTool[kitchen counter]\nAssigned!\nAgent_0_Observation: - apple_0 in sofa\nAgent_1_Observation: counter_0, counter_1, counter_2 are in kitchen\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan. Since there are multiple counters in kitchen, I will pick any one of them.\nAgent_0_Action: Rearrange[apple_0, on, counter_0, None, None]\nAgent_1_Action: Wait[]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Waiting\nThought: All objects were successfully moved, so I am done!\nFinal Thought: Exit!\n\nExample 3:\nTask: Move bowl, cup and basket to the chair in living room\nThought: First I should ask one agent to find bowl, cup and basket. In parallel, I should ask the other to find the chair in living room.\nAgent_0_Action: FindObjectTool[bowl, cup, basket]\nAgent_1_Action: FindReceptacleTool[chair in living room]\nAssigned!\nAgent_0_Observation: - bowl_0 in Sofa\n- cup_1 in Sofa\n- basket_2 in Sofa\nAgent_1_Observation: chair_0, chair_1, chair_2, chair_3 found in living room.\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan. Since there are many chairs, I will pick any one of them.\nAgent_0_Action: Rearrange[bowl_0, on, chair_0, None, None]\nAgent_1_Action: Rearrange[cup_1, on, chair_0, None, None]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Action \"Rearrange[banana_0, on, sink_0, None, None]\" is still in progress.\nThought: Agent 0 successfully transferred the target. So I will assign next action to it. Agent 1 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Rearrange[basket_2, on, chair_0, None, None]\nAgent_1_Action: Rearrange[cup_1, on, chair_0, None, None]\nAssigned!\nAgent_0_Observation: Action \"Rearrange[basket_2, on, chair_0, None, None]\" is still in progress.\nAgent_1_Observation: Successful execution!\nThought: Agent 1 successfully transferred the target. Agent 0 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Rearrange[basket_2, on, chair_0, None, None]\nAgent_1_Action: Wait[]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Waiting\nThought: All objects were successfully moved, so I am done!\nFinal Thought: Exit!\n\nTask: Move the mobile robot to inspection_area and the sensing-capable robot to counter. These are two separate navigation goals; use both robots.\nThought:\nEAI input/output contract (adapter addition):\n{\"agents\": [{\"native_uid\": 0, \"robot_id\": \"mobile\", \"tools\": [\"Close\", \"Navigate\", \"Open\", \"Pick\", \"Place\", \"Wait\"]}, {\"native_uid\": 1, \"robot_id\": \"sensor\", \"tools\": [\"Close\", \"Navigate\", \"Open\", \"Pick\", \"Place\", \"Wait\"]}], \"entities\": [{\"name\": \"kitchen\", \"type\": \"Room\"}, {\"name\": \"counter\", \"type\": \"Furniture\"}, {\"name\": \"inspection_area\", \"type\": \"Object\"}, {\"name\": \"agent_0\", \"type\": \"SpotRobot\"}, {\"name\": \"agent_1\", \"type\": \"SpotRobot\"}], \"instruction\": \"Move the mobile robot to inspection_area and the sensing-capable robot to counter. These are two separate navigation goals; use both robots.\", \"rules\": [\"Use exact entity identifiers; never guess or rename them.\", \"Emit one Agent_<uid>_Action: Tool[arguments] directive per agent.\", \"Choose only an exact declared task action, or Wait[] without claiming completion.\", \"Unsupported, ambiguous, duplicate or coalition task outputs will be rejected.\", \"This boundary supplies no simulated execution feedback.\"], \"scope\": \"I/O boundary only; this does not choose allocations\", \"task_action_catalog\": [{\"action\": \"Navigate\", \"arguments\": [\"inspection_area\"], \"prerequisites\": [], \"required_capabilities\": [\"navigation\"], \"task_id\": \"move_mobile\"}, {\"action\": \"Navigate\", \"arguments\": [\"counter\"], \"prerequisites\": [], \"required_capabilities\": [\"navigation\", \"sensing\"], \"task_id\": \"move_sensor\"}]}"
+            }
+          ],
+          "status": "returned",
+          "response_id": "resp_020cc52aa9595ab7016ae1d589c5c0819aa6e1bdea1ab1be06",
+          "returned_model": "gpt-5.6-luna",
+          "text": "Agent_0_Action: Navigate[inspection_area]  \nAgent_1_Action: Navigate[counter]",
+          "usage": {
+            "completion_tokens": 47,
+            "prompt_tokens": 2144,
+            "total_tokens": 2191,
+            "completion_tokens_details": {
+              "reasoning_tokens": 22
+            }
+          }
+        },
+        {
+          "native_requested_model": "gpt-5.6-luna",
+          "requested_model": "gpt-5.6-luna",
+          "reasoning_effort": "low",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are an expert at task planning."
+            },
+            {
+              "role": "user",
+              "content": "- Overview:\nSolve the given multi-agent planning problem as best as you can. The task assigned to you will be situated in a house and will generally involve navigating to objects, picking and placing them on different receptacles to achieve rearrangement. Below is the detailed description of the actions you can use for solving the task. You can assign them to Agent_0 and/or Agent_1 as required.\n\n- Close: Used for closing an articulated entity. You must provide the name of the furniture you want to close. Example (Close[chest_of_drawers_1])\n- Navigate: Used for navigating to an entity. You must provide the name of the entity you want to navigate to. Example (Navigate[counter_22])\n- Open: Used for opening an articulated entity. You must provide the name of the furniture you want to open. Example (Open[chest_of_drawers_1])\n- Pick: Used for picking up an object. You must provide the name of the object to be picked. The agent cannot hold more than one object at a time. Example (Pick[cup_1])\n- Place: Used for placing an object on a target location. You need to provide the name of the object to be placed, the name of the furniture where it should be placed, spatial relation (\"on\" or \"within\") describing the relation between the object and furniture. The object to be placed must already be held by the agent (i.e. picked previously). In addition to these, you can request to place the object near another object. For that you can optionally provide a spatial constraints (\"next_to\") and the name of the reference object. To place next to an object, the reference object must already be on the target furniture. API template - Place[<object_to_be_placed>, <spatial_relation>, <furniture to be placed on>, <spatial_constraint>, <reference_object>]. spatial_constraint and reference_object should be set to \"None\" when necessary.\n- Wait: Used to make agent stay idle for some time. Example (Wait[])\n\nHere are some examples:\n\nExample 1:\nTask: Move all objects from sofa to sink\nThought: First I should ask one agent to find the objects that are on the sofa. In parallel, I should ask the other to find the sink.\nAgent_0_Action: FindObjectTool[Objects on the sofa]\nAgent_1_Action: FindReceptacleTool[sink]\nAssigned!\nAgent_0_Observation: - cherry_0 in Sofa\n- banana_0 in Sofa\nAgent_1_Observation: sink_0\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan.\nAgent_0_Action: Rearrange[cherry_0, on, sink_0, None, None]\nAgent_1_Action: Rearrange[banana_0, on, sink_0, None, None]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Action \"Rearrange[banana_0, on, sink_0, None, None]\" is still in progress.\nThought: Agent 0 successfully transferred the target. Agent 1 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Wait[]\nAgent_1_Action: Rearrange[banana_0, on, sink_0, None, None]\nAssigned!\nAgent_0_Observation: Waiting\nAgent_1_Observation: Successful execution!\nThought: All objects were successfully moved, so I am done!\nFinal Thought: Exit!\n\nExample 2:\nTask: Move pillow to bed and then move apple to kitchen counter\nThought: First I should ask one agent to find the pillow. In parallel, I should ask the other to find bed.\nAgent_0_Action: FindObjectTool[pillow]\nAgent_1_Action: FindReceptacleTool[bed]\nAssigned!\nAgent_0_Observation: - pillow_0 in sofa\n- pillow_1 in couch\nAgent_1_Observation: bed_0, bed_1\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan. Since there are many beds, I will pick any one of them.\nAgent_0_Action: Rearrange[pillow_0, on, bed_0, None, None]\nAgent_1_Action: Rearrange[pillow_1, on, bed_0, None, None]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Action \"Rearrange[pillow_1, on, bed_0, None, None]\" is still in progress.\nThought: Agent 0 successfully transferred the target. Agent 1 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Wait[]\nAgent_1_Action: Rearrange[pillow_1, on, bed_0, None, None]\nAssigned!\nAgent_0_Observation: Waiting\nAgent_1_Observation: Successful execution!\nThought: Now that both pillows have been successfully moved, I will move on to the next part of the task. I should ask one agent to find the apple. In parallel, I should ask the other to find kitchen counter.\nAgent_0_Action: FindObjectTool[apple]\nAgent_1_Action: FindReceptacleTool[kitchen counter]\nAssigned!\nAgent_0_Observation: - apple_0 in sofa\nAgent_1_Observation: counter_0, counter_1, counter_2 are in kitchen\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan. Since there are multiple counters in kitchen, I will pick any one of them.\nAgent_0_Action: Rearrange[apple_0, on, counter_0, None, None]\nAgent_1_Action: Wait[]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Waiting\nThought: All objects were successfully moved, so I am done!\nFinal Thought: Exit!\n\nExample 3:\nTask: Move bowl, cup and basket to the chair in living room\nThought: First I should ask one agent to find bowl, cup and basket. In parallel, I should ask the other to find the chair in living room.\nAgent_0_Action: FindObjectTool[bowl, cup, basket]\nAgent_1_Action: FindReceptacleTool[chair in living room]\nAssigned!\nAgent_0_Observation: - bowl_0 in Sofa\n- cup_1 in Sofa\n- basket_2 in Sofa\nAgent_1_Observation: chair_0, chair_1, chair_2, chair_3 found in living room.\nThought: Now that both agents have found the task relevant objects and receptacles, I will come up with a task plan. Since there are many chairs, I will pick any one of them.\nAgent_0_Action: Rearrange[bowl_0, on, chair_0, None, None]\nAgent_1_Action: Rearrange[cup_1, on, chair_0, None, None]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Action \"Rearrange[banana_0, on, sink_0, None, None]\" is still in progress.\nThought: Agent 0 successfully transferred the target. So I will assign next action to it. Agent 1 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Rearrange[basket_2, on, chair_0, None, None]\nAgent_1_Action: Rearrange[cup_1, on, chair_0, None, None]\nAssigned!\nAgent_0_Observation: Action \"Rearrange[basket_2, on, chair_0, None, None]\" is still in progress.\nAgent_1_Observation: Successful execution!\nThought: Agent 1 successfully transferred the target. Agent 0 is still executing the previous action, so I will reassign the same action to it.\nAgent_0_Action: Rearrange[basket_2, on, chair_0, None, None]\nAgent_1_Action: Wait[]\nAssigned!\nAgent_0_Observation: Successful execution!\nAgent_1_Observation: Waiting\nThought: All objects were successfully moved, so I am done!\nFinal Thought: Exit!\n\nTask: Move the mobile robot to inspection_area and the sensing-capable robot to counter. These are two separate navigation goals; use both robots.\nThought:\nEAI input/output contract (adapter addition):\n{\"agents\": [{\"native_uid\": 0, \"robot_id\": \"mobile\", \"tools\": [\"Close\", \"Navigate\", \"Open\", \"Pick\", \"Place\", \"Wait\"]}, {\"native_uid\": 1, \"robot_id\": \"sensor\", \"tools\": [\"Close\", \"Navigate\", \"Open\", \"Pick\", \"Place\", \"Wait\"]}], \"entities\": [{\"name\": \"kitchen\", \"type\": \"Room\"}, {\"name\": \"counter\", \"type\": \"Furniture\"}, {\"name\": \"inspection_area\", \"type\": \"Object\"}, {\"name\": \"agent_0\", \"type\": \"SpotRobot\"}, {\"name\": \"agent_1\", \"type\": \"SpotRobot\"}], \"instruction\": \"Move the mobile robot to inspection_area and the sensing-capable robot to counter. These are two separate navigation goals; use both robots.\", \"rules\": [\"Use exact entity identifiers; never guess or rename them.\", \"Emit one Agent_<uid>_Action: Tool[arguments] directive per agent.\", \"Choose only an exact declared task action, or Wait[] without claiming completion.\", \"Unsupported, ambiguous, duplicate or coalition task outputs will be rejected.\", \"This boundary supplies no simulated execution feedback.\"], \"scope\": \"I/O boundary only; this does not choose allocations\", \"task_action_catalog\": [{\"action\": \"Navigate\", \"arguments\": [\"inspection_area\"], \"prerequisites\": [], \"required_capabilities\": [\"navigation\"], \"task_id\": \"move_mobile\"}, {\"action\": \"Navigate\", \"arguments\": [\"counter\"], \"prerequisites\": [], \"required_capabilities\": [\"navigation\", \"sensing\"], \"task_id\": \"move_sensor\"}]}\nSystem (MIQP Guidance):\nThe suggested assignments are:\n- Agent 0: Can focus on -> go to the inspection_area.\n- Agent 1: Can focus on -> go to the counter.\n\nRelevant context:\n- Key items: inspection_area is on counter.\n\nThis is a suggestion. You can adjust the plan based on your reasoning.\n\nThought:"
+            }
+          ],
+          "status": "returned",
+          "response_id": "resp_044fc979bbcceec0016ae1d58bc8908191a9ba6110acfb1fab",
+          "returned_model": "gpt-5.6-luna",
+          "text": "Agent_0_Action: Navigate[inspection_area]  \nAgent_1_Action: Navigate[counter]",
+          "usage": {
+            "completion_tokens": 23,
+            "prompt_tokens": 2214,
+            "total_tokens": 2237
+          }
+        }
+      ],
+      "planner_sha256": "65f392327029c253594ebefaaae9cea595780441b8cf954fb7565e361b408067",
+      "planning_tool_schemas": [
+        {
+          "agent_uid": 0,
+          "tool": "Navigate",
+          "native_skill_class": "habitat_llm.tools.motor_skills.OracleNavSkill",
+          "argument_types": [
+            "nav_target"
+          ],
+          "motor_policy_instantiated": false
+        },
+        {
+          "agent_uid": 0,
+          "tool": "Pick",
+          "native_skill_class": "habitat_llm.tools.motor_skills.OraclePickSkill",
+          "argument_types": [
+            "object"
+          ],
+          "motor_policy_instantiated": false
+        },
+        {
+          "agent_uid": 0,
+          "tool": "Place",
+          "native_skill_class": "habitat_llm.tools.motor_skills.OraclePlaceSkill",
+          "argument_types": [
+            "object",
+            "spatial_relation",
+            "furniture",
+            "((spatial_constraint \",\" WS obj_or_furniture )| ((\"none\" | \"None\") WS \",\" WS (\"none\" | \"None\")))"
+          ],
+          "motor_policy_instantiated": false
+        },
+        {
+          "agent_uid": 0,
+          "tool": "Open",
+          "native_skill_class": "habitat_llm.tools.motor_skills.OracleOpenSkill",
+          "argument_types": [
+            "furniture"
+          ],
+          "motor_policy_instantiated": false
+        },
+        {
+          "agent_uid": 0,
+          "tool": "Close",
+          "native_skill_class": "habitat_llm.tools.motor_skills.OracleCloseSkill",
+          "argument_types": [
+            "furniture"
+          ],
+          "motor_policy_instantiated": false
+        },
+        {
+          "agent_uid": 0,
+          "tool": "Wait",
+          "native_skill_class": "habitat_llm.tools.motor_skills.WaitSkill",
+          "argument_types": [],
+          "motor_policy_instantiated": false
+        },
+        {
+          "agent_uid": 1,
+          "tool": "Navigate",
+          "native_skill_class": "habitat_llm.tools.motor_skills.OracleNavSkill",
+          "argument_types": [
+            "nav_target"
+          ],
+          "motor_policy_instantiated": false
+        },
+        {
+          "agent_uid": 1,
+          "tool": "Pick",
+          "native_skill_class": "habitat_llm.tools.motor_skills.OraclePickSkill",
+          "argument_types": [
+            "object"
+          ],
+          "motor_policy_instantiated": false
+        },
+        {
+          "agent_uid": 1,
+          "tool": "Place",
+          "native_skill_class": "habitat_llm.tools.motor_skills.OraclePlaceSkill",
+          "argument_types": [
+            "object",
+            "spatial_relation",
+            "furniture",
+            "((spatial_constraint \",\" WS obj_or_furniture )| ((\"none\" | \"None\") WS \",\" WS (\"none\" | \"None\")))"
+          ],
+          "motor_policy_instantiated": false
+        },
+        {
+          "agent_uid": 1,
+          "tool": "Open",
+          "native_skill_class": "habitat_llm.tools.motor_skills.OracleOpenSkill",
+          "argument_types": [
+            "furniture"
+          ],
+          "motor_policy_instantiated": false
+        },
+        {
+          "agent_uid": 1,
+          "tool": "Close",
+          "native_skill_class": "habitat_llm.tools.motor_skills.OracleCloseSkill",
+          "argument_types": [
+            "furniture"
+          ],
+          "motor_policy_instantiated": false
+        },
+        {
+          "agent_uid": 1,
+          "tool": "Wait",
+          "native_skill_class": "habitat_llm.tools.motor_skills.WaitSkill",
+          "argument_types": [],
+          "motor_policy_instantiated": false
+        }
+      ],
+      "status": "returned",
+      "response": "Agent_0_Action: Navigate[inspection_area]  \nAgent_1_Action: Navigate[counter]",
+      "native_info": {
+        "miqp_alpha": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0
+          ]
+        ],
+        "miqp_u": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "miqp_delta": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "miqp_time": 0,
+        "miqp_status": "Exception",
+        "optimization_success": true,
+        "structured_subtasks": [
+          {
+            "task_id": "task_0",
+            "task_type": "Navigate",
+            "target": "inspection_area",
+            "description": "Navigate agent_0, the mobile robot, to inspection_area.",
+            "priority": 1,
+            "estimated_duration": 5.0,
+            "preferred_agent": null,
+            "prerequisites": [],
+            "can_parallel": true,
+            "phase_group": "execution",
+            "target_pos": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "task_id": "task_1",
+            "task_type": "Navigate",
+            "target": "counter",
+            "description": "Navigate agent_1, the sensing-capable robot, to the counter in the kitchen.",
+            "priority": 1,
+            "estimated_duration": 5.0,
+            "preferred_agent": null,
+            "prerequisites": [],
+            "can_parallel": true,
+            "phase_group": "execution",
+            "target_pos": [
+              1,
+              0,
+              1
+            ]
+          }
+        ],
+        "agent_task_assignments": {
+          "0": [
+            {
+              "task_id": "task_0",
+              "task_type": "Navigate",
+              "target": "inspection_area",
+              "description": "Navigate agent_0, the mobile robot, to inspection_area.",
+              "priority": 1,
+              "estimated_duration": 5.0,
+              "preferred_agent": null,
+              "prerequisites": [],
+              "can_parallel": true,
+              "phase_group": "execution",
+              "target_pos": [
+                0,
+                0,
+                0
+              ]
+            }
+          ],
+          "1": [
+            {
+              "task_id": "task_1",
+              "task_type": "Navigate",
+              "target": "counter",
+              "description": "Navigate agent_1, the sensing-capable robot, to the counter in the kitchen.",
+              "priority": 1,
+              "estimated_duration": 5.0,
+              "preferred_agent": null,
+              "prerequisites": [],
+              "can_parallel": true,
+              "phase_group": "execution",
+              "target_pos": [
+                1,
+                0,
+                1
+              ]
+            }
+          ]
+        },
+        "task_decomposition_success": true,
+        "matrices_updated": true,
+        "planning_approach": "MIQP_Sequential_Phase",
+        "current_phase": {
+          "phase_id": 0,
+          "tasks": [
+            {
+              "task_id": "task_0",
+              "task_type": "Navigate",
+              "target": "inspection_area",
+              "description": "Navigate agent_0, the mobile robot, to inspection_area.",
+              "priority": 1,
+              "estimated_duration": 5.0,
+              "preferred_agent": null,
+              "prerequisites": [],
+              "can_parallel": true,
+              "phase_group": "execution",
+              "target_pos": [
+                0,
+                0,
+                0
+              ]
+            },
+            {
+              "task_id": "task_1",
+              "task_type": "Navigate",
+              "target": "counter",
+              "description": "Navigate agent_1, the sensing-capable robot, to the counter in the kitchen.",
+              "priority": 1,
+              "estimated_duration": 5.0,
+              "preferred_agent": null,
+              "prerequisites": [],
+              "can_parallel": true,
+              "phase_group": "execution",
+              "target_pos": [
+                1,
+                0,
+                1
+              ]
+            }
+          ],
+          "max_parallel_tasks": 2,
+          "estimated_duration": 5.0,
+          "required_agents": 2
+        },
+        "total_phases": 1,
+        "llm_response": "Agent_0_Action: Navigate[inspection_area]  \nAgent_1_Action: Navigate[counter]",
+        "adjusted_actions": {
+          "0": [
+            "Navigate",
+            "inspection_area",
+            null
+          ],
+          "1": [
+            "Navigate",
+            "counter",
+            null
+          ]
+        },
+        "coherence_report": {
+          "step_semantic_entropy": 0.0,
+          "conditional_semantic_entropy": null,
+          "transitional_entailment": null,
+          "contradiction_rate": null,
+          "fact_accuracy": 1.0,
+          "top_semantic_clusters": [
+            {
+              "cluster_index": 0,
+              "num_members": 1,
+              "probability": 1.0,
+              "representative_text": "Agent_0_Action: Navigate[inspection_area]  \nAgent_1_Action: Navigate[counter]"
+            }
+          ],
+          "num_candidates": 1,
+          "selected_response_preview": "Agent_0_Action: Navigate[inspection_area]  \nAgent_1_Action: Navigate[counter]",
+          "alerts": [],
+          "s_tl": null,
+          "s_te": null
+        }
+      },
+      "phases": [
+        {
+          "phase_id": 0,
+          "tasks": [
+            {
+              "task_id": "task_0",
+              "task_type": "Navigate",
+              "target": "inspection_area",
+              "description": "Navigate agent_0, the mobile robot, to inspection_area.",
+              "priority": 1,
+              "estimated_duration": 5.0,
+              "preferred_agent": null,
+              "prerequisites": [],
+              "can_parallel": true,
+              "phase_group": "execution"
+            },
+            {
+              "task_id": "task_1",
+              "task_type": "Navigate",
+              "target": "counter",
+              "description": "Navigate agent_1, the sensing-capable robot, to the counter in the kitchen.",
+              "priority": 1,
+              "estimated_duration": 5.0,
+              "preferred_agent": null,
+              "prerequisites": [],
+              "can_parallel": true,
+              "phase_group": "execution"
+            }
+          ],
+          "max_parallel_tasks": 2,
+          "estimated_duration": 5.0,
+          "required_agents": 2
+        }
+      ],
+      "parsed_actions": {
+        "0": [
+          "Navigate",
+          "inspection_area",
+          null
+        ],
+        "1": [
+          "Navigate",
+          "counter",
+          null
+        ]
+      },
+      "planning_success": false,
+      "output_validation": {
+        "schema": "heterocoord.teamweaver.output_seam.v1",
+        "status": "boundary_valid_only",
+        "errors": [],
+        "raw_response": "Agent_0_Action: Navigate[inspection_area]  \nAgent_1_Action: Navigate[counter]",
+        "native_actions": {
+          "0": [
+            "Navigate",
+            "inspection_area",
+            null
+          ],
+          "1": [
+            "Navigate",
+            "counter",
+            null
+          ]
+        },
+        "dispatch_candidates": [
+          {
+            "task_id": "move_mobile",
+            "robot_id": "mobile",
+            "action": "Navigate",
+            "arguments": [
+              "inspection_area"
+            ]
+          },
+          {
+            "task_id": "move_sensor",
+            "robot_id": "sensor",
+            "action": "Navigate",
+            "arguments": [
+              "counter"
+            ]
+          }
+        ],
+        "rejected_candidates": [],
+        "full_semantic_success": false,
+        "assignments_created": false,
+        "repairs_applied": false
+      }
+    },
+    "native_replan_invoked": true,
+    "semantic_solver_invoked": true,
+    "native_error_count": 1,
+    "native_error_diagnostics": [
+      "[ERROR] Instance-aware MIQP optimization failed with status: infeasible_or_unbounded"
+    ],
+    "source": {
+      "root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+      "commit": "edf4619e4730860b96eebaac39620df4bbdc486a",
+      "tree": "1f8ab1c1c9e41cec7c6bb7296cf90b1ffeba1d29",
+      "code_sha256": "6e43e80bcad2142bfeaf51eac00e81d7962f799386af123005709792ad875953",
+      "code_files": 390
+    },
+    "source_unchanged": true,
+    "dependency_sources": {
+      "partnr": {
+        "root": "/home/airs/.cache/heterocoord/upstream/teamweaver-partnr",
+        "commit": "ddfff19f4b6c098a31edea4d19e7b75db72433c2",
+        "tree": "418c40be1c16f203a53e89f032284ef5ccb1c715",
+        "code_sha256": "eebdecf69830394bfc4fbfe84702d8111d3cd8f36b3313828671d016b3c50b22",
+        "code_files": 404
+      },
+      "habitat_lab": {
+        "root": "/home/airs/.cache/heterocoord/upstream/teamweaver-habitat-lab",
+        "commit": "094d6be2f9d057e4781a68ae792132895fd4d3d0",
+        "tree": "d592bc948e04e2e54fc77b7d6bc26592a25b52b2",
+        "code_sha256": "9e6bd474305c8c868868124caae5d8ab3126c4fd44782675c89c937dfb36e459",
+        "code_files": 642
+      }
+    },
+    "interpreter": "/home/airs/.cache/heterocoord/envs/teamweaver-semantic/bin/python"
+  },
+  "native_source_provenance": {
+    "paper_algorithm": "teamweaver",
+    "source_integrity": {
+      "root": "/home/airs/.cache/heterocoord/upstream/teamweaver",
+      "commit": "edf4619e4730860b96eebaac39620df4bbdc486a",
+      "tree": "1f8ab1c1c9e41cec7c6bb7296cf90b1ffeba1d29",
+      "code_sha256": "6e43e80bcad2142bfeaf51eac00e81d7962f799386af123005709792ad875953",
+      "code_files": 390
+    },
+    "adapter_source_sha256": "017ae51a01b9b1fbb5811621e79ba61d00a5675d95304bc5cdf5b32416a5a674",
+    "source_register_sha256": "526ec35a8e2fbc8ab905c56a4b1d59dffec9c5ccd5f691d430150c911e573cb0",
+    "decision_is_physical_evidence": false
+  },
+  "elapsed_wall_s": 47.73948749306146
+}

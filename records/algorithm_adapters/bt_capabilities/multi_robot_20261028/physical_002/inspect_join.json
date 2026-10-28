@@ -1,0 +1,22 @@
+{
+  "task_id": "inspect_join",
+  "robot_id": "ur5_1",
+  "passed": true,
+  "start_tick": 4853,
+  "end_tick": 5053,
+  "measured_ticks": 200,
+  "max_target_error_m": {
+    "move_left": 1.1464953902867458e-05,
+    "move_right": 1.1464953902867458e-05
+  },
+  "max_drift_m": {
+    "move_left": 5.967910407334801e-07,
+    "move_right": 5.967910407334801e-07
+  },
+  "max_linear_speed_m_s": {
+    "move_left": 4.143671397822484e-05,
+    "move_right": 4.143671397822484e-05
+  },
+  "released_and_dynamic": true,
+  "evidence_scope": "simulator_ground_truth_query_executed_for_native_assigned_robot; not onboard vision"
+}

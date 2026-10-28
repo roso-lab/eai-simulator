@@ -1,0 +1,108 @@
+{
+  "schema": "heterocoord.emos_native_config.v1",
+  "input_kind": "synthetic_input_example_not_algorithm_acceptance",
+  "source_root": "/tmp/emos-1793068059",
+  "log_dir": "cli_native_logs",
+  "endpoint": {
+    "api_key_env": "EMOS_API_KEY",
+    "base_url_env": "EMOS_BASE_URL",
+    "model_env": "EMOS_MODEL",
+    "max_calls": 16,
+    "timeout": 30
+  },
+  "request": {
+    "kind": "case",
+    "scenario_id": "emos-config-example",
+    "task_description": "Inspect object one and object two.",
+    "robot_positions": {
+      "r1": [
+        0,
+        0,
+        0
+      ],
+      "r2": [
+        1,
+        0,
+        0
+      ]
+    },
+    "task_ids": [
+      "t1",
+      "t2"
+    ]
+  },
+  "robot_resume": {
+    "r1": {
+      "robot_type": "SyntheticExampleRobot",
+      "mobility": {
+        "summary": "Synthetic robot moves on a flat plane"
+      },
+      "perception": {
+        "summary": "Synthetic camera sees both objects"
+      }
+    },
+    "r2": {
+      "robot_type": "SyntheticExampleRobot",
+      "mobility": {
+        "summary": "Synthetic robot moves on a flat plane"
+      },
+      "perception": {
+        "summary": "Synthetic camera sees both objects"
+      }
+    }
+  },
+  "observation": {
+    "robot_positions": {
+      "r1": [
+        0,
+        0,
+        0
+      ],
+      "r2": [
+        1,
+        0,
+        0
+      ]
+    },
+    "scene_description": "Synthetic example only; no physical execution. Native [x,z,y] coordinates (height second): object one at [1,0,0], object two at [2,0,0]. Both robots can see both objects."
+  },
+  "history": {},
+  "task_package": {
+    "task_id": "emos-config-example",
+    "scene_id": "synthetic-example",
+    "tasks": [
+      {
+        "task_id": "t1",
+        "description": "Inspect object one"
+      },
+      {
+        "task_id": "t2",
+        "description": "Inspect object two"
+      }
+    ],
+    "robots": [
+      {
+        "robot_id": "r1",
+        "capabilities": [
+          "inspect"
+        ],
+        "position": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "robot_id": "r2",
+        "capabilities": [
+          "inspect"
+        ],
+        "position": [
+          1,
+          0,
+          0
+        ]
+      }
+    ]
+  }
+}

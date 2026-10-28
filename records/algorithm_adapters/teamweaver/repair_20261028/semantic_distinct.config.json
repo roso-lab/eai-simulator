@@ -1,0 +1,6 @@
+{
+  "scope": "full_semantic",
+  "source_compatibility": true,
+  "output_seam": true,
+  "timeout_s": 240
+}

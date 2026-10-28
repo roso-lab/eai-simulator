@@ -1,0 +1,5 @@
+{
+  "python_executable": "/home/airs/.cache/heterocoord/envs/fmc-ata/bin/python",
+  "timeout_seconds": 10.0,
+  "max_nclo": 10000
+}

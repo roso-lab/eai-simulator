@@ -1,0 +1,124 @@
+{
+  "scope": "cpu_native_decision_and_contract_negative_tests_only",
+  "isaac_started": false,
+  "simulation_acceptance_passed": false,
+  "physical_success": null,
+  "benchmark": "not_evaluable",
+  "holdout_command": [
+    "/home/airs/.cache/heterocoord/envs/harl/bin/python",
+    "-m",
+    "tools.algorithm_adapters.run",
+    "--algorithm",
+    "harl_happo",
+    "--source-root",
+    "/home/airs/.cache/heterocoord/upstream/harl",
+    "--task",
+    "/home/airs/hetrocoord/records/algorithm_adapters/harl/v2_same_contract/task.json",
+    "--config",
+    "/home/airs/hetrocoord/records/algorithm_adapters/harl/v2_same_contract/kwargs.json",
+    "--report",
+    "/home/airs/hetrocoord/records/algorithm_adapters/harl/ur5_holdout_control.json"
+  ],
+  "holdout_exit_code": 0,
+  "holdout_actor_outputs": [
+    {
+      "actor_index": 0,
+      "robot_id": "ground",
+      "action": 1,
+      "observation": [
+        1.0,
+        0.0,
+        0.0,
+        0.7516247630119324,
+        0.02999061532318592,
+        0.36062711477279663,
+        0.6783834099769592,
+        0.0,
+        0.0
+      ],
+      "available_actions": [
+        1.0,
+        1.0
+      ],
+      "rnn_input_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "rnn_output_sha256": "bffcc7880ac262bd12cb4e836d7d1bcbe7ec04cc7e83363d2d19e7d2fda4672f",
+      "reset_mask": 0.0,
+      "action_binding": {
+        "kind": "assign",
+        "task_id": "inspect_ground"
+      }
+    },
+    {
+      "actor_index": 1,
+      "robot_id": "air",
+      "action": 1,
+      "observation": [
+        1.0,
+        0.0,
+        0.0,
+        0.09416639804840088,
+        0.5339025855064392,
+        0.6194533109664917,
+        0.3137977421283722,
+        0.0,
+        0.0
+      ],
+      "available_actions": [
+        1.0,
+        1.0
+      ],
+      "rnn_input_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "rnn_output_sha256": "0fe1fe1b9dc09bcfd54ab88dfbc546db5a2caf74b2e7ac6e6ae3ffa16eb4a3a6",
+      "reset_mask": 0.0,
+      "action_binding": {
+        "kind": "assign",
+        "task_id": "inspect_air"
+      }
+    }
+  ],
+  "source_before": {
+    "root": "/home/airs/.cache/heterocoord/upstream/harl",
+    "commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+    "tree": "baaf128d5fa643fc78cc656e49e4972688a84081",
+    "code_sha256": "98783b65ea6cb865fffb05011430d24379d09962a8be6b5127c06ca082fdf359",
+    "code_files": 616
+  },
+  "source_after": {
+    "root": "/home/airs/.cache/heterocoord/upstream/harl",
+    "commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
+    "tree": "baaf128d5fa643fc78cc656e49e4972688a84081",
+    "code_sha256": "98783b65ea6cb865fffb05011430d24379d09962a8be6b5127c06ca082fdf359",
+    "code_files": 616
+  },
+  "protected_hashes_before": {
+    "benchmark/native_algorithms.py": "51cece19e7dd16ccdb00ca9cde0878c7cf84bbe47cf14d33340c1b3eb4e1e80d",
+    "tools/algorithm_adapters/run.py": "5b0281bd35e01c506e53c3dc0dbcac61543570d09067ddc47400a7f33addc172",
+    "tools/algorithm_adapters/isaac_pick_place.py": "d5f6f601a3c81fc1f7b07d87da3e8acf9fcf20a103d0cbe2eeb12782871c2f6a",
+    "algorithm/system/coordination/harl/native_adapter.py": "9f9a9d52f54c5e83ecf5f6174e825de6afd2ef71c7f21e0f2ddae461d26765d0",
+    "algorithm/system/coordination/harl/generic_manifest.py": "822b0e68d795a5ecaf4e5adbac069250373c8a752232ad33e3c4b53ad3069692",
+    "records/algorithm_adapters/harl/v2_same_contract/training_receipt.json": "ac1f0f64099f96bba967830eaaaefb88b2fd201cfda975210947445ae0a11cb4",
+    "records/algorithm_adapters/harl/v2_same_contract/kwargs.json": "b744ea31de2958f2492a8b5cdeb2b249c7afd214fa5bd70968da45a1dfe79d3b",
+    "records/algorithm_adapters/harl/v2_same_contract/actor_agent0.pt": "483979bdce4e2041126683b2501a39013da9107c5d46fb808be7e5c7c09f37ec",
+    "records/algorithm_adapters/harl/v2_same_contract/provenance.json": "b6728ba5ffdfa588fc0ed6c340ffb5a8b7e10e0788a3cb14b0743f86c4950907",
+    "records/algorithm_adapters/harl/v2_same_contract/actor_agent1.pt": "ae1d1bcd71fdc86a75285b4a17ff8bc795f9205fe0cc64a7ab5693499c7f334e",
+    "records/algorithm_adapters/harl/v2_same_contract/task.json": "5236876f71dfa2da947e25e32a8e0238fba1629be2a39460d202d635e636f396",
+    "records/algorithm_adapters/harl/v2_same_contract/manifest.json": "d76e69fa732156ba4010dcc51a21f43f2563c201e5b46a2aebb2402e298ff241"
+  },
+  "protected_hashes_after": {
+    "benchmark/native_algorithms.py": "51cece19e7dd16ccdb00ca9cde0878c7cf84bbe47cf14d33340c1b3eb4e1e80d",
+    "tools/algorithm_adapters/run.py": "5b0281bd35e01c506e53c3dc0dbcac61543570d09067ddc47400a7f33addc172",
+    "tools/algorithm_adapters/isaac_pick_place.py": "d5f6f601a3c81fc1f7b07d87da3e8acf9fcf20a103d0cbe2eeb12782871c2f6a",
+    "algorithm/system/coordination/harl/native_adapter.py": "9f9a9d52f54c5e83ecf5f6174e825de6afd2ef71c7f21e0f2ddae461d26765d0",
+    "algorithm/system/coordination/harl/generic_manifest.py": "822b0e68d795a5ecaf4e5adbac069250373c8a752232ad33e3c4b53ad3069692",
+    "records/algorithm_adapters/harl/v2_same_contract/training_receipt.json": "ac1f0f64099f96bba967830eaaaefb88b2fd201cfda975210947445ae0a11cb4",
+    "records/algorithm_adapters/harl/v2_same_contract/kwargs.json": "b744ea31de2958f2492a8b5cdeb2b249c7afd214fa5bd70968da45a1dfe79d3b",
+    "records/algorithm_adapters/harl/v2_same_contract/actor_agent0.pt": "483979bdce4e2041126683b2501a39013da9107c5d46fb808be7e5c7c09f37ec",
+    "records/algorithm_adapters/harl/v2_same_contract/provenance.json": "b6728ba5ffdfa588fc0ed6c340ffb5a8b7e10e0788a3cb14b0743f86c4950907",
+    "records/algorithm_adapters/harl/v2_same_contract/actor_agent1.pt": "ae1d1bcd71fdc86a75285b4a17ff8bc795f9205fe0cc64a7ab5693499c7f334e",
+    "records/algorithm_adapters/harl/v2_same_contract/task.json": "5236876f71dfa2da947e25e32a8e0238fba1629be2a39460d202d635e636f396",
+    "records/algorithm_adapters/harl/v2_same_contract/manifest.json": "d76e69fa732156ba4010dcc51a21f43f2563c201e5b46a2aebb2402e298ff241"
+  },
+  "unchanged_during_control": true,
+  "test_log": "/home/airs/hetrocoord/records/algorithm_adapters/harl/ur5_contract_and_regression.log",
+  "test_log_sha256": "230b6b9fd1f42f5b4b3f4667b8d1f82043994631a9c694ca8a94e3a75f13afe2"
+}

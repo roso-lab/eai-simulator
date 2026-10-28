@@ -1,0 +1,135 @@
+{
+  "task_id": "fmc-two-ur5-independent-missions",
+  "scene_id": "single-isaac-two-ur5-workbenches",
+  "robots": [
+    {
+      "robot_id": "ur5_1",
+      "capabilities": [
+        "manipulate"
+      ],
+      "position": [
+        0.0,
+        -1.25,
+        0.45
+      ],
+      "metadata": {
+        "yaw_rad": 0.0,
+        "fmc_ata": {
+          "speed": 1.0,
+          "productivity": 1.0,
+          "status": "idle"
+        }
+      }
+    },
+    {
+      "robot_id": "ur5_2",
+      "capabilities": [
+        "manipulate"
+      ],
+      "position": [
+        0.0,
+        1.25,
+        0.45
+      ],
+      "metadata": {
+        "yaw_rad": 0.0,
+        "fmc_ata": {
+          "speed": 1.0,
+          "productivity": 1.0,
+          "status": "idle"
+        }
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "move_left",
+      "description": "Move the left carton",
+      "required_capabilities": [
+        "manipulate"
+      ],
+      "prerequisites": [],
+      "target_ref": "/World/ObjectLeft",
+      "metadata": {
+        "position": [
+          0.45,
+          -1.25,
+          0.475
+        ],
+        "pick_place": {
+          "object_position_world_m": [
+            0.45,
+            -1.25,
+            0.475
+          ],
+          "target_position": [
+            0.425,
+            -1.24,
+            0.475
+          ],
+          "mode": "cartesian_pose",
+          "approach_degrees": 15.0
+        },
+        "fmc_ata": {
+          "position": [
+            0.45,
+            -1.25,
+            0.475
+          ],
+          "workload": 30.0,
+          "importance": 1.0,
+          "max_players": 1
+        }
+      }
+    },
+    {
+      "task_id": "move_right",
+      "description": "Move the right carton",
+      "required_capabilities": [
+        "manipulate"
+      ],
+      "prerequisites": [],
+      "target_ref": "/World/ObjectRight",
+      "metadata": {
+        "position": [
+          0.45,
+          1.25,
+          0.475
+        ],
+        "pick_place": {
+          "object_position_world_m": [
+            0.45,
+            1.25,
+            0.475
+          ],
+          "target_position": [
+            0.425,
+            1.26,
+            0.475
+          ],
+          "mode": "cartesian_pose",
+          "approach_degrees": 15.0
+        },
+        "fmc_ata": {
+          "position": [
+            0.45,
+            1.25,
+            0.475
+          ],
+          "workload": 30.0,
+          "importance": 1.0,
+          "max_players": 1
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "fmc_ata": {
+      "domain": "independent_single_mission_single_player"
+    },
+    "attachment_semantics": "idealized_follow_proxy_pick_place; not contact grasp",
+    "planning_units": "declared meters, seconds and unit importance; no geometry scaling",
+    "planning_duration_scope": "workload/productivity nominal; not measured manipulation duration",
+    "travel_scope": "native point-player travel model; fixed UR5 execution does not validate travel timing"
+  }
+}
