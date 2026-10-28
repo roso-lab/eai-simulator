@@ -70,3 +70,14 @@ CPU preflight 已通过：任务对象定义摘要、地图 save_id、四个书�
 2. 先实现任务级单书身份/质量和显式联合持有执行服务，再对接真实导航、技能会话、空中/地面持有读回与 observer。普通 arm pick 的单持有租约不可伪装成双持有。
 3. 当前 full-task 输入仍缺 runtime_hook_ref / runtime_source_ref，执行 `prepare_full_task` 正确在 simulator 启动前拒绝；本轮没有重复跑 scene-load，也没有启动新的 GPU 任务。
 4. 物体部署与机器人出生位真实读回后，再运行完整 room06 case，产出终局收据。导航失败与技能失败保留为任务结果，不要求地图作者补楼梯或预计算路线。
+
+### 生产 source 接口续接（2026-10-28）
+
+新增 [room06_runtime_source.py](/home/pupil/HeteroCoord/source/EAI/EAI/room06_runtime_source.py)。它是严格的 production registration seam：
+
+- 只绑定 `/World/envs/env_0/room06_task/book_batch_01` 与 `heavy_object` 两个 case-owned rigid body；缺 prim 即失败；
+- 只接受环境显式注册的 `room06_task_driver.collect_room06`，不从命令、ledger 或对象 basename 推导事件；
+- 所有 completed skill-session、`held_object` 快照和 terminal inputs 仍由 driver 交给原 observer collector 校验；没有 driver 时在任务采集前 fail-closed；
+- 当前环境仍没有真正的 `room06_task_driver`。因此这一步完成了接口注册和身份边界，尚未宣称任务 source 可运行，也没有启动 GPU full-task。
+
+其 CPU 合约测试与既有 hook 一起通过 66 项。下一项工程实现是把真实导航/逐本取放/联合持有后端注册为该 driver；普通单机 pick/place 和单个批次代理都不能替代它。
