@@ -1,5 +1,58 @@
 # Topology authoring and node-route validation
 
+## Label-first semantic navigation binding — 2026-10-28
+
+Web and Isaac now create labels from the semantic management form without a
+navigation selection or a map position. Creation selects the new, initially
+unbound label. The original explicit navigation connection mode, searchable
+binding list, clear/apply/discard actions and cross-domain node picking are
+available again. Finish keeps the draft; discard restores saved bindings.
+Navigation edges and blank map clicks never select another layer in this mode.
+
+Version 3 semantic products and legacy integrity-checked migration are retained.
+Creation and binding are separate undoable transactions. The node-first creation
+API and UI introduced in the preceding implementation have been removed.
+
+Validation in this worktree:
+
+- Python topology, semantic, navigation, storage, Isaac bridge/viewport and overlay
+  regression: **285 passed, 5 skipped, 5 failed**. All failures are the pre-existing
+  USD surface tests importing unavailable `pxr`; the affected surface code was
+  not changed.
+- Web JavaScript handler tests: **20 passed**, including form creation/cancel,
+  authoritative selection after creation, real canvas hit/pointer handlers with
+  simulated events, both navigation domains, finish/discard and scope switches.
+- Python compilation, JavaScript syntax, all 101 frontend DOM references and
+  `git diff --check` passed.
+
+Isaac controls and gesture callbacks were tested with test doubles. No real Isaac
+GUI mouse session or browser visual inspection was performed in this validation.
+The previous node-first results below are historical and do not describe the
+current interaction.
+
+## Nonspatial node annotations — 2026-10-28
+
+Semantic product v3 omits position_xyz and edit_mode. Legacy v1/v2 products
+are integrity checked before migration; IDs, attributes and navigation bindings
+survive load/save. New annotation creation and its first binding are one undoable
+transaction. Web and Isaac now expose node-first annotation editing.
+
+Validation in the tool worktree:
+
+- Topology, navigation, bridge, storage and overlay Python suite: 233 passed,
+  5 skipped; 5 surface tests failed solely on missing pxr imports.
+- Final focused annotation/client/navigation/overlay regression: 104 passed,
+  3 skipped after removing retired spatial submission paths.
+- Web handler tests: 13 passed, including atomic creation payloads and preserving
+  other node bindings on bind/unbind.
+- Python compilation, JavaScript syntax and git diff whitespace checks passed.
+
+No real Isaac Kit GUI session was exercised. The native controls, selection
+and dispatch paths were checked with test doubles; real viewport interaction
+still requires an Isaac installation. Historical reports below describe the
+older spatial semantic-point editor. Consumers of v3 semantic products must
+resolve navigation_bindings instead of reading a semantic position_xyz.
+
 ## Current unified editor: independent semantic points — 2026-10-20
 
 The current linked editor provides Point, Edge and Semantic Point tools, with

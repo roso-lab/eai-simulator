@@ -1,19 +1,19 @@
-"""Project annotations in world metres, independent of both navigation graphs."""
+"""Nonspatial project annotations bound to ground and aerial navigation nodes."""
 from copy import deepcopy
 import math
 import uuid
 
 SCHEMA = "eai.semantic_points"
-FIELDS = {"id", "position_xyz", "label", "kind", "description", "aliases",
-          "properties", "edit_mode", "navigation_bindings"}
+FIELDS = {"id", "label", "kind", "description", "aliases",
+          "properties", "navigation_bindings"}
 
 
 def migrate_points(points):
-    """Drop retired Isaac object bindings while loading legacy products."""
+    """Drop spatial fields and Isaac bindings only when reading legacy products."""
     if not isinstance(points, list):
         return points
     return [{key: deepcopy(value) for key, value in point.items()
-             if key != "isaac_binding"} if isinstance(point, dict) else point
+             if key not in {"isaac_binding", "position_xyz", "edit_mode"}} if isinstance(point, dict) else point
             for point in points]
 
 
@@ -69,7 +69,6 @@ def validate_points(points, source_path=None):
         if not isinstance(identifier, str) or not identifier.strip() or identifier != identifier.strip() or identifier in seen:
             raise ValueError("invalid or duplicate semantic point ID")
         seen.add(identifier)
-        coordinates(point.get("position_xyz"))
         for field in ("label", "kind", "description"):
             if not isinstance(point.get(field, ""), str):
                 raise ValueError(f"semantic point {field} must be text")
@@ -81,23 +80,22 @@ def validate_points(points, source_path=None):
             raise ValueError("semantic aliases must be unique nonempty strings")
         if not isinstance(point.get("properties", {}), dict) or not _json_value(point.get("properties", {})):
             raise ValueError("semantic properties must be a finite JSON object")
-        if point.get("edit_mode", "3d") not in ("2.5d", "3d"):
-            raise ValueError("semantic edit_mode must be 2.5d or 3d")
         point["navigation_bindings"] = normalize_navigation_bindings(point.get("navigation_bindings", []))
     return points
 
 
 def edit_points(points, operation, args, source_path=None):
+    if set(args) & {"position_xyz", "position_xy", "edit_mode"}:
+        raise ValueError("semantic annotations have no spatial coordinates or edit mode")
     if "isaac_binding" in args or "binding" in args:
         raise ValueError("Isaac object bindings are no longer supported")
     result = deepcopy(points)
     if operation == "add_semantic_point":
         record = {"id": args.get("id") or "semantic:" + uuid.uuid4().hex,
-                  "position_xyz": coordinates(args.get("position_xyz")),
                   "label": "", "kind": "custom", "description": "", "aliases": [],
-                  "properties": {}, "edit_mode": "3d",
+                  "properties": {},
                   "navigation_bindings": []}
-        for name in FIELDS - {"id", "position_xyz", "navigation_bindings"}:
+        for name in FIELDS - {"id", "navigation_bindings"}:
             if name in args:
                 record[name] = deepcopy(args[name])
         result.append(record)
@@ -109,10 +107,6 @@ def edit_points(points, operation, args, source_path=None):
             for name in FIELDS - {"id", "navigation_bindings"}:
                 if name in args:
                     record[name] = deepcopy(args[name])
-        elif operation == "move_semantic_point_xy":
-            record["position_xyz"] = [*coordinates(args.get("position_xy"), 2), record["position_xyz"][2]]
-        elif operation == "move_semantic_point":
-            record["position_xyz"] = coordinates(args.get("position_xyz"))
         elif operation == "remove_semantic_point":
             result.remove(record)
         elif operation == "set_semantic_point_navigation_bindings":
