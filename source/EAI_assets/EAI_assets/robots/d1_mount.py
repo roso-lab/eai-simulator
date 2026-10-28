@@ -35,15 +35,16 @@ class D1MountProfile:
 
 _IDENTITY_QUAT = (1.0, 0.0, 0.0, 0.0)
 _YAW_PI = (0.0, 0.0, 0.0, 1.0)
-# 2026-10-22 装配政策放开的新宿主：carter/b2/m20/scout 复用各自 Z1 挂点
-# （同一背板位置装 D1），lite3 按 TORSO 背部高度独立取值；除 go2 外均未
-# 做静止摆臂等物理筛选。
+# 2026-10-28 D1 挂载标定：保留用户标定的平面位置，Z 取各宿主背板
+# 在 D1 底座正下方的网格表面高度；b2 原挂点已与表面重合，保留原值。
 D1_MOUNT_PROFILES = {
-    "go2": D1MountProfile("go2", "base", (0.0, 0.0, 0.15), _IDENTITY_QUAT, 1.0),
+    # D1 base_link origin is its bottom mounting face.  These offsets place
+    # that face on each host's measured top surface in the local host frame.
+    "go2": D1MountProfile("go2", "base", (-0.018, 0.0, 0.057), _IDENTITY_QUAT, 1.0),
     "carter": D1MountProfile("carter", "Carter/Orsus_chassis_link", (0.0, 0.0, 0.414), _YAW_PI, 1.0),
     "b2": D1MountProfile("b2", "base_link", (0.0, 0.0, 0.085), _YAW_PI, 1.0),
-    "m20": D1MountProfile("m20", "base_link", (0.0, 0.0, 0.0852), _YAW_PI, 1.0),
-    "scout": D1MountProfile("scout", "base_link", (0.0, 0.0, 0.1162), _YAW_PI, 1.0),
+    "m20": D1MountProfile("m20", "base_link", (-0.009, 0.0, 0.079), _YAW_PI, 1.0),
+    "scout": D1MountProfile("scout", "base_link", (0.0, 0.0, 0.098), _YAW_PI, 1.0),
     "lite3": D1MountProfile("lite3", "TORSO", (0.0, 0.0, 0.12), _IDENTITY_QUAT, 1.0),
 }
 
