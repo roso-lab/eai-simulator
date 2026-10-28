@@ -3,7 +3,7 @@
   "scene_key": "living_room_06",
   "scene_asset_digest": "e67affcbd6d67941feb8bc7728d6be4cd74ad63d414a8b65db771337b76e300a",
   "semantic_map_identity": {
-    "save_id": "d9872563938c42fd85f43efa3dab3c0b",
+    "save_id": "4222564dd7fb45d586866c1a44ccc40e",
     "semantic_binding_digest": "4b47e8a2bbdf4ac4dac9519c550eb793c3c6269edfc1f3b2a16170c09a97fb01",
     "topology_digest": "1b7a0081289a0726dc8bfcf07763e986ff0992f2d6a0208c34b8cbc167bf8176"
   },
@@ -25,13 +25,13 @@
         "entity_id": "book_batch_01",
         "origin": "task_generated",
         "definition_ref": "task-setup:liv-t-04/book_batch_01",
-        "definition_digest": "d9c152c7bf82544a0aed215b421410f38a057ba2a99d5d7eadb3ee2852d54c87"
+        "definition_digest": "d3d182a6008fab08c88601e1ef19222ad3313bf07c8f0135207c3159735affa0"
       },
       {
         "entity_id": "heavy_object",
         "origin": "task_generated",
         "definition_ref": "task-setup:liv-t-04/heavy_object",
-        "definition_digest": "67eb46a2e4fe3eca9d5a3bd11b6ea7347a47a84cbacedd372f67ba3466e202e5"
+        "definition_digest": "9d6c5d83cee663b635394a1ba2a53c5b82381552b28d92429954b6ec6f325ffc"
       }
     ]
   },

@@ -954,6 +954,7 @@ def _session_config(
     *,
     selection: Mapping[str, Any],
     runtime_source_factory: Callable[..., Any] | None = None,
+    env_cfg_hook: Callable[[Any], None] | None = None,
 ) -> Any:
     from simulator import SimulatorLaunchConfig
 
@@ -967,12 +968,47 @@ def _session_config(
         resolved_env_name="EAI-Interactive-v0",
         selection_data=deepcopy(dict(selection)),
         room06_runtime_hook_source_factory=runtime_source_factory,
+        env_cfg_hook=env_cfg_hook,
         app_launcher_args={
             "headless": request["headless"],
             "enable_cameras": True,
             "device": request["requested_device"],
         },
     )
+
+
+def _room06_task_object_env_cfg_hook(package: Mapping[str, Any]) -> Callable[[Any], None]:
+    """Attach the case-owned logical objects before Isaac creates the scene."""
+
+    def configure(env_cfg: Any) -> None:
+        from EAI_assets.scene.room06_task_objects import (
+            build_room06_task_object_configs,
+            build_room06_task_object_plan,
+        )
+
+        audit = package["preflight"]["semantic_input_audit"]
+        manifest_path = Path(audit["manifest_path"]).resolve()
+        semantic_points_path = manifest_path.parent / "semantic-points.json"
+        points_payload = json.loads(semantic_points_path.read_text(encoding="utf-8"))
+        points = {
+            row["label"]: row["position_xyz"]
+            for row in points_payload.get("points", [])
+            if isinstance(row, Mapping) and isinstance(row.get("label"), str)
+        }
+        plan = build_room06_task_object_plan(package["task_setup"], points)
+        configs = build_room06_task_object_configs(plan)
+        scene_cls = type(env_cfg.scene)
+        annotations = getattr(scene_cls, "__annotations__", {})
+        for entity_id, config in configs.items():
+            # RigidObjectCfg uses an environment regex; the observer later
+            # resolves env_0 to the exact logical USD binding.
+            config.prim_path = config.prim_path.replace(
+                "/World/envs/env_0", "{ENV_REGEX_NS}"
+            )
+            annotations[entity_id] = type(config)
+            setattr(env_cfg.scene, entity_id, config)
+
+    return configure
 
 
 def run_scene_diagnostic(
@@ -1055,6 +1091,7 @@ def run_full_task(
     )
     with open_simulator_session(_session_config(
         request, selection=selection, runtime_source_factory=source_factory,
+        env_cfg_hook=_room06_task_object_env_cfg_hook(prepared["package"]),
     )) as session:
         identity = _query_device_identity(request)
         readback: dict[str, Any] | None = None
