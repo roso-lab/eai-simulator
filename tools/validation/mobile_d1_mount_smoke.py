@@ -21,8 +21,8 @@ if str(ROOT) not in sys.path:
 SELECTION_PATH = ROOT / "tmp" / "d1_go2_selection_example.json"
 
 # Mount geometry from EAI_assets.robots.d1_mount.D1_MOUNT_PROFILES["go2"]:
-# arm base_link welded to go2 "base" at (0, 0, 0.15).
-MOUNT_OFFSET_M = (0.0, 0.0, 0.15)
+# D1 base_link welded to go2 "base" on the measured top surface.
+MOUNT_OFFSET_M = (-0.018, 0.0, 0.057)
 MOUNT_TOLERANCE_M = 0.03
 
 CHECKS: list[tuple[str, bool, str]] = []
