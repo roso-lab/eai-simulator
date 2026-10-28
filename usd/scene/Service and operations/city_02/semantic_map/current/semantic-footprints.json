@@ -2,7 +2,7 @@
   "schema": "eai.semantic_footprints",
   "version": 1,
   "scene_id": "service_city_02",
-  "project_revision": "8cc8125173b04b6cad7c7160880783aa",
+  "project_revision": "2b715ba2ab414cec8c0ecbf0b4add2cf",
   "coordinate_frame": "scene_world",
   "objects": [],
   "semantics": {

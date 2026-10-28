@@ -1,9 +1,186 @@
 {
   "schema": "eai.semantic_points",
-  "version": 1,
+  "version": 2,
   "scene_key": "service_city_02",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
   "up_axis": "Z",
-  "points": []
+  "points": [
+    {
+      "id": "semantic:ce02d92a868f4403b93686e2599fdee6",
+      "position_xyz": [
+        -93.3,
+        2.1,
+        -0.0
+      ],
+      "label": "crossroad-central",
+      "kind": "custom",
+      "description": "中央街区(mc)西北角主干交叉口，全域离障碍最开阔的路口之一。视觉证据街道网 bounds 中央。 建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_02:ground:component-001:free-centerline:point:0017"
+        }
+      ]
+    },
+    {
+      "id": "semantic:4af6ecf654614e8a8d159764d5a81070",
+      "position_xyz": [
+        -62.1,
+        61.5,
+        -0.0
+      ],
+      "label": "street-north",
+      "kind": "custom",
+      "description": "北缘周街道中段（行道树绿带北侧）。 建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_02:ground:component-001:free-centerline:point:0016"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b1c2ffbb5e344462a63d0fff8b2fb28d",
+      "position_xyz": [
+        -71.1,
+        -122.5,
+        -0.0
+      ],
+      "label": "street-south",
+      "kind": "custom",
+      "description": "南缘周街道中段。 建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_02:ground:component-001:free-centerline:point:0032"
+        }
+      ]
+    },
+    {
+      "id": "semantic:eff8cb13561e47ac93962c1d5e32fd60",
+      "position_xyz": [
+        -177.7,
+        -40.5,
+        -0.0
+      ],
+      "label": "street-west",
+      "kind": "custom",
+      "description": "西缘周街道中段。 建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_02:ground:component-001:free-centerline:point:0044"
+        }
+      ]
+    },
+    {
+      "id": "semantic:2e06ae7904954f75ab0948c6a9be2dbb",
+      "position_xyz": [
+        54.1,
+        -39.1,
+        -0.0
+      ],
+      "label": "street-east",
+      "kind": "custom",
+      "description": "东缘周街道中段。 建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_02:ground:component-001:free-centerline:point:0010"
+        }
+      ]
+    },
+    {
+      "id": "semantic:2f93af7cc2554fcf8a3e90a4c18b2ec9",
+      "position_xyz": [
+        -46.7,
+        -14.7,
+        -0.0
+      ],
+      "label": "plaza-mc-octagon-tower",
+      "kind": "custom",
+      "description": "中央街区(mc)东南临街面：卡其/橄榄色幕墙八角高塔地标（顶视八边形屋顶足迹约 194x203px），点在其临街开阔侧。 建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_02:ground:component-001:free-centerline:point:0017"
+        }
+      ]
+    },
+    {
+      "id": "semantic:0e5150ecb0e74f028df7bd9b9faef34c",
+      "position_xyz": [
+        -111.9,
+        -10.9,
+        -0.0
+      ],
+      "label": "block-mw-courtyard",
+      "kind": "custom",
+      "description": "西中街区(mw)回字形楼群中央天井窄缝（宽约 5 m）。 建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_02:ground:component-001:free-centerline:point:0028"
+        }
+      ]
+    },
+    {
+      "id": "semantic:8a9a772b1e0648e4a41961e854bd9987",
+      "position_xyz": [
+        -6.5,
+        -48.3,
+        -0.0
+      ],
+      "label": "block-me-twin-gap",
+      "kind": "custom",
+      "description": "东中街区(me)双塔楼间缝（黑玻璃塔群，带白色横带）。 建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_02:ground:component-001:free-centerline:point:0018"
+        }
+      ]
+    }
+  ]
 }
