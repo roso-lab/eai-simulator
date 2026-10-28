@@ -2,7 +2,7 @@
   "schema": "eai.semantic_footprints",
   "version": 1,
   "scene_id": "service_subway",
-  "project_revision": "c66b091387ec4989bed37b79ff8dc94c",
+  "project_revision": "77790aaaf7534b18b7e3dbed3328eb57",
   "coordinate_frame": "scene_world",
   "objects": [],
   "semantics": {

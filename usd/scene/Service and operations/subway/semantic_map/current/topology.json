@@ -18,567 +18,42 @@
   },
   "nodes": [
     {
-      "id": "node:service_subway:platform:component-001:route-start",
+      "id": "node:0001",
       "kind": "custom",
       "position_xyz": [
-        31.125,
-        -17.125,
-        0.0
+        41.86,
+        -4.89,
+        1.3
       ],
       "target_refs": [],
       "source_ref": null,
       "locked": false,
       "level_id": "platform",
-      "label": "几何路线起点",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-001:route-end",
-      "kind": "custom",
-      "position_xyz": [
-        1.625,
-        -8.875,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线终点",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0001",
-      "kind": "custom",
-      "position_xyz": [
-        30.375,
-        -17.125,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0002",
-      "kind": "custom",
-      "position_xyz": [
-        29.625,
-        -16.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0003",
-      "kind": "custom",
-      "position_xyz": [
-        17.875,
-        -16.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0004",
-      "kind": "custom",
-      "position_xyz": [
-        17.625,
-        -16.125,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0005",
-      "kind": "custom",
-      "position_xyz": [
-        17.375,
-        -16.125,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0006",
-      "kind": "custom",
-      "position_xyz": [
-        17.125,
-        -15.875,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0007",
-      "kind": "custom",
-      "position_xyz": [
-        16.875,
-        -15.875,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0008",
-      "kind": "custom",
-      "position_xyz": [
-        16.625,
-        -15.625,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0009",
-      "kind": "custom",
-      "position_xyz": [
-        15.625,
-        -15.625,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0010",
-      "kind": "custom",
-      "position_xyz": [
-        15.375,
-        -15.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0011",
-      "kind": "custom",
-      "position_xyz": [
-        15.125,
-        -15.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0012",
-      "kind": "custom",
-      "position_xyz": [
-        14.375,
-        -14.625,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0013",
-      "kind": "custom",
-      "position_xyz": [
-        14.125,
-        -14.625,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0014",
-      "kind": "custom",
-      "position_xyz": [
-        13.875,
-        -14.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0015",
-      "kind": "custom",
-      "position_xyz": [
-        13.625,
-        -14.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0016",
-      "kind": "custom",
-      "position_xyz": [
-        13.375,
-        -14.125,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0017",
-      "kind": "custom",
-      "position_xyz": [
-        13.125,
-        -14.125,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0018",
-      "kind": "custom",
-      "position_xyz": [
-        12.875,
-        -13.875,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0019",
-      "kind": "custom",
-      "position_xyz": [
-        12.375,
-        -13.875,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0020",
-      "kind": "custom",
-      "position_xyz": [
-        12.125,
-        -13.625,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0021",
-      "kind": "custom",
-      "position_xyz": [
-        11.875,
-        -13.625,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0022",
-      "kind": "custom",
-      "position_xyz": [
-        11.625,
-        -13.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0023",
-      "kind": "custom",
-      "position_xyz": [
-        11.375,
-        -13.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0024",
-      "kind": "custom",
-      "position_xyz": [
-        8.125,
-        -10.125,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0025",
-      "kind": "custom",
-      "position_xyz": [
-        4.125,
-        -10.125,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0026",
-      "kind": "custom",
-      "position_xyz": [
-        3.875,
-        -9.875,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0027",
-      "kind": "custom",
-      "position_xyz": [
-        3.625,
-        -9.875,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0028",
-      "kind": "custom",
-      "position_xyz": [
-        3.375,
-        -9.625,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0029",
-      "kind": "custom",
-      "position_xyz": [
-        3.125,
-        -9.625,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0030",
-      "kind": "custom",
-      "position_xyz": [
-        2.875,
-        -9.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0031",
-      "kind": "custom",
-      "position_xyz": [
-        2.625,
-        -9.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0032",
-      "kind": "custom",
-      "position_xyz": [
-        2.375,
-        -9.125,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
       "label": "",
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-001:free-centerline:point:0033",
+      "id": "node:0002",
       "kind": "custom",
       "position_xyz": [
-        1.875,
-        -9.125,
-        0.0
+        41.86,
+        -15.0,
+        1.3
       ],
       "target_refs": [],
       "source_ref": null,
       "locked": false,
       "level_id": "platform",
       "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-002:route-start",
-      "kind": "custom",
-      "position_xyz": [
-        9.125,
-        -7.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线起点",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-002:route-end",
-      "kind": "custom",
-      "position_xyz": [
-        1.375,
-        -1.125,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线终点",
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-002:free-centerline:point:0001",
+      "id": "node:0003",
       "kind": "custom",
       "position_xyz": [
-        7.875,
-        -6.125,
-        0.0
+        41.86,
+        20.66,
+        11.5
       ],
       "target_refs": [],
       "source_ref": null,
@@ -588,12 +63,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-002:free-centerline:point:0002",
+      "id": "node:0004",
       "kind": "custom",
       "position_xyz": [
-        7.625,
-        -6.125,
-        0.0
+        41.86,
+        -10.548,
+        1.3
       ],
       "target_refs": [],
       "source_ref": null,
@@ -603,12 +78,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-002:free-centerline:point:0003",
+      "id": "node:0005",
       "kind": "custom",
       "position_xyz": [
-        4.125,
-        -2.625,
-        0.0
+        36.745,
+        -10.54,
+        1.3
       ],
       "target_refs": [],
       "source_ref": null,
@@ -618,12 +93,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-002:free-centerline:point:0004",
+      "id": "node:0006",
       "kind": "custom",
       "position_xyz": [
-        3.375,
-        -2.625,
-        0.0
+        39.41,
+        -10.548,
+        1.3
       ],
       "target_refs": [],
       "source_ref": null,
@@ -633,12 +108,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-002:free-centerline:point:0005",
+      "id": "node:0007",
       "kind": "custom",
       "position_xyz": [
-        2.375,
-        -1.625,
-        0.0
+        41.86,
+        -8.214,
+        1.3
       ],
       "target_refs": [],
       "source_ref": null,
@@ -648,12 +123,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-002:free-centerline:point:0006",
+      "id": "node:0008",
       "kind": "custom",
       "position_xyz": [
-        1.625,
-        -1.625,
-        0.0
+        35.221,
+        -10.54,
+        0.66
       ],
       "target_refs": [],
       "source_ref": null,
@@ -663,57 +138,27 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-002:free-centerline:point:0007",
+      "id": "node:0009",
       "kind": "custom",
       "position_xyz": [
-        1.375,
-        -1.375,
-        0.0
+        32.76,
+        -10.54,
+        0.66
       ],
       "target_refs": [],
       "source_ref": null,
       "locked": false,
       "level_id": "platform",
       "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-003:route-start",
-      "kind": "custom",
-      "position_xyz": [
-        5.625,
-        2.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线起点",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-003:route-end",
-      "kind": "custom",
-      "position_xyz": [
-        0.625,
-        -0.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线终点",
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0001",
+      "id": "node:0010",
       "kind": "custom",
       "position_xyz": [
-        5.375,
-        2.125,
-        0.0
+        31.425,
+        -10.54,
+        0.021
       ],
       "target_refs": [],
       "source_ref": null,
@@ -723,12 +168,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0002",
+      "id": "node:0011",
       "kind": "custom",
       "position_xyz": [
-        5.375,
-        1.875,
-        0.0
+        30.691,
+        -10.535,
+        0.021
       ],
       "target_refs": [],
       "source_ref": null,
@@ -738,12 +183,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0003",
+      "id": "node:0012",
       "kind": "custom",
       "position_xyz": [
-        5.125,
-        1.625,
-        0.0
+        28.555,
+        -12.486,
+        0.021
       ],
       "target_refs": [],
       "source_ref": null,
@@ -753,12 +198,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0004",
+      "id": "node:0013",
       "kind": "custom",
       "position_xyz": [
-        4.875,
-        1.625,
-        0.0
+        -0.646,
+        -12.463,
+        0.021
       ],
       "target_refs": [],
       "source_ref": null,
@@ -768,12 +213,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0005",
+      "id": "node:0014",
       "kind": "custom",
       "position_xyz": [
-        4.625,
-        1.375,
-        0.0
+        -2.885,
+        -12.224,
+        0.021
       ],
       "target_refs": [],
       "source_ref": null,
@@ -783,12 +228,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0006",
+      "id": "node:0015",
       "kind": "custom",
       "position_xyz": [
-        4.375,
-        1.375,
-        0.0
+        -7.188,
+        -12.224,
+        0.021
       ],
       "target_refs": [],
       "source_ref": null,
@@ -798,12 +243,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0007",
+      "id": "node:0016",
       "kind": "custom",
       "position_xyz": [
-        4.125,
-        1.125,
-        0.0
+        -8.767,
+        -12.224,
+        0.021
       ],
       "target_refs": [],
       "source_ref": null,
@@ -813,12 +258,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0008",
+      "id": "node:0017",
       "kind": "custom",
       "position_xyz": [
-        3.875,
-        1.125,
-        0.0
+        -24.86,
+        -12.248,
+        -4.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -828,12 +273,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0009",
+      "id": "node:0018",
       "kind": "custom",
       "position_xyz": [
-        3.625,
-        0.875,
-        0.0
+        -31.753,
+        -12.242,
+        -4.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -843,12 +288,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0010",
+      "id": "node:0019",
       "kind": "custom",
       "position_xyz": [
-        3.125,
-        0.875,
-        0.0
+        -31.655,
+        -18.919,
+        -4.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -858,12 +303,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0011",
+      "id": "node:0020",
       "kind": "custom",
       "position_xyz": [
-        2.875,
-        0.625,
-        0.0
+        -28.669,
+        -12.245,
+        -4.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -873,12 +318,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0012",
+      "id": "node:0021",
       "kind": "custom",
       "position_xyz": [
-        2.625,
-        0.625,
-        0.0
+        -31.711,
+        -15.15,
+        -4.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -888,12 +333,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0013",
+      "id": "node:0022",
       "kind": "custom",
       "position_xyz": [
-        2.375,
-        0.375,
-        0.0
+        -31.655,
+        -19.651,
+        -4.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -903,12 +348,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0014",
+      "id": "node:0023",
       "kind": "custom",
       "position_xyz": [
-        2.125,
-        0.375,
-        0.0
+        -31.655,
+        -25.68,
+        -7.492
       ],
       "target_refs": [],
       "source_ref": null,
@@ -918,12 +363,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0015",
+      "id": "node:0025",
       "kind": "custom",
       "position_xyz": [
-        1.875,
-        0.125,
-        0.0
+        -56.215,
+        -29.941,
+        -7.492
       ],
       "target_refs": [],
       "source_ref": null,
@@ -933,12 +378,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0016",
+      "id": "node:0026",
       "kind": "custom",
       "position_xyz": [
-        1.625,
-        0.125,
-        0.0
+        -33.322,
+        -29.799,
+        -7.492
       ],
       "target_refs": [],
       "source_ref": null,
@@ -948,12 +393,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0017",
+      "id": "node:0027",
       "kind": "custom",
       "position_xyz": [
-        1.375,
-        -0.125,
-        0.0
+        -31.755,
+        -28.498,
+        -7.492
       ],
       "target_refs": [],
       "source_ref": null,
@@ -963,12 +408,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0018",
+      "id": "node:0028",
       "kind": "custom",
       "position_xyz": [
-        1.125,
-        -0.125,
-        0.0
+        -57.197,
+        -29.941,
+        -7.492
       ],
       "target_refs": [],
       "source_ref": null,
@@ -978,57 +423,27 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:point:0019",
+      "id": "node:0029",
       "kind": "custom",
       "position_xyz": [
-        0.875,
-        -0.375,
-        0.0
+        -62.676,
+        -29.941,
+        -10.009
       ],
       "target_refs": [],
       "source_ref": null,
       "locked": false,
       "level_id": "platform",
       "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-004:route-start",
-      "kind": "custom",
-      "position_xyz": [
-        1.625,
-        -16.625,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线起点",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-004:route-end",
-      "kind": "custom",
-      "position_xyz": [
-        10.875,
-        -17.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线终点",
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:point:0001",
+      "id": "node:0030",
       "kind": "custom",
       "position_xyz": [
-        3.875,
-        -16.625,
-        0.0
+        -64.313,
+        -29.941,
+        -10.009
       ],
       "target_refs": [],
       "source_ref": null,
@@ -1038,12 +453,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:point:0002",
+      "id": "node:0031",
       "kind": "custom",
       "position_xyz": [
-        4.125,
-        -16.875,
-        0.0
+        -68.692,
+        -29.941,
+        -10.009
       ],
       "target_refs": [],
       "source_ref": null,
@@ -1053,12 +468,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:point:0003",
+      "id": "node:0032",
       "kind": "custom",
       "position_xyz": [
-        9.875,
-        -16.875,
-        0.0
+        -68.692,
+        -25.754,
+        -10.009
       ],
       "target_refs": [],
       "source_ref": null,
@@ -1068,12 +483,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:point:0004",
+      "id": "node:0033",
       "kind": "custom",
       "position_xyz": [
-        10.125,
-        -17.125,
-        0.0
+        -68.692,
+        -81.28,
+        -10.009
       ],
       "target_refs": [],
       "source_ref": null,
@@ -1083,12 +498,12 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:point:0005",
+      "id": "node:0036",
       "kind": "custom",
       "position_xyz": [
-        10.375,
-        -17.125,
-        0.0
+        -68.692,
+        -43.156,
+        -10.009
       ],
       "target_refs": [],
       "source_ref": null,
@@ -1098,57 +513,27 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:point:0006",
+      "id": "node:0037",
       "kind": "custom",
       "position_xyz": [
-        10.625,
-        -17.375,
-        0.0
+        -68.692,
+        -34.174,
+        -10.009
       ],
       "target_refs": [],
       "source_ref": null,
       "locked": false,
       "level_id": "platform",
       "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-005:route-start",
-      "kind": "custom",
-      "position_xyz": [
-        13.125,
-        -6.875,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线起点",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-005:route-end",
-      "kind": "custom",
-      "position_xyz": [
-        10.375,
-        -3.125,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线终点",
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-005:free-centerline:point:0001",
+      "id": "node:0038",
       "kind": "custom",
       "position_xyz": [
-        11.625,
-        -5.375,
-        0.0
+        -73.713,
+        -26.836,
+        -9.862
       ],
       "target_refs": [],
       "source_ref": null,
@@ -1158,1711 +543,392 @@
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-005:free-centerline:point:0002",
+      "id": "node:0039",
       "kind": "custom",
       "position_xyz": [
-        11.625,
-        -4.375,
-        0.0
+        -73.713,
+        -45.644,
+        -9.862
       ],
       "target_refs": [],
       "source_ref": null,
       "locked": false,
       "level_id": "platform",
       "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-006:route-start",
-      "kind": "custom",
-      "position_xyz": [
-        13.375,
-        -4.625,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线起点",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-006:route-end",
-      "kind": "custom",
-      "position_xyz": [
-        11.625,
-        -2.875,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线终点",
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-006:free-centerline:point:0001",
+      "id": "node:0040",
       "kind": "custom",
       "position_xyz": [
-        13.375,
-        -2.875,
-        0.0
+        -73.713,
+        -43.156,
+        -9.862
       ],
       "target_refs": [],
       "source_ref": null,
       "locked": false,
       "level_id": "platform",
       "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-007:route-start",
-      "kind": "custom",
-      "position_xyz": [
-        9.875,
-        -1.125,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线起点",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-007:route-end",
-      "kind": "custom",
-      "position_xyz": [
-        9.125,
-        -0.875,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线终点",
       "aliases": []
     },
     {
-      "id": "route:service_subway:platform:component-007:free-centerline:point:0001",
+      "id": "node:0041",
       "kind": "custom",
       "position_xyz": [
-        9.375,
-        -1.125,
-        0.0
+        -73.713,
+        -34.174,
+        -9.862
       ],
       "target_refs": [],
       "source_ref": null,
       "locked": false,
       "level_id": "platform",
       "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-008:route-start",
-      "kind": "custom",
-      "position_xyz": [
-        0.125,
-        -0.625,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线起点",
-      "aliases": []
-    },
-    {
-      "id": "node:service_subway:platform:component-008:route-end",
-      "kind": "custom",
-      "position_xyz": [
-        -0.125,
-        -0.375,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "platform",
-      "label": "几何路线终点",
       "aliases": []
     }
   ],
   "edges": [
     {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0001",
+      "id": "edge:0001",
       "kind": "custom_connection",
-      "from": "node:service_subway:platform:component-001:route-start",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0001",
+      "from": "node:0001",
+      "to": "node:0007",
       "directed": false,
       "polyline_xyz": [
         [
-          31.125,
-          -17.125,
-          0.0
+          41.86,
+          -4.89,
+          1.3
         ],
         [
-          30.375,
-          -17.125,
-          0.0
+          41.86,
+          -8.214,
+          1.3
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0002",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0001",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0002",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          30.375,
-          -17.125,
-          0.0
-        ],
-        [
-          29.625,
-          -16.375,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0003",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0002",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0003",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          29.625,
-          -16.375,
-          0.0
-        ],
-        [
-          17.875,
-          -16.375,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0004",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0003",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0004",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          17.875,
-          -16.375,
-          0.0
-        ],
-        [
-          17.625,
-          -16.125,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0005",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0004",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0005",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          17.625,
-          -16.125,
-          0.0
-        ],
-        [
-          17.375,
-          -16.125,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0006",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0005",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0006",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          17.375,
-          -16.125,
-          0.0
-        ],
-        [
-          17.125,
-          -15.875,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0007",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0006",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0007",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          17.125,
-          -15.875,
-          0.0
-        ],
-        [
-          16.875,
-          -15.875,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0008",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0007",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0008",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          16.875,
-          -15.875,
-          0.0
-        ],
-        [
-          16.625,
-          -15.625,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0009",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0008",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0009",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          16.625,
-          -15.625,
-          0.0
-        ],
-        [
-          15.625,
-          -15.625,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0010",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0009",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0010",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          15.625,
-          -15.625,
-          0.0
-        ],
-        [
-          15.375,
-          -15.375,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0011",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0010",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0011",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          15.375,
-          -15.375,
-          0.0
-        ],
-        [
-          15.125,
-          -15.375,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0012",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0011",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0012",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          15.125,
-          -15.375,
-          0.0
-        ],
-        [
-          14.375,
-          -14.625,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0013",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0012",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0013",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          14.375,
-          -14.625,
-          0.0
-        ],
-        [
-          14.125,
-          -14.625,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0014",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0013",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0014",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          14.125,
-          -14.625,
-          0.0
-        ],
-        [
-          13.875,
-          -14.375,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0015",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0014",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0015",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          13.875,
-          -14.375,
-          0.0
-        ],
-        [
-          13.625,
-          -14.375,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0016",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0015",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0016",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          13.625,
-          -14.375,
-          0.0
-        ],
-        [
-          13.375,
-          -14.125,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0017",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0016",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0017",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          13.375,
-          -14.125,
-          0.0
-        ],
-        [
-          13.125,
-          -14.125,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0018",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0017",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0018",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          13.125,
-          -14.125,
-          0.0
-        ],
-        [
-          12.875,
-          -13.875,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0019",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0018",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0019",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          12.875,
-          -13.875,
-          0.0
-        ],
-        [
-          12.375,
-          -13.875,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0020",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0019",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0020",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          12.375,
-          -13.875,
-          0.0
-        ],
-        [
-          12.125,
-          -13.625,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0021",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0020",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0021",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          12.125,
-          -13.625,
-          0.0
-        ],
-        [
-          11.875,
-          -13.625,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0022",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0021",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0022",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          11.875,
-          -13.625,
-          0.0
-        ],
-        [
-          11.625,
-          -13.375,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0023",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0022",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0023",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          11.625,
-          -13.375,
-          0.0
-        ],
-        [
-          11.375,
-          -13.375,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0024",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0023",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0024",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          11.375,
-          -13.375,
-          0.0
-        ],
-        [
-          8.125,
-          -10.125,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0025",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0024",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0025",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          8.125,
-          -10.125,
-          0.0
-        ],
-        [
-          4.125,
-          -10.125,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0026",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0025",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0026",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          4.125,
-          -10.125,
-          0.0
-        ],
-        [
-          3.875,
-          -9.875,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0027",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0026",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0027",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          3.875,
-          -9.875,
-          0.0
-        ],
-        [
-          3.625,
-          -9.875,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0028",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0027",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0028",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          3.625,
-          -9.875,
-          0.0
-        ],
-        [
-          3.375,
-          -9.625,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0029",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0028",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0029",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          3.375,
-          -9.625,
-          0.0
-        ],
-        [
-          3.125,
-          -9.625,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0030",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0029",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0030",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          3.125,
-          -9.625,
-          0.0
-        ],
-        [
-          2.875,
-          -9.375,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0031",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0030",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0031",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.875,
-          -9.375,
-          0.0
-        ],
-        [
-          2.625,
-          -9.375,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0032",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0031",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0032",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.625,
-          -9.375,
-          0.0
-        ],
-        [
-          2.375,
-          -9.125,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0033",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0032",
-      "to": "route:service_subway:platform:component-001:free-centerline:point:0033",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.375,
-          -9.125,
-          0.0
-        ],
-        [
-          1.875,
-          -9.125,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-001:free-centerline:edge:0034",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-001:free-centerline:point:0033",
-      "to": "node:service_subway:platform:component-001:route-end",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.875,
-          -9.125,
-          0.0
-        ],
-        [
-          1.625,
-          -8.875,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-002:free-centerline:edge:0001",
-      "kind": "custom_connection",
-      "from": "node:service_subway:platform:component-002:route-start",
-      "to": "route:service_subway:platform:component-002:free-centerline:point:0001",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          9.125,
-          -7.375,
-          0.0
-        ],
-        [
-          7.875,
-          -6.125,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-002:free-centerline:edge:0002",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-002:free-centerline:point:0001",
-      "to": "route:service_subway:platform:component-002:free-centerline:point:0002",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          7.875,
-          -6.125,
-          0.0
-        ],
-        [
-          7.625,
-          -6.125,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-002:free-centerline:edge:0003",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-002:free-centerline:point:0002",
-      "to": "route:service_subway:platform:component-002:free-centerline:point:0003",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          7.625,
-          -6.125,
-          0.0
-        ],
-        [
-          4.125,
-          -2.625,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:service_subway:platform:component-002:free-centerline:edge:0004",
-      "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-002:free-centerline:point:0003",
-      "to": "route:service_subway:platform:component-002:free-centerline:point:0004",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          4.125,
-          -2.625,
-          0.0
-        ],
-        [
-          3.375,
-          -2.625,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-002:free-centerline:edge:0005",
+      "id": "edge:0005",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-002:free-centerline:point:0004",
-      "to": "route:service_subway:platform:component-002:free-centerline:point:0005",
+      "from": "node:0007",
+      "to": "node:0004",
       "directed": false,
       "polyline_xyz": [
         [
-          3.375,
-          -2.625,
-          0.0
+          41.86,
+          -8.214,
+          1.3
         ],
         [
-          2.375,
-          -1.625,
-          0.0
+          41.86,
+          -10.548,
+          1.3
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-002:free-centerline:edge:0006",
+      "id": "edge:0003",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-002:free-centerline:point:0005",
-      "to": "route:service_subway:platform:component-002:free-centerline:point:0006",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.375,
-          -1.625,
-          0.0
-        ],
-        [
-          1.625,
-          -1.625,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "from": "node:0004",
+      "to": "node:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          41.86,
+          -10.548,
+          1.3
+        ],
+        [
+          41.86,
+          -15.0,
+          1.3
+        ]
+      ],
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-002:free-centerline:edge:0007",
+      "id": "edge:0002",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-002:free-centerline:point:0006",
-      "to": "route:service_subway:platform:component-002:free-centerline:point:0007",
+      "from": "node:0001",
+      "to": "node:0003",
       "directed": false,
       "polyline_xyz": [
         [
-          1.625,
-          -1.625,
-          0.0
+          41.86,
+          -4.89,
+          1.3
         ],
         [
-          1.375,
-          -1.375,
-          0.0
+          41.86,
+          20.66,
+          11.5
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
+      "traversal_mode": "stairs",
+      "required_controller_capabilities": [
+        "stair_capable"
+      ]
     },
     {
-      "id": "route:service_subway:platform:component-002:free-centerline:edge:0008",
+      "id": "edge:0004",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-002:free-centerline:point:0007",
-      "to": "node:service_subway:platform:component-002:route-end",
+      "from": "node:0004",
+      "to": "node:0006",
       "directed": false,
       "polyline_xyz": [
         [
-          1.375,
-          -1.375,
-          0.0
+          41.86,
+          -10.548,
+          1.3
         ],
         [
-          1.375,
-          -1.125,
-          0.0
+          39.41,
+          -10.548,
+          1.3
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0001",
+      "id": "edge:0006",
       "kind": "custom_connection",
-      "from": "node:service_subway:platform:component-003:route-start",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0001",
+      "from": "node:0006",
+      "to": "node:0005",
       "directed": false,
       "polyline_xyz": [
         [
-          5.625,
-          2.375,
-          0.0
+          39.41,
+          -10.548,
+          1.3
         ],
         [
-          5.375,
-          2.125,
-          0.0
+          36.745,
+          -10.54,
+          1.3
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0002",
+      "id": "edge:0007",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0001",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0002",
+      "from": "node:0006",
+      "to": "node:0007",
       "directed": false,
       "polyline_xyz": [
         [
-          5.375,
-          2.125,
-          0.0
+          39.41,
+          -10.548,
+          1.3
         ],
         [
-          5.375,
-          1.875,
-          0.0
+          41.86,
+          -8.214,
+          1.3
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0003",
+      "id": "edge:0008",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0002",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0003",
+      "from": "node:0005",
+      "to": "node:0008",
       "directed": false,
       "polyline_xyz": [
         [
-          5.375,
-          1.875,
-          0.0
+          36.745,
+          -10.54,
+          1.3
         ],
         [
-          5.125,
-          1.625,
-          0.0
+          35.221,
+          -10.54,
+          0.66
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
+      "traversal_mode": "stairs",
+      "required_controller_capabilities": [
+        "stair_capable"
+      ]
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0004",
+      "id": "edge:0009",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0003",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0004",
+      "from": "node:0008",
+      "to": "node:0009",
       "directed": false,
       "polyline_xyz": [
         [
-          5.125,
-          1.625,
-          0.0
+          35.221,
+          -10.54,
+          0.66
         ],
         [
-          4.875,
-          1.625,
-          0.0
+          32.76,
+          -10.54,
+          0.66
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0005",
+      "id": "edge:0010",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0004",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0005",
+      "from": "node:0009",
+      "to": "node:0010",
       "directed": false,
       "polyline_xyz": [
         [
-          4.875,
-          1.625,
-          0.0
+          32.76,
+          -10.54,
+          0.66
         ],
         [
-          4.625,
-          1.375,
-          0.0
+          31.425,
+          -10.54,
+          0.021
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
+      "traversal_mode": "stairs",
+      "required_controller_capabilities": [
+        "stair_capable"
+      ]
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0006",
+      "id": "edge:0011",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0005",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0006",
+      "from": "node:0010",
+      "to": "node:0011",
       "directed": false,
       "polyline_xyz": [
         [
-          4.625,
-          1.375,
-          0.0
+          31.425,
+          -10.54,
+          0.021
         ],
         [
-          4.375,
-          1.375,
-          0.0
+          30.691,
+          -10.535,
+          0.021
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0007",
+      "id": "edge:0012",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0006",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0007",
+      "from": "node:0011",
+      "to": "node:0012",
       "directed": false,
       "polyline_xyz": [
         [
-          4.375,
-          1.375,
-          0.0
+          30.691,
+          -10.535,
+          0.021
         ],
         [
-          4.125,
-          1.125,
-          0.0
+          28.555,
+          -12.486,
+          0.021
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0008",
+      "id": "edge:0013",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0007",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0008",
+      "from": "node:0012",
+      "to": "node:0013",
       "directed": false,
       "polyline_xyz": [
         [
-          4.125,
-          1.125,
-          0.0
+          28.555,
+          -12.486,
+          0.021
         ],
         [
-          3.875,
-          1.125,
-          0.0
+          -0.646,
+          -12.463,
+          0.021
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0009",
+      "id": "edge:0014",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0008",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0009",
+      "from": "node:0016",
+      "to": "node:0015",
       "directed": false,
       "polyline_xyz": [
         [
-          3.875,
-          1.125,
-          0.0
+          -8.767,
+          -12.224,
+          0.021
         ],
         [
-          3.625,
-          0.875,
-          0.0
+          -7.188,
+          -12.224,
+          0.021
         ]
       ],
       "profiles": {
+        "default": {
+          "clearance_m": 1.0
+        },
         "ground_small": {
           "clearance_m": 0.8
         },
@@ -2876,24 +942,27 @@
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0010",
+      "id": "edge:0015",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0009",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0010",
+      "from": "node:0014",
+      "to": "node:0013",
       "directed": false,
       "polyline_xyz": [
         [
-          3.625,
-          0.875,
-          0.0
+          -2.885,
+          -12.224,
+          0.021
         ],
         [
-          3.125,
-          0.875,
-          0.0
+          -0.646,
+          -12.463,
+          0.021
         ]
       ],
       "profiles": {
+        "default": {
+          "clearance_m": 1.0
+        },
         "ground_small": {
           "clearance_m": 0.8
         },
@@ -2907,24 +976,27 @@
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0011",
+      "id": "edge:0016",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0010",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0011",
+      "from": "node:0015",
+      "to": "node:0014",
       "directed": false,
       "polyline_xyz": [
         [
-          3.125,
-          0.875,
-          0.0
+          -7.188,
+          -12.224,
+          0.021
         ],
         [
-          2.875,
-          0.625,
-          0.0
+          -2.885,
+          -12.224,
+          0.021
         ]
       ],
       "profiles": {
+        "default": {
+          "clearance_m": 1.0
+        },
         "ground_small": {
           "clearance_m": 0.8
         },
@@ -2938,24 +1010,27 @@
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0012",
+      "id": "edge:0017",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0011",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0012",
+      "from": "node:0016",
+      "to": "node:0017",
       "directed": false,
       "polyline_xyz": [
         [
-          2.875,
-          0.625,
-          0.0
+          -8.767,
+          -12.224,
+          0.021
         ],
         [
-          2.625,
-          0.625,
-          0.0
+          -24.86,
+          -12.248,
+          -4.92
         ]
       ],
       "profiles": {
+        "default": {
+          "clearance_m": 1.0
+        },
         "ground_small": {
           "clearance_m": 0.8
         },
@@ -2965,214 +1040,177 @@
       },
       "source_ref": null,
       "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
+      "traversal_mode": "stairs",
+      "required_controller_capabilities": [
+        "stair_capable"
+      ]
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0013",
+      "id": "edge:0018",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0012",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0013",
+      "from": "node:0017",
+      "to": "node:0020",
       "directed": false,
       "polyline_xyz": [
         [
-          2.625,
-          0.625,
-          0.0
+          -24.86,
+          -12.248,
+          -4.92
         ],
         [
-          2.375,
-          0.375,
-          0.0
+          -28.669,
+          -12.245,
+          -4.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0014",
+      "id": "edge:0020",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0013",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0014",
+      "from": "node:0020",
+      "to": "node:0018",
       "directed": false,
       "polyline_xyz": [
         [
-          2.375,
-          0.375,
-          0.0
+          -28.669,
+          -12.245,
+          -4.92
         ],
         [
-          2.125,
-          0.375,
-          0.0
+          -31.753,
+          -12.242,
+          -4.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0015",
+      "id": "edge:0019",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0014",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0015",
+      "from": "node:0018",
+      "to": "node:0021",
       "directed": false,
       "polyline_xyz": [
         [
-          2.125,
-          0.375,
-          0.0
+          -31.753,
+          -12.242,
+          -4.92
         ],
         [
-          1.875,
-          0.125,
-          0.0
+          -31.711,
+          -15.15,
+          -4.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0016",
+      "id": "edge:0021",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0015",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0016",
+      "from": "node:0021",
+      "to": "node:0019",
       "directed": false,
       "polyline_xyz": [
         [
-          1.875,
-          0.125,
-          0.0
+          -31.711,
+          -15.15,
+          -4.92
         ],
         [
-          1.625,
-          0.125,
-          0.0
+          -31.655,
+          -18.919,
+          -4.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0017",
+      "id": "edge:0022",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0016",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0017",
+      "from": "node:0020",
+      "to": "node:0021",
       "directed": false,
       "polyline_xyz": [
         [
-          1.625,
-          0.125,
-          0.0
+          -28.669,
+          -12.245,
+          -4.92
         ],
         [
-          1.375,
-          -0.125,
-          0.0
+          -31.711,
+          -15.15,
+          -4.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0018",
+      "id": "edge:0023",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0017",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0018",
+      "from": "node:0019",
+      "to": "node:0022",
       "directed": false,
       "polyline_xyz": [
         [
-          1.375,
-          -0.125,
-          0.0
+          -31.655,
+          -18.919,
+          -4.92
         ],
         [
-          1.125,
-          -0.125,
-          0.0
+          -31.655,
+          -19.651,
+          -4.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0019",
+      "id": "edge:0024",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0018",
-      "to": "route:service_subway:platform:component-003:free-centerline:point:0019",
+      "from": "node:0022",
+      "to": "node:0023",
       "directed": false,
       "polyline_xyz": [
         [
-          1.125,
-          -0.125,
-          0.0
+          -31.655,
+          -19.651,
+          -4.92
         ],
         [
-          0.875,
-          -0.375,
-          0.0
+          -31.655,
+          -25.68,
+          -7.492
         ]
       ],
       "profiles": {
+        "default": {
+          "clearance_m": 1.0
+        },
         "ground_small": {
           "clearance_m": 0.8
         },
@@ -3186,24 +1224,27 @@
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-003:free-centerline:edge:0020",
+      "id": "edge:0025",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-003:free-centerline:point:0019",
-      "to": "node:service_subway:platform:component-003:route-end",
+      "from": "node:0023",
+      "to": "node:0027",
       "directed": false,
       "polyline_xyz": [
         [
-          0.875,
-          -0.375,
-          0.0
+          -31.655,
+          -25.68,
+          -7.492
         ],
         [
-          0.625,
-          -0.375,
-          0.0
+          -31.755,
+          -28.498,
+          -7.492
         ]
       ],
       "profiles": {
+        "default": {
+          "clearance_m": 1.0
+        },
         "ground_small": {
           "clearance_m": 0.8
         },
@@ -3217,427 +1258,341 @@
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:edge:0001",
+      "id": "edge:0028",
       "kind": "custom_connection",
-      "from": "node:service_subway:platform:component-004:route-start",
-      "to": "route:service_subway:platform:component-004:free-centerline:point:0001",
+      "from": "node:0026",
+      "to": "node:0025",
       "directed": false,
       "polyline_xyz": [
         [
-          1.625,
-          -16.625,
-          0.0
+          -33.322,
+          -29.799,
+          -7.492
         ],
         [
-          3.875,
-          -16.625,
-          0.0
+          -56.215,
+          -29.941,
+          -7.492
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:edge:0002",
+      "id": "edge:0029",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-004:free-centerline:point:0001",
-      "to": "route:service_subway:platform:component-004:free-centerline:point:0002",
+      "from": "node:0026",
+      "to": "node:0027",
       "directed": false,
       "polyline_xyz": [
         [
-          3.875,
-          -16.625,
-          0.0
+          -33.322,
+          -29.799,
+          -7.492
         ],
         [
-          4.125,
-          -16.875,
-          0.0
+          -31.755,
+          -28.498,
+          -7.492
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:edge:0003",
+      "id": "edge:0030",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-004:free-centerline:point:0002",
-      "to": "route:service_subway:platform:component-004:free-centerline:point:0003",
+      "from": "node:0025",
+      "to": "node:0028",
       "directed": false,
       "polyline_xyz": [
         [
-          4.125,
-          -16.875,
-          0.0
+          -56.215,
+          -29.941,
+          -7.492
         ],
         [
-          9.875,
-          -16.875,
-          0.0
+          -57.197,
+          -29.941,
+          -7.492
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:edge:0004",
+      "id": "edge:0031",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-004:free-centerline:point:0003",
-      "to": "route:service_subway:platform:component-004:free-centerline:point:0004",
+      "from": "node:0028",
+      "to": "node:0029",
       "directed": false,
       "polyline_xyz": [
         [
-          9.875,
-          -16.875,
-          0.0
+          -57.197,
+          -29.941,
+          -7.492
         ],
         [
-          10.125,
-          -17.125,
-          0.0
+          -62.676,
+          -29.941,
+          -10.009
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
+      "traversal_mode": "stairs",
+      "required_controller_capabilities": [
+        "stair_capable"
+      ]
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:edge:0005",
+      "id": "edge:0032",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-004:free-centerline:point:0004",
-      "to": "route:service_subway:platform:component-004:free-centerline:point:0005",
+      "from": "node:0029",
+      "to": "node:0030",
       "directed": false,
       "polyline_xyz": [
         [
-          10.125,
-          -17.125,
-          0.0
+          -62.676,
+          -29.941,
+          -10.009
         ],
         [
-          10.375,
-          -17.125,
-          0.0
+          -64.313,
+          -29.941,
+          -10.009
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:edge:0006",
+      "id": "edge:0033",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-004:free-centerline:point:0005",
-      "to": "route:service_subway:platform:component-004:free-centerline:point:0006",
+      "from": "node:0030",
+      "to": "node:0031",
       "directed": false,
       "polyline_xyz": [
         [
-          10.375,
-          -17.125,
-          0.0
+          -64.313,
+          -29.941,
+          -10.009
         ],
         [
-          10.625,
-          -17.375,
-          0.0
+          -68.692,
+          -29.941,
+          -10.009
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-004:free-centerline:edge:0007",
+      "id": "edge:0034",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-004:free-centerline:point:0006",
-      "to": "node:service_subway:platform:component-004:route-end",
+      "from": "node:0031",
+      "to": "node:0032",
       "directed": false,
       "polyline_xyz": [
         [
-          10.625,
-          -17.375,
-          0.0
+          -68.692,
+          -29.941,
+          -10.009
         ],
         [
-          10.875,
-          -17.375,
-          0.0
+          -68.692,
+          -25.754,
+          -10.009
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-005:free-centerline:edge:0001",
+      "id": "edge:0035",
       "kind": "custom_connection",
-      "from": "node:service_subway:platform:component-005:route-start",
-      "to": "route:service_subway:platform:component-005:free-centerline:point:0001",
+      "from": "node:0031",
+      "to": "node:0037",
       "directed": false,
       "polyline_xyz": [
         [
-          13.125,
-          -6.875,
-          0.0
+          -68.692,
+          -29.941,
+          -10.009
         ],
         [
-          11.625,
-          -5.375,
-          0.0
+          -68.692,
+          -34.174,
+          -10.009
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-005:free-centerline:edge:0002",
+      "id": "edge:0038",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-005:free-centerline:point:0001",
-      "to": "route:service_subway:platform:component-005:free-centerline:point:0002",
+      "from": "node:0037",
+      "to": "node:0036",
       "directed": false,
       "polyline_xyz": [
         [
-          11.625,
-          -5.375,
-          0.0
+          -68.692,
+          -34.174,
+          -10.009
         ],
         [
-          11.625,
-          -4.375,
-          0.0
+          -68.692,
+          -43.156,
+          -10.009
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-005:free-centerline:edge:0003",
+      "id": "edge:0036",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-005:free-centerline:point:0002",
-      "to": "node:service_subway:platform:component-005:route-end",
+      "from": "node:0036",
+      "to": "node:0033",
       "directed": false,
       "polyline_xyz": [
         [
-          11.625,
-          -4.375,
-          0.0
+          -68.692,
+          -43.156,
+          -10.009
         ],
         [
-          10.375,
-          -3.125,
-          0.0
+          -68.692,
+          -81.28,
+          -10.009
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-006:free-centerline:edge:0001",
+      "id": "edge:0040",
       "kind": "custom_connection",
-      "from": "node:service_subway:platform:component-006:route-start",
-      "to": "route:service_subway:platform:component-006:free-centerline:point:0001",
+      "from": "node:0038",
+      "to": "node:0041",
       "directed": false,
       "polyline_xyz": [
         [
-          13.375,
-          -4.625,
-          0.0
+          -73.713,
+          -26.836,
+          -9.862
         ],
         [
-          13.375,
-          -2.875,
-          0.0
+          -73.713,
+          -34.174,
+          -9.862
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-006:free-centerline:edge:0002",
+      "id": "edge:0043",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-006:free-centerline:point:0001",
-      "to": "node:service_subway:platform:component-006:route-end",
+      "from": "node:0041",
+      "to": "node:0040",
       "directed": false,
       "polyline_xyz": [
         [
-          13.375,
-          -2.875,
-          0.0
+          -73.713,
+          -34.174,
+          -9.862
         ],
         [
-          11.625,
-          -2.875,
-          0.0
+          -73.713,
+          -43.156,
+          -9.862
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-007:free-centerline:edge:0001",
+      "id": "edge:0041",
       "kind": "custom_connection",
-      "from": "node:service_subway:platform:component-007:route-start",
-      "to": "route:service_subway:platform:component-007:free-centerline:point:0001",
+      "from": "node:0040",
+      "to": "node:0039",
       "directed": false,
       "polyline_xyz": [
         [
-          9.875,
-          -1.125,
-          0.0
+          -73.713,
+          -43.156,
+          -9.862
         ],
         [
-          9.375,
-          -1.125,
-          0.0
+          -73.713,
+          -45.644,
+          -9.862
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-007:free-centerline:edge:0002",
+      "id": "edge:0044",
       "kind": "custom_connection",
-      "from": "route:service_subway:platform:component-007:free-centerline:point:0001",
-      "to": "node:service_subway:platform:component-007:route-end",
+      "from": "node:0041",
+      "to": "node:0037",
       "directed": false,
       "polyline_xyz": [
         [
-          9.375,
-          -1.125,
-          0.0
+          -73.713,
+          -34.174,
+          -9.862
         ],
         [
-          9.125,
-          -0.875,
-          0.0
+          -68.692,
+          -34.174,
+          -10.009
         ]
       ],
       "profiles": {
+        "default": {
+          "clearance_m": 1.0
+        },
         "ground_small": {
           "clearance_m": 0.8
         },
@@ -3651,24 +1606,27 @@
       "required_controller_capabilities": []
     },
     {
-      "id": "route:service_subway:platform:component-008:free-centerline:edge:0001",
+      "id": "edge:0045",
       "kind": "custom_connection",
-      "from": "node:service_subway:platform:component-008:route-start",
-      "to": "node:service_subway:platform:component-008:route-end",
+      "from": "node:0036",
+      "to": "node:0040",
       "directed": false,
       "polyline_xyz": [
         [
-          0.125,
-          -0.625,
-          0.0
+          -68.692,
+          -43.156,
+          -10.009
         ],
         [
-          -0.125,
-          -0.375,
-          0.0
+          -73.713,
+          -43.156,
+          -9.862
         ]
       ],
       "profiles": {
+        "default": {
+          "clearance_m": 1.0
+        },
         "ground_small": {
           "clearance_m": 0.8
         },
