@@ -13150,5 +13150,6 @@
     "ground": "topology.json",
     "aerial": "topology-aerial.json"
   },
-  "save_id": "8642920d04294ff986a28e2c07756dc3"
+  "save_id": "34fef97a2a0a4072a419daf958ef265f",
+  "semantic_binding_digest": "d4fe91fe83b9eb3c0576fade65d68d95fa59c77c4e4e1accf85ede8bed69fc58"
 }

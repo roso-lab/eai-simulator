@@ -1,9 +1,460 @@
 {
   "schema": "eai.semantic_points",
-  "version": 1,
+  "version": 2,
   "scene_key": "production_warehouse",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
   "up_axis": "Z",
-  "points": []
+  "points": [
+    {
+      "id": "semantic:8a16342154e74225aca61c0d1f306b66",
+      "position_xyz": [
+        16.87284495685686,
+        -28.63001212688056,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0062"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0032"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0114"
+        }
+      ]
+    },
+    {
+      "id": "semantic:99162ceb217d4af7a7c7c5f391137f5c",
+      "position_xyz": [
+        12.302316098053653,
+        -27.371462754821643,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0089"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0100"
+        }
+      ]
+    },
+    {
+      "id": "semantic:109bc9507528406eb5739f1953715e2a",
+      "position_xyz": [
+        12.241162206216405,
+        -27.391847385434062,
+        2.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0001"
+        }
+      ]
+    },
+    {
+      "id": "semantic:82ee74e27ec846daa97855987bb91a4c",
+      "position_xyz": [
+        12.394046935809525,
+        -24.75203772112618,
+        2.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0004"
+        }
+      ]
+    },
+    {
+      "id": "semantic:cbf52900e62841919c8009df1dacb1c6",
+      "position_xyz": [
+        12.343085359278486,
+        -21.572035345589278,
+        2.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0006"
+        }
+      ]
+    },
+    {
+      "id": "semantic:300898be089c404b885838d90cec71b7",
+      "position_xyz": [
+        12.343085359278486,
+        -18.78953326699449,
+        2.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0007"
+        }
+      ]
+    },
+    {
+      "id": "semantic:a888e0a357714ad7b483c172b8002c74",
+      "position_xyz": [
+        12.355174858223062,
+        -24.74908435727788,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0074"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0102"
+        }
+      ]
+    },
+    {
+      "id": "semantic:09ca19fce8bf4f52a731a4535762f79d",
+      "position_xyz": [
+        12.31258270321361,
+        -21.591180293005678,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0053"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0073"
+        }
+      ]
+    },
+    {
+      "id": "semantic:4af5c5d57edf42dd950c833587e1b48f",
+      "position_xyz": [
+        12.324751890359169,
+        -18.810521030245745,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0052"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0104"
+        }
+      ]
+    },
+    {
+      "id": "semantic:3100faf9f5e245d998d9e08a9dce8654",
+      "position_xyz": [
+        16.428558682872378,
+        -16.204330440319332,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0113"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0115"
+        }
+      ]
+    },
+    {
+      "id": "semantic:3f177e8f7f344b6c9744cd7696c5bff9",
+      "position_xyz": [
+        16.56682744225884,
+        -13.63099519618234,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0111"
+        }
+      ]
+    },
+    {
+      "id": "semantic:ef54e145af13400e853612228e4867e2",
+      "position_xyz": [
+        16.144339566355757,
+        -16.227375233550404,
+        2.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0090"
+        }
+      ]
+    },
+    {
+      "id": "semantic:654e495a1dbd480b93163a245e11d602",
+      "position_xyz": [
+        15.399224585217587,
+        -13.669403184900805,
+        2.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0088"
+        }
+      ]
+    },
+    {
+      "id": "semantic:ae5f265e76764f4d84ecca6166270b1d",
+      "position_xyz": [
+        13.271422010214764,
+        -13.569542414232801,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0092"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0131"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0152"
+        }
+      ]
+    },
+    {
+      "id": "semantic:6305fb611806405898549e89d45b0dc0",
+      "position_xyz": [
+        6.890450275996786,
+        -15.21677016871178,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": []
+    },
+    {
+      "id": "semantic:d66c96a402d2412b97752dd40d84aa47",
+      "position_xyz": [
+        6.988517538093747,
+        -20.000273286552428,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0128"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0145"
+        }
+      ]
+    },
+    {
+      "id": "semantic:67ea7238d79a4f268f052705349f04af",
+      "position_xyz": [
+        7.1737556998324505,
+        -24.326129181273934,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0126"
+        }
+      ]
+    },
+    {
+      "id": "semantic:5124e96f93e04c5fa9d95a7f06f0ab64",
+      "position_xyz": [
+        6.803279376355043,
+        -15.129599269070036,
+        2.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0009"
+        }
+      ]
+    },
+    {
+      "id": "semantic:8de7df159cd147b89d4cae150de1957b",
+      "position_xyz": [
+        7.1192738875563615,
+        -19.989376924097215,
+        2.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0011"
+        }
+      ]
+    },
+    {
+      "id": "semantic:efef4b3c3432465b83b68b93529eaf9b",
+      "position_xyz": [
+        7.07568843773549,
+        -24.347921906184375,
+        2.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0013"
+        }
+      ]
+    },
+    {
+      "id": "semantic:0c27eba5a76d417cbaf1ef4c2daa7a01",
+      "position_xyz": [
+        5.114343195796271,
+        -23.323663835393894,
+        1.5
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "navigation_bindings": []
+    }
+  ]
 }
