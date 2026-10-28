@@ -1,9 +1,280 @@
 {
   "schema": "eai.semantic_points",
-  "version": 2,
+  "version": 3,
   "scene_key": "production_candy_shop",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
   "up_axis": "Z",
-  "points": []
+  "points": [
+    {
+      "id": "semantic:4c6607ad09f44ce0abf494847ce0b293",
+      "label": "floor1-counter-north-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0010"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0006"
+        }
+      ]
+    },
+    {
+      "id": "semantic:f294280983cf42209142abdb260a2462",
+      "label": "floor1-counter-east1-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0004"
+        }
+      ]
+    },
+    {
+      "id": "semantic:d5e839d116b9431b9fc176c5ec2a3a2b",
+      "label": "floor1-counter-east2-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0009"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0005"
+        }
+      ]
+    },
+    {
+      "id": "semantic:1d934d055078484b922d8f62337f34b8",
+      "label": "floor1-counter-east3-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0003"
+        }
+      ]
+    },
+    {
+      "id": "semantic:8f0de48503bd410d9c993b1fcc3efc8a",
+      "label": "floor1-handoff_point-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0002"
+        }
+      ]
+    },
+    {
+      "id": "semantic:9c1a5f4e166546c08ce2997b092affcc",
+      "label": "floor1-shelf",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0012"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b83b6ddaca15428a9713cbb001dbe68e",
+      "label": "floor1-handoff_point-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0061"
+        }
+      ]
+    },
+    {
+      "id": "semantic:188d8b5d6730417e95d58d72bb2ab360",
+      "label": "floor1-counter-north-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0010"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0081"
+        }
+      ]
+    },
+    {
+      "id": "semantic:5752ac12a4dc4c83b46b9d8d18a9aaea",
+      "label": "floor1-counter-east1-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0079"
+        }
+      ]
+    },
+    {
+      "id": "semantic:eb7aa216f73b4a59b3513df57c1c7e82",
+      "label": "floor1-counter-east2-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0009"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0077"
+        }
+      ]
+    },
+    {
+      "id": "semantic:d1daaa90084d41a6a57abbf16f7a166b",
+      "label": "floor1-counter-east3-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0074"
+        }
+      ]
+    },
+    {
+      "id": "semantic:bc1c0e235fa94d32bdcc581e4aeeab6e",
+      "label": "floor1-gate-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0007"
+        }
+      ]
+    },
+    {
+      "id": "semantic:f7a84121e1c54c07b9935d23c3176c76",
+      "label": "floor1-gate-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0008"
+        }
+      ]
+    },
+    {
+      "id": "semantic:2a88905a614149fca242999d2c2fca58",
+      "label": "floor2-shelf-north",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0003"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0084"
+        }
+      ]
+    },
+    {
+      "id": "semantic:db24cb62dc6640ff9f6321946b51c4bd",
+      "label": "floor2-shelf-east",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0005"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0082"
+        }
+      ]
+    },
+    {
+      "id": "semantic:cc13ceb82e67455884f2891d65ab1b07",
+      "label": "floor2-shelf-west",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0004"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0050"
+        }
+      ]
+    },
+    {
+      "id": "semantic:917b3d808cfa40fcb8c07c7405039e3f",
+      "label": "floor2-shelf-south",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0006"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0085"
+        }
+      ]
+    }
+  ]
 }

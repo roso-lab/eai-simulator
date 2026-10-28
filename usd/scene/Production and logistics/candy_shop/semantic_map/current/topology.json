@@ -21,8 +21,8 @@
       "id": "node:0002",
       "kind": "custom",
       "position_xyz": [
-        1.1260046068528733,
-        -2.2040106304623097,
+        1.126,
+        -2.204,
         0.4
       ],
       "target_refs": [],
@@ -36,8 +36,8 @@
       "id": "node:0003",
       "kind": "custom",
       "position_xyz": [
-        0.8938728508710881,
-        -1.5774263624701153,
+        0.894,
+        -1.577,
         0.4
       ],
       "target_refs": [],
@@ -51,7 +51,7 @@
       "id": "node:0004",
       "kind": "custom",
       "position_xyz": [
-        0.8719281663516064,
+        0.872,
         0.8,
         0.4
       ],
@@ -66,7 +66,7 @@
       "id": "node:0005",
       "kind": "custom",
       "position_xyz": [
-        0.8837085277980455,
+        0.884,
         -0.33,
         0.4
       ],
@@ -81,9 +81,9 @@
       "id": "node:0006",
       "kind": "custom",
       "position_xyz": [
-        0.17903811731206254,
-        1.309930948676251,
-        0.3999999999999999
+        0.179,
+        1.31,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -96,9 +96,9 @@
       "id": "node:0007",
       "kind": "custom",
       "position_xyz": [
-        -0.09907445560294567,
-        -2.6109715053159808,
-        0.3999999999999999
+        -0.099,
+        -2.611,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -111,8 +111,8 @@
       "id": "node:0008",
       "kind": "custom",
       "position_xyz": [
-        -0.10633270321361103,
-        -3.8013941398865794,
+        -0.106,
+        -3.801,
         0.4
       ],
       "target_refs": [],
@@ -126,8 +126,8 @@
       "id": "node:0009",
       "kind": "custom",
       "position_xyz": [
-        -0.08506616257088892,
-        0.8240784499054816,
+        -0.085,
+        0.824,
         0.4
       ],
       "target_refs": [],
@@ -141,9 +141,9 @@
       "id": "node:0010",
       "kind": "custom",
       "position_xyz": [
-        -0.08973202037463528,
+        -0.09,
         -0.33,
-        0.39999999999999997
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -156,9 +156,9 @@
       "id": "node:0011",
       "kind": "custom",
       "position_xyz": [
-        -0.09483899939648538,
-        -1.5768776440415644,
-        0.3999999999999999
+        -0.095,
+        -1.577,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -172,7 +172,7 @@
       "kind": "custom",
       "position_xyz": [
         -2.19,
-        0.8375412098527099,
+        0.838,
         0.4
       ],
       "target_refs": [],
@@ -186,9 +186,9 @@
       "id": "node:0013",
       "kind": "custom",
       "position_xyz": [
-        -0.09740016951780664,
-        -2.2021917001987386,
-        0.3999999999999999
+        -0.097,
+        -2.202,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -201,9 +201,9 @@
       "id": "node:0014",
       "kind": "custom",
       "position_xyz": [
-        -2.8013734872075697,
-        -2.189670923993629,
-        0.3999999999999999
+        -2.801,
+        -2.19,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -216,9 +216,9 @@
       "id": "node:0015",
       "kind": "custom",
       "position_xyz": [
-        -2.9001364127236986,
-        -2.342443562215561,
-        0.3999999999999999
+        -2.9,
+        -2.342,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -231,9 +231,9 @@
       "id": "node:0016",
       "kind": "custom",
       "position_xyz": [
-        -3.0485737758325513,
-        -2.445099206778806,
-        0.3999999999999999
+        -3.049,
+        -2.445,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -246,9 +246,9 @@
       "id": "node:0017",
       "kind": "custom",
       "position_xyz": [
-        -3.2385938629358293,
-        -2.491439279638802,
-        0.3999999999999999
+        -3.239,
+        -2.491,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -261,9 +261,9 @@
       "id": "node:0018",
       "kind": "custom",
       "position_xyz": [
-        -3.4058567561910693,
-        -2.399637902300728,
-        0.3999999999999999
+        -3.406,
+        -2.4,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -276,9 +276,9 @@
       "id": "node:0019",
       "kind": "custom",
       "position_xyz": [
-        -3.5177961825553474,
-        -2.24378966921102,
-        0.3999999999999999
+        -3.518,
+        -2.244,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -291,9 +291,9 @@
       "id": "node:0020",
       "kind": "custom",
       "position_xyz": [
-        -3.5426635443413703,
-        -2.031789918309578,
-        0.3999999999999999
+        -3.543,
+        -2.032,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -306,9 +306,9 @@
       "id": "node:0021",
       "kind": "custom",
       "position_xyz": [
-        -0.09799830209116392,
-        -2.3482267887905204,
-        0.3999999999999999
+        -0.098,
+        -2.348,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -321,8 +321,8 @@
       "id": "node:0022",
       "kind": "custom",
       "position_xyz": [
-        -1.2301825968576043,
-        0.8314023987119947,
+        -1.23,
+        0.831,
         0.4
       ],
       "target_refs": [],
@@ -336,9 +336,9 @@
       "id": "node:0023",
       "kind": "custom",
       "position_xyz": [
-        -1.2301294102831735,
-        -2.344488939405686,
-        0.3999999999999999
+        -1.23,
+        -2.344,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -351,8 +351,8 @@
       "id": "node:0024",
       "kind": "custom",
       "position_xyz": [
-        -3.54089782339581,
-        2.6660798886562684,
+        -3.541,
+        2.403,
         2.92
       ],
       "target_refs": [],
@@ -366,9 +366,9 @@
       "id": "node:0025",
       "kind": "custom",
       "position_xyz": [
-        -3.067225088248563,
-        3.2574706949880303,
-        2.92
+        -3.237,
+        3.257,
+        3.098
       ],
       "target_refs": [],
       "source_ref": null,
@@ -381,84 +381,9 @@
       "id": "node:0026",
       "kind": "custom",
       "position_xyz": [
-        -1.8571010896232352,
-        3.2574706949880303,
-        3.55
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:0029",
-      "kind": "custom",
-      "position_xyz": [
-        -3.531173365129853,
-        2.813673858451763,
-        2.92
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:0032",
-      "kind": "custom",
-      "position_xyz": [
-        -3.49571026405192,
-        2.938502972841384,
-        2.92
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:0035",
-      "kind": "custom",
-      "position_xyz": [
-        -3.42053360131182,
-        3.0592431340308375,
-        2.92
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:0038",
-      "kind": "custom",
-      "position_xyz": [
-        -3.325924388183044,
-        3.1611507072970944,
-        2.92
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:0039",
-      "kind": "custom",
-      "position_xyz": [
-        -3.215222571009255,
-        3.2263121905050833,
-        2.92
+        -2.569,
+        3.257,
+        3.276
       ],
       "target_refs": [],
       "source_ref": null,
@@ -471,8 +396,8 @@
       "id": "node:0040",
       "kind": "custom",
       "position_xyz": [
-        -2.6927139124380672,
-        -2.0678496791689462,
+        -2.693,
+        -2.068,
         0.4
       ],
       "target_refs": [],
@@ -486,8 +411,8 @@
       "id": "node:0041",
       "kind": "custom",
       "position_xyz": [
-        -2.4608055372041666,
-        -1.9046548965969423,
+        -2.461,
+        -1.905,
         0.4
       ],
       "target_refs": [],
@@ -501,9 +426,9 @@
       "id": "node:0043",
       "kind": "custom",
       "position_xyz": [
-        -1.230151592017379,
-        -1.0199671351431412,
-        0.39999999999999997
+        -1.23,
+        -1.02,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -516,24 +441,9 @@
       "id": "node:0044",
       "kind": "custom",
       "position_xyz": [
-        -1.451646873002324,
-        -1.901133609610848,
-        0.3999999999999999
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:0045",
-      "kind": "custom",
-      "position_xyz": [
-        2.509816884937233,
-        3.266628233397977,
-        3.55
+        -1.452,
+        -1.901,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -546,24 +456,9 @@
       "id": "node:0046",
       "kind": "custom",
       "position_xyz": [
-        2.515710373936367,
-        -0.43103227312056347,
-        3.55
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:0048",
-      "kind": "custom",
-      "position_xyz": [
-        2.515710373936367,
-        -2.2256446303898256,
-        3.55
+        2.516,
+        0.522,
+        3.276
       ],
       "target_refs": [],
       "source_ref": null,
@@ -576,9 +471,9 @@
       "id": "node:0049",
       "kind": "custom",
       "position_xyz": [
-        0.6072404350880883,
-        -2.2256446303898256,
-        3.55
+        -0.097,
+        -2.226,
+        3.276
       ],
       "target_refs": [],
       "source_ref": null,
@@ -591,24 +486,9 @@
       "id": "node:0050",
       "kind": "custom",
       "position_xyz": [
-        -3.059045210142049,
-        -2.207870201105349,
-        3.55
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:0051",
-      "kind": "custom",
-      "position_xyz": [
-        -1.8836788512768297,
-        -2.213568465848082,
-        3.55
+        -3.242,
+        -1.9,
+        3.276
       ],
       "target_refs": [],
       "source_ref": null,
@@ -621,9 +501,9 @@
       "id": "node:0052",
       "kind": "custom",
       "position_xyz": [
-        -1.8838188017258948,
-        1.8522363459304447,
-        3.55
+        -1.884,
+        1.852,
+        3.276
       ],
       "target_refs": [],
       "source_ref": null,
@@ -636,9 +516,414 @@
       "id": "node:0053",
       "kind": "custom",
       "position_xyz": [
-        -1.3308180136789423,
-        3.2585743240258416,
-        3.55
+        -1.331,
+        3.259,
+        3.276
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0054",
+      "kind": "custom",
+      "position_xyz": [
+        1.694,
+        -2.226,
+        3.276
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0055",
+      "kind": "custom",
+      "position_xyz": [
+        2.516,
+        -1.421,
+        3.276
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0056",
+      "kind": "custom",
+      "position_xyz": [
+        1.737,
+        3.265,
+        3.276
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0057",
+      "kind": "custom",
+      "position_xyz": [
+        2.511,
+        2.512,
+        3.276
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0059",
+      "kind": "custom",
+      "position_xyz": [
+        -3.541,
+        2.916,
+        2.986
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0060",
+      "kind": "custom",
+      "position_xyz": [
+        3.009,
+        -2.204,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0061",
+      "kind": "custom",
+      "position_xyz": [
+        2.557,
+        -2.204,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0064",
+      "kind": "custom",
+      "position_xyz": [
+        -1.544,
+        3.057,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0065",
+      "kind": "custom",
+      "position_xyz": [
+        3.009,
+        2.889,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0066",
+      "kind": "custom",
+      "position_xyz": [
+        2.859,
+        3.057,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0069",
+      "kind": "custom",
+      "position_xyz": [
+        -1.969,
+        2.617,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0071",
+      "kind": "custom",
+      "position_xyz": [
+        -2.19,
+        2.144,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0072",
+      "kind": "custom",
+      "position_xyz": [
+        -2.19,
+        1.415,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0073",
+      "kind": "custom",
+      "position_xyz": [
+        3.009,
+        -1.577,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0074",
+      "kind": "custom",
+      "position_xyz": [
+        2.721,
+        -1.577,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0076",
+      "kind": "custom",
+      "position_xyz": [
+        3.009,
+        -0.33,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0077",
+      "kind": "custom",
+      "position_xyz": [
+        2.721,
+        -0.33,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0078",
+      "kind": "custom",
+      "position_xyz": [
+        3.009,
+        0.8,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0079",
+      "kind": "custom",
+      "position_xyz": [
+        2.721,
+        0.8,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0080",
+      "kind": "custom",
+      "position_xyz": [
+        0.179,
+        3.057,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0081",
+      "kind": "custom",
+      "position_xyz": [
+        0.179,
+        2.882,
+        0.4
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0082",
+      "kind": "custom",
+      "position_xyz": [
+        2.918,
+        0.522,
+        3.276
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0083",
+      "kind": "custom",
+      "position_xyz": [
+        0.167,
+        3.262,
+        3.276
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0084",
+      "kind": "custom",
+      "position_xyz": [
+        0.167,
+        3.37,
+        3.276
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0085",
+      "kind": "custom",
+      "position_xyz": [
+        -0.104,
+        -2.479,
+        3.276
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0086",
+      "kind": "custom",
+      "position_xyz": [
+        -1.093,
+        -2.219,
+        3.276
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0087",
+      "kind": "custom",
+      "position_xyz": [
+        -1.884,
+        -1.42,
+        3.276
       ],
       "target_refs": [],
       "source_ref": null,
@@ -657,13 +942,13 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -0.09907445560294567,
-          -2.6109715053159808,
-          0.3999999999999999
+          -0.099,
+          -2.611,
+          0.4
         ],
         [
-          -0.10633270321361103,
-          -3.8013941398865794,
+          -0.106,
+          -3.801,
           0.4
         ]
       ],
@@ -681,14 +966,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -0.09907445560294567,
-          -2.6109715053159808,
-          0.3999999999999999
+          -0.099,
+          -2.611,
+          0.4
         ],
         [
-          -0.09799830209116392,
-          -2.3482267887905204,
-          0.3999999999999999
+          -0.098,
+          -2.348,
+          0.4
         ]
       ],
       "profiles": {},
@@ -705,14 +990,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -0.09799830209116392,
-          -2.3482267887905204,
-          0.3999999999999999
+          -0.098,
+          -2.348,
+          0.4
         ],
         [
-          -0.09740016951780664,
-          -2.2021917001987386,
-          0.3999999999999999
+          -0.097,
+          -2.202,
+          0.4
         ]
       ],
       "profiles": {},
@@ -729,14 +1014,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -0.09740016951780664,
-          -2.2021917001987386,
-          0.3999999999999999
+          -0.097,
+          -2.202,
+          0.4
         ],
         [
-          -0.09483899939648538,
-          -1.5768776440415644,
-          0.3999999999999999
+          -0.095,
+          -1.577,
+          0.4
         ]
       ],
       "profiles": {},
@@ -753,14 +1038,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -0.09483899939648538,
-          -1.5768776440415644,
-          0.3999999999999999
+          -0.095,
+          -1.577,
+          0.4
         ],
         [
-          -0.08973202037463528,
+          -0.09,
           -0.33,
-          0.39999999999999997
+          0.4
         ]
       ],
       "profiles": {},
@@ -777,13 +1062,13 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -0.08973202037463528,
+          -0.09,
           -0.33,
-          0.39999999999999997
+          0.4
         ],
         [
-          -0.08506616257088892,
-          0.8240784499054816,
+          -0.085,
+          0.824,
           0.4
         ]
       ],
@@ -801,14 +1086,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          0.8837085277980455,
+          0.884,
           -0.33,
           0.4
         ],
         [
-          -0.08973202037463528,
+          -0.09,
           -0.33,
-          0.39999999999999997
+          0.4
         ]
       ],
       "profiles": {},
@@ -825,14 +1110,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          0.8938728508710881,
-          -1.5774263624701153,
+          0.894,
+          -1.577,
           0.4
         ],
         [
-          -0.09483899939648538,
-          -1.5768776440415644,
-          0.3999999999999999
+          -0.095,
+          -1.577,
+          0.4
         ]
       ],
       "profiles": {},
@@ -849,14 +1134,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -0.08506616257088892,
-          0.8240784499054816,
+          -0.085,
+          0.824,
           0.4
         ],
         [
-          0.17903811731206254,
-          1.309930948676251,
-          0.3999999999999999
+          0.179,
+          1.31,
+          0.4
         ]
       ],
       "profiles": {},
@@ -873,13 +1158,13 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -0.08506616257088892,
-          0.8240784499054816,
+          -0.085,
+          0.824,
           0.4
         ],
         [
-          -1.2301825968576043,
-          0.8314023987119947,
+          -1.23,
+          0.831,
           0.4
         ]
       ],
@@ -897,13 +1182,13 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -1.2301825968576043,
-          0.8314023987119947,
+          -1.23,
+          0.831,
           0.4
         ],
         [
           -2.19,
-          0.8375412098527099,
+          0.838,
           0.4
         ]
       ],
@@ -921,12 +1206,12 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -0.08506616257088892,
-          0.8240784499054816,
+          -0.085,
+          0.824,
           0.4
         ],
         [
-          0.8719281663516064,
+          0.872,
           0.8,
           0.4
         ]
@@ -945,14 +1230,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          1.1260046068528733,
-          -2.2040106304623097,
+          1.126,
+          -2.204,
           0.4
         ],
         [
-          -0.09740016951780664,
-          -2.2021917001987386,
-          0.3999999999999999
+          -0.097,
+          -2.202,
+          0.4
         ]
       ],
       "profiles": {},
@@ -969,14 +1254,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -2.8013734872075697,
-          -2.189670923993629,
-          0.3999999999999999
+          -2.801,
+          -2.19,
+          0.4
         ],
         [
-          -2.9001364127236986,
-          -2.342443562215561,
-          0.3999999999999999
+          -2.9,
+          -2.342,
+          0.4
         ]
       ],
       "profiles": {},
@@ -993,14 +1278,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -2.9001364127236986,
-          -2.342443562215561,
-          0.3999999999999999
+          -2.9,
+          -2.342,
+          0.4
         ],
         [
-          -3.0485737758325513,
-          -2.445099206778806,
-          0.3999999999999999
+          -3.049,
+          -2.445,
+          0.4
         ]
       ],
       "profiles": {},
@@ -1017,14 +1302,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -3.0485737758325513,
-          -2.445099206778806,
-          0.3999999999999999
+          -3.049,
+          -2.445,
+          0.4
         ],
         [
-          -3.2385938629358293,
-          -2.491439279638802,
-          0.3999999999999999
+          -3.239,
+          -2.491,
+          0.4
         ]
       ],
       "profiles": {},
@@ -1041,14 +1326,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -3.2385938629358293,
-          -2.491439279638802,
-          0.3999999999999999
+          -3.239,
+          -2.491,
+          0.4
         ],
         [
-          -3.4058567561910693,
-          -2.399637902300728,
-          0.3999999999999999
+          -3.406,
+          -2.4,
+          0.4
         ]
       ],
       "profiles": {},
@@ -1065,14 +1350,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -3.4058567561910693,
-          -2.399637902300728,
-          0.3999999999999999
+          -3.406,
+          -2.4,
+          0.4
         ],
         [
-          -3.5177961825553474,
-          -2.24378966921102,
-          0.3999999999999999
+          -3.518,
+          -2.244,
+          0.4
         ]
       ],
       "profiles": {},
@@ -1089,14 +1374,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -3.5177961825553474,
-          -2.24378966921102,
-          0.3999999999999999
+          -3.518,
+          -2.244,
+          0.4
         ],
         [
-          -3.5426635443413703,
-          -2.031789918309578,
-          0.3999999999999999
+          -3.543,
+          -2.032,
+          0.4
         ]
       ],
       "profiles": {},
@@ -1113,14 +1398,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -1.2301294102831735,
-          -2.344488939405686,
-          0.3999999999999999
+          -1.23,
+          -2.344,
+          0.4
         ],
         [
-          -0.09799830209116392,
-          -2.3482267887905204,
-          0.3999999999999999
+          -0.098,
+          -2.348,
+          0.4
         ]
       ],
       "profiles": {},
@@ -1137,14 +1422,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -1.2301825968576043,
-          0.8314023987119947,
+          -1.23,
+          0.831,
           0.4
         ],
         [
-          -1.230151592017379,
-          -1.0199671351431412,
-          0.39999999999999997
+          -1.23,
+          -1.02,
+          0.4
         ]
       ],
       "profiles": {},
@@ -1161,20 +1446,20 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -3.5426635443413703,
-          -2.031789918309578,
-          0.3999999999999999
+          -3.543,
+          -2.032,
+          0.4
         ],
         [
-          -3.54089782339581,
-          2.6660798886562684,
+          -3.541,
+          2.403,
           2.92
         ]
       ],
       "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
-      "traversal_mode": "walk",
+      "traversal_mode": "ramp",
       "required_controller_capabilities": []
     },
     {
@@ -1185,164 +1470,20 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -3.067225088248563,
-          3.2574706949880303,
-          2.92
+          -3.237,
+          3.257,
+          3.098
         ],
         [
-          -1.8571010896232352,
-          3.2574706949880303,
-          3.55
+          -2.569,
+          3.257,
+          3.276
         ]
       ],
       "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "edge:0025",
-      "kind": "custom_connection",
-      "from": "node:0024",
-      "to": "node:0029",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -3.54089782339581,
-          2.6660798886562684,
-          2.92
-        ],
-        [
-          -3.531173365129853,
-          2.813673858451763,
-          2.92
-        ]
-      ],
-      "profiles": {},
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "edge:0026",
-      "kind": "custom_connection",
-      "from": "node:0029",
-      "to": "node:0032",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -3.531173365129853,
-          2.813673858451763,
-          2.92
-        ],
-        [
-          -3.49571026405192,
-          2.938502972841384,
-          2.92
-        ]
-      ],
-      "profiles": {},
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "edge:0029",
-      "kind": "custom_connection",
-      "from": "node:0032",
-      "to": "node:0035",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -3.49571026405192,
-          2.938502972841384,
-          2.92
-        ],
-        [
-          -3.42053360131182,
-          3.0592431340308375,
-          2.92
-        ]
-      ],
-      "profiles": {},
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "edge:0032",
-      "kind": "custom_connection",
-      "from": "node:0035",
-      "to": "node:0038",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -3.42053360131182,
-          3.0592431340308375,
-          2.92
-        ],
-        [
-          -3.325924388183044,
-          3.1611507072970944,
-          2.92
-        ]
-      ],
-      "profiles": {},
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "edge:0035",
-      "kind": "custom_connection",
-      "from": "node:0038",
-      "to": "node:0039",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -3.325924388183044,
-          3.1611507072970944,
-          2.92
-        ],
-        [
-          -3.215222571009255,
-          3.2263121905050833,
-          2.92
-        ]
-      ],
-      "profiles": {},
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "edge:0038",
-      "kind": "custom_connection",
-      "from": "node:0039",
-      "to": "node:0025",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -3.215222571009255,
-          3.2263121905050833,
-          2.92
-        ],
-        [
-          -3.067225088248563,
-          3.2574706949880303,
-          2.92
-        ]
-      ],
-      "profiles": {},
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
+      "traversal_mode": "ramp",
       "required_controller_capabilities": []
     },
     {
@@ -1353,13 +1494,13 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -2.8013734872075697,
-          -2.189670923993629,
-          0.3999999999999999
+          -2.801,
+          -2.19,
+          0.4
         ],
         [
-          -2.6927139124380672,
-          -2.0678496791689462,
+          -2.693,
+          -2.068,
           0.4
         ]
       ],
@@ -1377,13 +1518,13 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -2.6927139124380672,
-          -2.0678496791689462,
+          -2.693,
+          -2.068,
           0.4
         ],
         [
-          -2.4608055372041666,
-          -1.9046548965969423,
+          -2.461,
+          -1.905,
           0.4
         ]
       ],
@@ -1401,14 +1542,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -2.4608055372041666,
-          -1.9046548965969423,
+          -2.461,
+          -1.905,
           0.4
         ],
         [
-          -1.451646873002324,
-          -1.901133609610848,
-          0.3999999999999999
+          -1.452,
+          -1.901,
+          0.4
         ]
       ],
       "profiles": {},
@@ -1425,14 +1566,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -2.4608055372041666,
-          -1.9046548965969423,
+          -2.461,
+          -1.905,
           0.4
         ],
         [
-          -1.230151592017379,
-          -1.0199671351431412,
-          0.39999999999999997
+          -1.23,
+          -1.02,
+          0.4
         ]
       ],
       "profiles": {},
@@ -1449,14 +1590,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -1.2301294102831735,
-          -2.344488939405686,
-          0.3999999999999999
+          -1.23,
+          -2.344,
+          0.4
         ],
         [
-          -1.451646873002324,
-          -1.901133609610848,
-          0.3999999999999999
+          -1.452,
+          -1.901,
+          0.4
         ]
       ],
       "profiles": {},
@@ -1473,14 +1614,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -1.8571010896232352,
-          3.2574706949880303,
-          3.55
+          -2.569,
+          3.257,
+          3.276
         ],
         [
-          -1.3308180136789423,
-          3.2585743240258416,
-          3.55
+          -1.331,
+          3.259,
+          3.276
         ]
       ],
       "profiles": {},
@@ -1493,18 +1634,18 @@
       "id": "edge:0055",
       "kind": "custom_connection",
       "from": "node:0053",
-      "to": "node:0045",
+      "to": "node:0083",
       "directed": false,
       "polyline_xyz": [
         [
-          -1.3308180136789423,
-          3.2585743240258416,
-          3.55
+          -1.331,
+          3.259,
+          3.276
         ],
         [
-          2.509816884937233,
-          3.266628233397977,
-          3.55
+          0.167,
+          3.262,
+          3.276
         ]
       ],
       "profiles": {},
@@ -1514,21 +1655,45 @@
       "required_controller_capabilities": []
     },
     {
-      "id": "edge:0048",
+      "id": "edge:0097",
       "kind": "custom_connection",
-      "from": "node:0045",
+      "from": "node:0083",
+      "to": "node:0056",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.167,
+          3.262,
+          3.276
+        ],
+        [
+          1.737,
+          3.265,
+          3.276
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0062",
+      "kind": "custom_connection",
+      "from": "node:0057",
       "to": "node:0046",
       "directed": false,
       "polyline_xyz": [
         [
-          2.509816884937233,
-          3.266628233397977,
-          3.55
+          2.511,
+          2.512,
+          3.276
         ],
         [
-          2.515710373936367,
-          -0.43103227312056347,
-          3.55
+          2.516,
+          0.522,
+          3.276
         ]
       ],
       "profiles": {},
@@ -1541,18 +1706,18 @@
       "id": "edge:0049",
       "kind": "custom_connection",
       "from": "node:0046",
-      "to": "node:0048",
+      "to": "node:0055",
       "directed": false,
       "polyline_xyz": [
         [
-          2.515710373936367,
-          -0.43103227312056347,
-          3.55
+          2.516,
+          0.522,
+          3.276
         ],
         [
-          2.515710373936367,
-          -2.2256446303898256,
-          3.55
+          2.516,
+          -1.421,
+          3.276
         ]
       ],
       "profiles": {},
@@ -1562,21 +1727,21 @@
       "required_controller_capabilities": []
     },
     {
-      "id": "edge:0051",
+      "id": "edge:0059",
       "kind": "custom_connection",
-      "from": "node:0048",
+      "from": "node:0054",
       "to": "node:0049",
       "directed": false,
       "polyline_xyz": [
         [
-          2.515710373936367,
-          -2.2256446303898256,
-          3.55
+          1.694,
+          -2.226,
+          3.276
         ],
         [
-          0.6072404350880883,
-          -2.2256446303898256,
-          3.55
+          -0.097,
+          -2.226,
+          3.276
         ]
       ],
       "profiles": {},
@@ -1589,18 +1754,18 @@
       "id": "edge:0052",
       "kind": "custom_connection",
       "from": "node:0049",
-      "to": "node:0051",
+      "to": "node:0086",
       "directed": false,
       "polyline_xyz": [
         [
-          0.6072404350880883,
-          -2.2256446303898256,
-          3.55
+          -0.097,
+          -2.226,
+          3.276
         ],
         [
-          -1.8836788512768297,
-          -2.213568465848082,
-          3.55
+          -1.093,
+          -2.219,
+          3.276
         ]
       ],
       "profiles": {},
@@ -1610,45 +1775,21 @@
       "required_controller_capabilities": []
     },
     {
-      "id": "edge:0053",
+      "id": "edge:0101",
       "kind": "custom_connection",
-      "from": "node:0051",
-      "to": "node:0050",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.8836788512768297,
-          -2.213568465848082,
-          3.55
-        ],
-        [
-          -3.059045210142049,
-          -2.207870201105349,
-          3.55
-        ]
-      ],
-      "profiles": {},
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "edge:0054",
-      "kind": "custom_connection",
-      "from": "node:0051",
+      "from": "node:0087",
       "to": "node:0052",
       "directed": false,
       "polyline_xyz": [
         [
-          -1.8836788512768297,
-          -2.213568465848082,
-          3.55
+          -1.884,
+          -1.42,
+          3.276
         ],
         [
-          -1.8838188017258948,
-          1.8522363459304447,
-          3.55
+          -1.884,
+          1.852,
+          3.276
         ]
       ],
       "profiles": {},
@@ -1665,14 +1806,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -1.3308180136789423,
-          3.2585743240258416,
-          3.55
+          -1.331,
+          3.259,
+          3.276
         ],
         [
-          -1.8838188017258948,
-          1.8522363459304447,
-          3.55
+          -1.884,
+          1.852,
+          3.276
         ]
       ],
       "profiles": {},
@@ -1689,14 +1830,14 @@
       "directed": false,
       "polyline_xyz": [
         [
-          -1.230151592017379,
-          -1.0199671351431412,
-          0.39999999999999997
+          -1.23,
+          -1.02,
+          0.4
         ],
         [
-          -1.2301294102831735,
-          -2.344488939405686,
-          0.3999999999999999
+          -1.23,
+          -2.344,
+          0.4
         ]
       ],
       "profiles": {
@@ -1710,6 +1851,608 @@
           "clearance_m": 1.4
         }
       },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0060",
+      "kind": "custom_connection",
+      "from": "node:0054",
+      "to": "node:0055",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          1.694,
+          -2.226,
+          3.276
+        ],
+        [
+          2.516,
+          -1.421,
+          3.276
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0063",
+      "kind": "custom_connection",
+      "from": "node:0056",
+      "to": "node:0057",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          1.737,
+          3.265,
+          3.276
+        ],
+        [
+          2.511,
+          2.512,
+          3.276
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0064",
+      "kind": "custom_connection",
+      "from": "node:0024",
+      "to": "node:0059",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -3.541,
+          2.403,
+          2.92
+        ],
+        [
+          -3.541,
+          2.916,
+          2.986
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "stairs",
+      "required_controller_capabilities": [
+        "stair_capable"
+      ]
+    },
+    {
+      "id": "edge:0066",
+      "kind": "custom_connection",
+      "from": "node:0025",
+      "to": "node:0059",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -3.237,
+          3.257,
+          3.098
+        ],
+        [
+          -3.541,
+          2.916,
+          2.986
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "ramp",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0068",
+      "kind": "custom_connection",
+      "from": "node:0061",
+      "to": "node:0060",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          2.557,
+          -2.204,
+          0.4
+        ],
+        [
+          3.009,
+          -2.204,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0069",
+      "kind": "custom_connection",
+      "from": "node:0060",
+      "to": "node:0073",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          3.009,
+          -2.204,
+          0.4
+        ],
+        [
+          3.009,
+          -1.577,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0081",
+      "kind": "custom_connection",
+      "from": "node:0073",
+      "to": "node:0076",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          3.009,
+          -1.577,
+          0.4
+        ],
+        [
+          3.009,
+          -0.33,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0085",
+      "kind": "custom_connection",
+      "from": "node:0076",
+      "to": "node:0078",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          3.009,
+          -0.33,
+          0.4
+        ],
+        [
+          3.009,
+          0.8,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0089",
+      "kind": "custom_connection",
+      "from": "node:0078",
+      "to": "node:0065",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          3.009,
+          0.8,
+          0.4
+        ],
+        [
+          3.009,
+          2.889,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0073",
+      "kind": "custom_connection",
+      "from": "node:0066",
+      "to": "node:0080",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          2.859,
+          3.057,
+          0.4
+        ],
+        [
+          0.179,
+          3.057,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0093",
+      "kind": "custom_connection",
+      "from": "node:0080",
+      "to": "node:0064",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.179,
+          3.057,
+          0.4
+        ],
+        [
+          -1.544,
+          3.057,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0074",
+      "kind": "custom_connection",
+      "from": "node:0065",
+      "to": "node:0066",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          3.009,
+          2.889,
+          0.4
+        ],
+        [
+          2.859,
+          3.057,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0077",
+      "kind": "custom_connection",
+      "from": "node:0071",
+      "to": "node:0069",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -2.19,
+          2.144,
+          0.4
+        ],
+        [
+          -1.969,
+          2.617,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0076",
+      "kind": "custom_connection",
+      "from": "node:0069",
+      "to": "node:0064",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -1.969,
+          2.617,
+          0.4
+        ],
+        [
+          -1.544,
+          3.057,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0079",
+      "kind": "custom_connection",
+      "from": "node:0072",
+      "to": "node:0071",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -2.19,
+          1.415,
+          0.4
+        ],
+        [
+          -2.19,
+          2.144,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0080",
+      "kind": "custom_connection",
+      "from": "node:0022",
+      "to": "node:0072",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -1.23,
+          0.831,
+          0.4
+        ],
+        [
+          -2.19,
+          1.415,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0083",
+      "kind": "custom_connection",
+      "from": "node:0074",
+      "to": "node:0073",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          2.721,
+          -1.577,
+          0.4
+        ],
+        [
+          3.009,
+          -1.577,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0088",
+      "kind": "custom_connection",
+      "from": "node:0077",
+      "to": "node:0076",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          2.721,
+          -0.33,
+          0.4
+        ],
+        [
+          3.009,
+          -0.33,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0092",
+      "kind": "custom_connection",
+      "from": "node:0079",
+      "to": "node:0078",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          2.721,
+          0.8,
+          0.4
+        ],
+        [
+          3.009,
+          0.8,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0095",
+      "kind": "custom_connection",
+      "from": "node:0081",
+      "to": "node:0080",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.179,
+          2.882,
+          0.4
+        ],
+        [
+          0.179,
+          3.057,
+          0.4
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0096",
+      "kind": "custom_connection",
+      "from": "node:0046",
+      "to": "node:0082",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          2.516,
+          0.522,
+          3.276
+        ],
+        [
+          2.918,
+          0.522,
+          3.276
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0098",
+      "kind": "custom_connection",
+      "from": "node:0083",
+      "to": "node:0084",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.167,
+          3.262,
+          3.276
+        ],
+        [
+          0.167,
+          3.37,
+          3.276
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0099",
+      "kind": "custom_connection",
+      "from": "node:0049",
+      "to": "node:0085",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -0.097,
+          -2.226,
+          3.276
+        ],
+        [
+          -0.104,
+          -2.479,
+          3.276
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0102",
+      "kind": "custom_connection",
+      "from": "node:0086",
+      "to": "node:0087",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -1.093,
+          -2.219,
+          3.276
+        ],
+        [
+          -1.884,
+          -1.42,
+          3.276
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0103",
+      "kind": "custom_connection",
+      "from": "node:0050",
+      "to": "node:0087",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -3.242,
+          -1.9,
+          3.276
+        ],
+        [
+          -1.884,
+          -1.42,
+          3.276
+        ]
+      ],
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
