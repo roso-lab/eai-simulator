@@ -1,184 +1,624 @@
 {
   "schema": "eai.semantic_points",
-  "version": 2,
+  "version": 3,
   "scene_key": "service_city_01",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
   "up_axis": "Z",
   "points": [
     {
-      "id": "semantic:940a388c4a5e46eb9c1fde889e9f5914",
-      "position_xyz": [
-        -67.9,
-        -60.6,
-        0.054
-      ],
-      "label": "street-west-stub-end",
+      "id": "semantic:eb373224ab45447f8db0de90826c0552",
+      "label": "build_01",
       "kind": "custom",
-      "description": "西侧街道盲端圆头（路网最西端，几何中心线点集西部极值附近）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "description": "",
       "aliases": [],
       "properties": {
-        "source": "usd-triangle-relief-raster-v1"
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "aerial",
+        "area_ids": [
+          "area_3"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory"
       },
-      "edit_mode": "3d",
       "navigation_bindings": [
         {
-          "domain": "ground",
-          "node_id": "route:service_city_01:ground:component-001:free-centerline:point:0157"
+          "domain": "aerial",
+          "node_id": "node:0004"
         }
       ]
     },
     {
-      "id": "semantic:c3f2e0ca87b14f23ad090c0349464a49",
-      "position_xyz": [
-        -18.3,
-        -83.6,
-        0.0
-      ],
-      "label": "street-south-loop-end",
+      "id": "semantic:e700e4e1249e48808fe3325f3d8ec30e",
+      "label": "build_02",
       "kind": "custom",
-      "description": "南侧街道圆头端（路网最南端，拓扑节点 y 最小值处）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "description": "",
       "aliases": [],
       "properties": {
-        "source": "usd-triangle-relief-raster-v1"
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "aerial",
+        "area_ids": [
+          "area_5"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory"
       },
-      "edit_mode": "3d",
       "navigation_bindings": [
         {
-          "domain": "ground",
-          "node_id": "route:service_city_01:ground:component-001:free-centerline:point:0045"
+          "domain": "aerial",
+          "node_id": "node:0019"
         }
       ]
     },
     {
-      "id": "semantic:8dadaa06bd2b4aff965235f2269d06fd",
-      "position_xyz": [
-        12.85,
-        -24.75,
-        0.0
-      ],
-      "label": "street-east-stub-end",
+      "id": "semantic:ad2d4d6d50114140aa3ac0de8b002688",
+      "label": "build_03",
       "kind": "custom",
-      "description": "东侧街道端点（路网最东端，component-001 路线起点）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "description": "",
       "aliases": [],
       "properties": {
-        "source": "usd-triangle-relief-raster-v1"
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "aerial",
+        "area_ids": [
+          "area_2"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory",
+        "shared_semantics": [
+          "incident_aerial_1"
+        ]
       },
-      "edit_mode": "3d",
       "navigation_bindings": [
         {
-          "domain": "ground",
-          "node_id": "node:service_city_01:ground:component-001:route-start"
+          "domain": "aerial",
+          "node_id": "node:0021"
         }
       ]
     },
     {
-      "id": "semantic:4138cda9f7b340f085db0b425469129c",
-      "position_xyz": [
-        -43.0,
-        20.5,
-        1.31
-      ],
-      "label": "street-north-causeway-loop",
+      "id": "semantic:8fe1db4f0a0d48a99218d386cc3b723a",
+      "label": "build_04",
       "kind": "custom",
-      "description": "北段高架路（高程 1.0-1.3 m 台地路）北端环岛，台面地标（地面机器人默认不可达，需坡道证据）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "description": "",
       "aliases": [],
       "properties": {
-        "source": "usd-triangle-relief-raster-v1"
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "aerial",
+        "area_ids": [
+          "area_4"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory"
       },
-      "edit_mode": "3d",
       "navigation_bindings": [
         {
-          "domain": "ground",
-          "node_id": "node:service_city_01:ground:component-001:route-end"
+          "domain": "aerial",
+          "node_id": "node:0025"
         }
       ]
     },
     {
-      "id": "semantic:1de669f3a3b94578b649faa7c7e5c1fd",
-      "position_xyz": [
-        -5.05,
-        -49.95,
-        0.0
-      ],
-      "label": "crossroad-central",
+      "id": "semantic:2fd50b9d299240b1bea4f5d752225f27",
+      "label": "build_05",
       "kind": "custom",
-      "description": "中东部主干交叉口（z=0 街网中离障碍最远的开阔交汇格）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "description": "",
       "aliases": [],
       "properties": {
-        "source": "usd-triangle-relief-raster-v1"
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "aerial",
+        "area_ids": [
+          "area_1"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory"
       },
-      "edit_mode": "3d",
       "navigation_bindings": [
         {
-          "domain": "ground",
-          "node_id": "route:service_city_01:ground:component-001:free-centerline:point:0030"
+          "domain": "aerial",
+          "node_id": "node:0015"
         }
       ]
     },
     {
-      "id": "semantic:1656219abb7047039deda1e53a12efc1",
-      "position_xyz": [
-        -39.95,
-        -66.45,
-        0.0
-      ],
-      "label": "crossroad-southwest",
+      "id": "semantic:adf71dafa5504253af280a288774ea5d",
+      "label": "build_06",
       "kind": "custom",
-      "description": "西南象限主干交叉口（盒内离障碍最远自由格，脚本计算）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "description": "",
       "aliases": [],
       "properties": {
-        "source": "usd-triangle-relief-raster-v1"
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "aerial",
+        "area_ids": [
+          "area_1"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory"
       },
-      "edit_mode": "3d",
       "navigation_bindings": [
         {
-          "domain": "ground",
-          "node_id": "route:service_city_01:ground:component-001:free-centerline:point:0051"
+          "domain": "aerial",
+          "node_id": "node:0007"
         }
       ]
     },
     {
-      "id": "semantic:b949a841191043e4a492251ec9e3c2ba",
-      "position_xyz": [
-        4.0,
-        -17.0,
-        2.282
-      ],
-      "label": "plaza-east-pavilions",
+      "id": "semantic:fd1dd33c087d45f794c6dcc8a9ecceb1",
+      "label": "start_1",
       "kind": "custom",
-      "description": "东广场亭列台地（高程约 2.2 m 的柱廊平顶建筑群地标，视觉证据 u≈0.85-0.96 一带）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "description": "",
       "aliases": [],
       "properties": {
-        "source": "usd-triangle-relief-raster-v1"
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "initial_pose",
+        "robot_id": "pegasus_1",
+        "domain": "aerial"
       },
-      "edit_mode": "3d",
       "navigation_bindings": [
         {
-          "domain": "ground",
-          "node_id": "node:service_city_01:ground:component-001:route-start"
+          "domain": "aerial",
+          "node_id": "node:0009"
         }
       ]
     },
     {
-      "id": "semantic:48413f06bee14fbf8e8691f05c7091da",
-      "position_xyz": [
-        -53.05,
-        -41.95,
-        0.0
-      ],
-      "label": "block-w01-front",
+      "id": "semantic:082eefff3b9f402a88f33fa24c26634e",
+      "label": "start_2",
       "kind": "custom",
-      "description": "西缘最大街区 w01 临街开敞前沿（街区内部成分为白色平顶群或空场，视觉证据未定，点位在临街开敞侧）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "description": "",
       "aliases": [],
       "properties": {
-        "source": "usd-triangle-relief-raster-v1"
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "initial_pose",
+        "robot_id": "pegasus_2",
+        "domain": "aerial"
       },
-      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0028"
+        }
+      ]
+    },
+    {
+      "id": "semantic:187a2c8910d74821bfb7c921af4b6269",
+      "label": "start_3",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "initial_pose",
+        "robot_id": "iris_1",
+        "domain": "aerial"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0026"
+        }
+      ]
+    },
+    {
+      "id": "semantic:ad88d43f13b34bf5862fa8c9adbf7221",
+      "label": "start_4",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "initial_pose",
+        "robot_id": "iris_2",
+        "domain": "aerial"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0027"
+        }
+      ]
+    },
+    {
+      "id": "semantic:2871828368684eedb177171838d5ab9f",
+      "label": "build_07",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "aerial",
+        "area_ids": [
+          "area_6"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory",
+        "shared_semantics": [
+          "incident_aerial_2"
+        ]
+      },
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0023"
+        }
+      ]
+    },
+    {
+      "id": "semantic:6488556f817f4d7f9330c7d221964054",
+      "label": "A",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "initial_pose",
+        "robot_id": "m20",
+        "domain": "ground"
+      },
       "navigation_bindings": [
         {
           "domain": "ground",
-          "node_id": "route:service_city_01:ground:component-001:free-centerline:point:0161"
+          "node_id": "node:0033"
+        }
+      ]
+    },
+    {
+      "id": "semantic:abbdb4563a734a1891eaf3a504e8cefe",
+      "label": "B",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "initial_pose",
+        "robot_id": "go2",
+        "domain": "ground"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0051"
+        }
+      ]
+    },
+    {
+      "id": "semantic:d18176b4e9a5437fb9c492e6b732f82a",
+      "label": "C",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "initial_pose",
+        "robot_id": "scout",
+        "domain": "ground"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0005"
+        }
+      ]
+    },
+    {
+      "id": "semantic:32c6645032f34a499d509798a1cc8150",
+      "label": "D",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "initial_pose",
+        "robot_id": "coco",
+        "domain": "ground"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0028"
+        }
+      ]
+    },
+    {
+      "id": "semantic:5f325cf728fa409f8f0eccaf43ed8ca2",
+      "label": "recover",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "recover_resource",
+        "domain": "ground",
+        "resource_id": "recover",
+        "capacity": 1,
+        "occupancy_wait_s": 8.0,
+        "service_radius_m": 1.5,
+        "recharge_policy": "condition_enabled_full",
+        "occupancy_rule": "enter_service_radius_acquire_wait_release"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0057"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0058"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0059"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0060"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0061"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0062"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0063"
+        }
+      ]
+    },
+    {
+      "id": "semantic:34dfe6b3747545329d82ad947615541d",
+      "label": "accident",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "ground_rendezvous",
+        "domain": "ground",
+        "incident_id": "incident_01",
+        "service_radius_m": 2.0,
+        "stability_window_s": 1.0
+      },
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0053"
+        }
+      ]
+    },
+    {
+      "id": "semantic:eee726bb3e754e26afc1ed67d3152d9a",
+      "label": "crossroads_1",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "ground",
+        "area_ids": [
+          "area_1"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0043"
+        }
+      ]
+    },
+    {
+      "id": "semantic:7ef8e24d79684e01961aba9e486812cf",
+      "label": "crossroads_2",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "ground",
+        "area_ids": [
+          "area_2"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0054"
+        }
+      ]
+    },
+    {
+      "id": "semantic:239fd01a58784680833f99fe85776e7b",
+      "label": "crossroads_3",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "ground",
+        "area_ids": [
+          "area_3"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0037"
+        }
+      ]
+    },
+    {
+      "id": "semantic:13ba42c7dcca40898ce0cfd09510d110",
+      "label": "crossroads_4",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "ground",
+        "area_ids": [
+          "area_4"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0009"
+        }
+      ]
+    },
+    {
+      "id": "semantic:3567f1fdad0446b3999204c8a8bba955",
+      "label": "crossroads_5",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "ground",
+        "area_ids": [
+          "area_5"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0025"
+        }
+      ]
+    },
+    {
+      "id": "semantic:9703122cf78b40e3a6999ceae767762a",
+      "label": "crossroads_6",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "inspection_anchor",
+        "domain": "ground",
+        "area_ids": [
+          "area_6"
+        ],
+        "coverage_radius_m": 20.0,
+        "coverage_rule": "xy_any_modal_valid_trajectory"
+      },
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0044"
+        }
+      ]
+    },
+    {
+      "id": "semantic:47e1e63565f04bb3ae3be77546880355",
+      "label": "accident_aerial_1",
+      "kind": "custom",
+      "description": "",
+      "aliases": [
+        "accidend_1"
+      ],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "incident_observation",
+        "domain": "aerial",
+        "incident_id": "incident_01",
+        "observation_id": "incident_observation_1",
+        "freshness_window_s": 30.0,
+        "service_duration_s": 2.0,
+        "observation_payload": [
+          "incident_id",
+          "position_xyz",
+          "state_version",
+          "timestamp"
+        ]
+      },
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0021"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b5ae7ff4846c491ba6197f463101d68a",
+      "label": "accident_aerial_2",
+      "kind": "custom",
+      "description": "",
+      "aliases": [
+        "accidend_2"
+      ],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "incident_observation",
+        "domain": "aerial",
+        "incident_id": "incident_01",
+        "observation_id": "incident_observation_2",
+        "freshness_window_s": 30.0,
+        "service_duration_s": 2.0,
+        "observation_payload": [
+          "incident_id",
+          "position_xyz",
+          "state_version",
+          "timestamp"
+        ]
+      },
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0023"
+        }
+      ]
+    },
+    {
+      "id": "semantic:ec2ec04b0d8348be986be74b2b456139",
+      "label": "accident_aerial_3",
+      "kind": "custom",
+      "description": "",
+      "aliases": [
+        "accidend_3"
+      ],
+      "properties": {
+        "task_family": "city_01_patrol_emergency_v1",
+        "semantic_role": "incident_observation",
+        "domain": "aerial",
+        "incident_id": "incident_01",
+        "observation_id": "incident_observation_3",
+        "freshness_window_s": 30.0,
+        "service_duration_s": 2.0,
+        "observation_payload": [
+          "incident_id",
+          "position_xyz",
+          "state_version",
+          "timestamp"
+        ]
+      },
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0024"
         }
       ]
     }
