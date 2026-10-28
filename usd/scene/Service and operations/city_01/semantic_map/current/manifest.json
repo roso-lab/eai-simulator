@@ -1,7 +1,7 @@
 {
   "schema": "eai.semantic_map.revision",
   "version": 2,
-  "revision": "5f8584f17ecc4bc19d3fdf14617db241",
+  "revision": "370d4981ca8645f290b9179dc9b72a14",
   "scene_key": "service_city_01",
   "levels": [
     {
@@ -22,13 +22,14 @@
     "aerial": "topology-aerial.json"
   },
   "semantic_point_product": "semantic-points.json",
+  "semantic_binding_digest": "4a5241b700c673e0dfc9e2f0f541124841d60aaf00661d684e9abaafabdfcd86",
   "files": {
-    "level-000-layer.png": "c53b6f752a409d4b276be0e977e2cb1f26c879407642b02c826e585499d4c5f3",
-    "level-000-semantic-grid.npz": "90229c6e9e00e85f08bb5bed6edc4c7bb53d9a6e15797b9b2e7f002117e54326",
-    "level-000-semantic-map.png": "568053b689055e723640a34746a87081f739797556c8567cbb0c5648ca52e775",
+    "level-000-layer.png": "4cedc6a48d60a8a24ef7527a6f7aa6344b26bd408d5309e258c179faa8561932",
+    "level-000-semantic-grid.npz": "0fe0f2e369ece2c4fcfec75352d177bb97f2478526355a1e2d93544f363692dd",
+    "level-000-semantic-map.png": "11daf0ae64721ec9fa3cebb06bb31cf66e22069c11911d3851303e318ad0723c",
     "semantic-footprints.geojson": "d886c2cd24bb790bd51c685182da21c6d137bea409f668e04bb63f954d6fe5bb",
-    "semantic-footprints.json": "a08a79629430ac7575ca4a61e8ae3e198bde7d12b038589c503193fe1d0b088e",
-    "semantic-points.json": "716b72841d790d93c7c6705b6823839fff2f77c10daadfba3bd3c9f16171fe14",
+    "semantic-footprints.json": "41b33d595d7b2f5998fa8d9e5880e5156ee3d5ed5835dd6bc157c871f09916d0",
+    "semantic-points.json": "b1ef96d01fe9cee05015bee909aa68e905d1fc9d7663f0d228d7264d69a98832",
     "topology-aerial.json": "a4914d4b02dee9cab6a3429fbff6d5dad46d4ded214c906960b05d1c11eec373",
     "topology.json": "428d5f0925673370882a50ea467222b7897c3e736c70d9bfeb97856f819c31de"
   },
