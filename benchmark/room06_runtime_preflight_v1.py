@@ -1,7 +1,7 @@
 """Static fail-closed preflight for the real ``room_06 × liv-t-04`` runtime.
 
 This check runs before Isaac starts.  It binds the exact scene bytes, semantic
-map revision, cross-floor handoff route, selected roster rows and task-generated
+map revision, task targets, selected roster rows and task-generated
 object definitions.  Passing it only means that the declared runtime inputs are
 internally consistent enough for a scene smoke; it is never evidence of task
 success, room-specific robot feasibility, physical qualification or a paper
@@ -13,8 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from collections import deque
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -173,21 +172,54 @@ def _edge_endpoints(edge: Mapping[str, Any], index: int) -> tuple[str, str]:
     return endpoints[0], endpoints[1]
 
 
-def _reachable(
-    adjacency: Mapping[str, set[str]], starts: Iterable[str], targets: Iterable[str]
-) -> bool:
-    target_set = set(targets)
-    queue = deque(starts)
-    visited = set(queue)
-    while queue:
-        node = queue.popleft()
-        if node in target_set:
-            return True
-        for neighbor in adjacency.get(node, ()):
-            if neighbor not in visited:
-                visited.add(neighbor)
-                queue.append(neighbor)
-    return False
+def _point_labels(spec: Mapping[str, Any]) -> dict[str, str]:
+    """Bind contract roles to exact map labels; never infer names or routes."""
+    labels = spec.get("semantic_point_labels")
+    if labels is None and "semantic_point_labels" not in spec:
+        return {label: label for label in REQUIRED_POINT_LABELS}
+    if not isinstance(labels, Mapping) or set(labels) != set(REQUIRED_POINT_LABELS):
+        raise Room06RuntimePreflightError("semantic_point_labels must cover all task target roles")
+    result = {
+        role: _text(labels[role], f"semantic_point_labels.{role}")
+        for role in REQUIRED_POINT_LABELS
+    }
+    if len(set(result.values())) != len(result):
+        raise Room06RuntimePreflightError("semantic_point_labels must identify distinct targets")
+    return result
+
+
+def validate_semantic_target_summary(value: Mapping[str, Any], handoff_node_id: str) -> None:
+    """Check the target contract consumed by the task ledger, without routing."""
+    required = {
+        "save_id", "semantic_binding_digest", "topology_digest",
+        "transition_handoff_node_id", "required_semantic_points",
+        "semantic_point_labels", "target_bindings", "ground_node_ids",
+        "handoff_binding_verified", "route_precomputed",
+        "navigation_authority", "room_specific_feasibility",
+    }
+    if set(value) != required:
+        raise Room06RuntimePreflightError("semantic target summary schema mismatch")
+    _text(value["save_id"], "semantic target save_id")
+    for field in ("semantic_binding_digest", "topology_digest"):
+        _digest(value[field], f"semantic target {field}")
+    labels = _point_labels(value)
+    nodes = set(_unique_text_list(value["ground_node_ids"], "ground_node_ids"))
+    targets = value["target_bindings"]
+    if not isinstance(targets, Mapping) or set(targets) != set(REQUIRED_POINT_LABELS):
+        raise Room06RuntimePreflightError("semantic target bindings must cover every task role")
+    for role, bindings in targets.items():
+        if not set(_unique_text_list(bindings, f"target_bindings.{role}")).issubset(nodes):
+            raise Room06RuntimePreflightError("semantic target binding references an unknown node")
+    if (
+        value["required_semantic_points"] != list(labels.values())
+        or value["transition_handoff_node_id"] != handoff_node_id
+        or handoff_node_id not in nodes
+        or value["navigation_authority"] != "system_runtime"
+        or value["route_precomputed"] is not False
+        or value["handoff_binding_verified"] is not True
+        or value["room_specific_feasibility"] is not False
+    ):
+        raise Room06RuntimePreflightError("semantic target binding is inconsistent")
 
 
 def _task_setup(
@@ -368,12 +400,13 @@ def _robot_rows(
     return results
 
 
-def _map_and_route(
+def _map_and_targets(
     root: Path,
     *,
     scene_digest: str,
     identity: Mapping[str, Any],
     transition_handoff_node_id: str,
+    point_labels: Mapping[str, str],
 ) -> dict[str, Any]:
     if set(identity) != _MAP_IDENTITY_KEYS:
         raise Room06RuntimePreflightError("semantic_map_identity schema mismatch")
@@ -385,17 +418,6 @@ def _map_and_route(
     expected_topology = _digest(
         identity.get("topology_digest"), "semantic_map_identity.topology_digest"
     )
-    try:
-        audit = audit_semantic_map(
-            root,
-            semantic_requirements={"semantic_points": list(REQUIRED_POINT_LABELS)},
-        )
-    except CaseInputAuditError as exc:
-        raise Room06RuntimePreflightError(str(exc)) from exc
-    if not audit.get("case_ready"):
-        raise Room06RuntimePreflightError(
-            "semantic map input audit failed: " + "; ".join(audit.get("failures", []))
-        )
     project = _load_json(_project_path(root), "semantic map project")
     manifest = _load_json(root / "manifest.json", "semantic map manifest")
     topology_path = root / "topology.json"
@@ -428,8 +450,8 @@ def _map_and_route(
     edge_rows = topology.get("edges")
     if not isinstance(node_rows, list) or not node_rows:
         raise Room06RuntimePreflightError("ground topology nodes is empty")
-    if not isinstance(edge_rows, list) or not edge_rows:
-        raise Room06RuntimePreflightError("ground topology edges is empty")
+    if not isinstance(edge_rows, list):
+        raise Room06RuntimePreflightError("ground topology edges must be a list")
     nodes: dict[str, Mapping[str, Any]] = {}
     for index, node in enumerate(node_rows):
         if not isinstance(node, Mapping):
@@ -446,8 +468,8 @@ def _map_and_route(
             f"{transition_handoff_node_id}"
         )
 
-    adjacency: dict[str, set[str]] = {node_id: set() for node_id in nodes}
-    cross_floor_edges: list[dict[str, str]] = []
+    # Edges remain authored data. Existence/reachability of a cross-floor
+    # route is a navigation/execution outcome, never a map admission condition.
     for index, edge in enumerate(edge_rows):
         if not isinstance(edge, Mapping):
             raise Room06RuntimePreflightError(f"topology.edges[{index}] is invalid")
@@ -456,51 +478,13 @@ def _map_and_route(
             raise Room06RuntimePreflightError(
                 f"topology.edges[{index}] references an unknown node"
             )
-        adjacency[source_id].add(target_id)
-        if edge.get("directed") is not True:
-            adjacency[target_id].add(source_id)
-        source_level = nodes[source_id]["level_id"]
-        target_level = nodes[target_id]["level_id"]
-        if source_level != target_level:
-            if edge.get("traversal_mode") != "stairs":
-                raise Room06RuntimePreflightError(
-                    f"cross-floor edge must explicitly use stairs traversal: "
-                    f"{edge.get('id', index)}"
-                )
-            cross_floor_edges.append(
-                {
-                    "edge_id": _text(edge.get("id"), f"topology.edges[{index}].id"),
-                    "source": source_id,
-                    "target": target_id,
-                    "source_level": source_level,
-                    "target_level": target_level,
-                }
-            )
-    if not cross_floor_edges:
-        raise Room06RuntimePreflightError(
-            "ground topology has no real cross-floor edge"
-        )
-    if handoff.get("kind") != "transition":
-        raise Room06RuntimePreflightError(
-            "transition_handoff_node_id must reference an explicitly authored "
-            "transition node"
-        )
-    incident = [
-        edge
-        for edge in cross_floor_edges
-        if transition_handoff_node_id in {edge["source"], edge["target"]}
-    ]
-    if not incident:
-        raise Room06RuntimePreflightError(
-            "handoff transition node does not participate in a cross-floor edge"
-        )
 
     point_rows = points.get("points")
     if not isinstance(point_rows, list):
         raise Room06RuntimePreflightError("semantic points list is missing")
     ground_bindings: dict[str, set[str]] = {}
     for point in point_rows:
-        if not isinstance(point, Mapping) or point.get("label") not in REQUIRED_POINT_LABELS:
+        if not isinstance(point, Mapping) or point.get("label") not in point_labels.values():
             continue
         bindings = point.get("navigation_bindings")
         if not isinstance(bindings, list):
@@ -512,31 +496,28 @@ def _map_and_route(
             and item.get("domain") == "ground"
             and isinstance(item.get("node_id"), str)
         }
-    for label in REQUIRED_POINT_LABELS:
-        if not ground_bindings.get(label):
+    for label in point_labels.values():
+        if not ground_bindings.get(label) or not ground_bindings[label].issubset(nodes):
             raise Room06RuntimePreflightError(
                 f"required semantic point has no ground binding: {label}"
-            )
-    starts = ground_bindings["floor1-bookshelf"]
-    if not _reachable(adjacency, starts, {transition_handoff_node_id}):
-        raise Room06RuntimePreflightError(
-            "floor1 bookshelf cannot reach the handoff transition node"
-        )
-    for label in REQUIRED_POINT_LABELS[1:]:
-        if not _reachable(
-            adjacency, {transition_handoff_node_id}, ground_bindings[label]
-        ):
-            raise Room06RuntimePreflightError(
-                f"handoff transition node cannot reach semantic point: {label}"
             )
     return {
         "save_id": expected_save_id,
         "semantic_binding_digest": expected_binding,
         "topology_digest": actual_topology,
+        # Legacy field name: this is a task exchange observation location,
+        # not a claim that the node is a stair entrance/exit.
         "transition_handoff_node_id": transition_handoff_node_id,
-        "cross_floor_edges": incident,
-        "required_semantic_points": list(REQUIRED_POINT_LABELS),
-        "route_verified": True,
+        "required_semantic_points": list(point_labels.values()),
+        "semantic_point_labels": dict(point_labels),
+        "target_bindings": {
+            role: sorted(ground_bindings[label]) for role, label in point_labels.items()
+        },
+        "ground_node_ids": sorted(nodes),
+        "handoff_binding_verified": True,
+        "route_precomputed": False,
+        "navigation_authority": "system_runtime",
+        "room_specific_feasibility": False,
     }
 
 
@@ -568,7 +549,7 @@ def audit_room06_runtime_preflight(
     }
     try:
         spec = _object(binding, "runtime preflight binding")
-        if set(spec) != _INPUT_KEYS or spec.get("schema") != INPUT_SCHEMA:
+        if set(spec) not in (_INPUT_KEYS, _INPUT_KEYS | {"semantic_point_labels"}) or spec.get("schema") != INPUT_SCHEMA:
             raise Room06RuntimePreflightError("runtime preflight binding schema mismatch")
         if spec.get("scene_key") != SCENE_KEY:
             raise Room06RuntimePreflightError("runtime preflight scene_key mismatch")
@@ -584,6 +565,21 @@ def audit_room06_runtime_preflight(
             "usd_path": str(usd_path),
             "scene_asset_digest": actual_scene_digest,
         }
+
+        # Map acceptance and case executability are different results. Keep
+        # the accepted map visible even when a later case binding is missing.
+        point_labels = _point_labels(spec)
+        result["failure_scope"] = "semantic_input"
+        result["semantic_input_audit"] = audit_semantic_map(
+            semantic_root,
+            semantic_requirements={"semantic_points": list(point_labels.values())},
+        )
+        if result["semantic_input_audit"].get("case_ready") is not True:
+            raise Room06RuntimePreflightError(
+                "semantic map input audit failed: "
+                + "; ".join(result["semantic_input_audit"].get("failures", []))
+            )
+        result["failure_scope"] = "case_runtime_binding"
 
         selected = _unique_text_list(
             spec.get("selected_robot_ids"), "selected_robot_ids", minimum=2
@@ -613,11 +609,12 @@ def audit_room06_runtime_preflight(
         identity = spec.get("semantic_map_identity")
         if not isinstance(identity, Mapping):
             raise Room06RuntimePreflightError("semantic_map_identity must be an object")
-        semantic_map = _map_and_route(
+        semantic_map = _map_and_targets(
             Path(semantic_root).resolve(),
             scene_digest=scene_digest,
             identity=identity,
             transition_handoff_node_id=transition_handoff_node_id,
+            point_labels=point_labels,
         )
         result["semantic_map"] = semantic_map
         result["transition_handoff_node_id"] = semantic_map[
@@ -629,12 +626,13 @@ def audit_room06_runtime_preflight(
         result["task_setup"] = _task_setup(
             task_setup, bindings=bindings, scene_digest=scene_digest
         )
-    except (Room06RuntimePreflightError, OSError, TypeError, ValueError) as exc:
+    except (CaseInputAuditError, Room06RuntimePreflightError, OSError, TypeError, ValueError) as exc:
         failures.append(str(exc))
         return result
 
     result["preflight_passed"] = True
     result["scene_smoke_may_start"] = True
+    result.pop("failure_scope", None)
     return result
 
 

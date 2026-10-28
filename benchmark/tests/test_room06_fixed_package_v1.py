@@ -71,6 +71,13 @@ def _patch_upstreams(monkeypatch, scene_digest: str):
             "preflight_passed": True,
             "runtime_binding_digest": "c" * 64,
             "transition_handoff_node_id": "transition:stairs",
+            "semantic_map": {
+                "required_semantic_points": list(
+                    kwargs["binding"].get("semantic_point_labels", {
+                        point: point for point in package.REQUIRED_POINTS
+                    }).values()
+                ),
+            },
             "formal_gates": copy.deepcopy(package.FORMAL_GATES),
         },
     )
@@ -140,6 +147,29 @@ def test_caller_transition_literal_cannot_override_fresh_preflight(tmp_path, mon
         diagnostic_inputs=True,
     )
     assert result["plan"]["room06_runtime_binding"]["transition_handoff_node_id"] != binding["transition_handoff_node_id"]
+
+
+def test_floor_qualified_labels_reach_manifest_audit(tmp_path, monkeypatch):
+    usd, roster, binding, setup, deployment, catalog, artifact, scene_digest = _inputs(tmp_path)
+    _patch_upstreams(monkeypatch, scene_digest)
+    binding["semantic_point_labels"] = dict(zip(
+        package.REQUIRED_POINTS, ["一楼.书架", "二楼.书架1", "二楼.书架2", "二楼.书架3"]
+    ))
+    original = package.build_case_manifest
+    observed = {}
+
+    def capture(**kwargs):
+        observed.update(kwargs["binding"]["semantic_requirements"])
+        return original(**kwargs)
+
+    monkeypatch.setattr(package, "build_case_manifest", capture)
+    result = package.build_room06_fixed_package(
+        semantic_root=tmp_path / "map", scene_usd=usd, robot_roster=roster,
+        preflight_binding=binding, task_setup=setup, deployment_state=deployment,
+        catalog=catalog, contract_artifact=artifact, diagnostic_inputs=True,
+    )
+    assert observed["semantic_points"] == list(binding["semantic_point_labels"].values())
+    assert result["source_inputs"]["preflight_binding"]["semantic_point_labels"] == binding["semantic_point_labels"]
 
 
 def test_deployment_requires_exact_selected_ids_and_finite_state(tmp_path):

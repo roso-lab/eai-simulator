@@ -530,6 +530,50 @@ def test_missing_fake_or_mismatched_transition_binding_is_rejected(
         _runtime(preflight_report=preflight, runtime_binding_digest=digest)
 
 
+def _runtime_navigation_preflight():
+    report = _preflight()
+    from benchmark.room06_runtime_preflight_v1 import REQUIRED_POINT_LABELS
+    labels = {label: label for label in REQUIRED_POINT_LABELS}
+    report["semantic_map"] = {
+        "save_id": "map-revision-1",
+        "semantic_binding_digest": "b" * 64,
+        "topology_digest": "c" * 64,
+        "transition_handoff_node_id": "node:transition",
+        "required_semantic_points": list(labels.values()),
+        "semantic_point_labels": labels,
+        "target_bindings": {role: [f"node:target-{i}"] for i, role in enumerate(labels)},
+        "ground_node_ids": ["node:transition", *[f"node:target-{i}" for i in range(4)]],
+        "handoff_binding_verified": True,
+        "route_precomputed": False,
+        "navigation_authority": "system_runtime",
+        "room_specific_feasibility": False,
+    }
+    return report
+
+
+def test_runtime_accepts_handoff_without_precomputed_stair_route():
+    evidence = _complete(_runtime(preflight_report=_runtime_navigation_preflight()))
+    assert evidence["transition_handoff_node_id"] == "node:transition"
+    assert evidence["formal_gates"] == FORMAL_GATES
+
+
+@pytest.mark.parametrize("field,value", [
+    ("navigation_authority", "preflight"),
+    ("route_precomputed", True),
+    ("handoff_binding_verified", False),
+    ("room_specific_feasibility", True),
+    ("target_bindings", {}),
+    ("ground_node_ids", ["node:transition"]),
+    ("semantic_point_labels", {}),
+    ("topology_digest", "invalid"),
+])
+def test_runtime_rejects_invalid_target_binding(field, value):
+    report = _runtime_navigation_preflight()
+    report["semantic_map"][field] = value
+    with pytest.raises(Room06TaskRuntimeError, match="task target binding"):
+        _runtime(preflight_report=report)
+
+
 @pytest.mark.parametrize(
     "mutation,expected",
     [

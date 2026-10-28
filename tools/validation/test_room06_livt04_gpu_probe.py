@@ -62,6 +62,79 @@ def _write_request(tmp_path: Path, value: dict) -> tuple[Path, str]:
     return path, _sha(path)
 
 
+def test_scene_diagnostic_rejects_runtime_source_injection(tmp_path):
+    value = _request()
+    value["runtime_source_ref"] = {"path": "/source.py", "sha256": "1" * 64, "factory": "create_source"}
+    value["input_digest"] = probe.probe_input_digest(value)
+    path, digest = _write_request(tmp_path, value)
+    with pytest.raises(probe.Room06GpuProbeError, match="cannot contain"):
+        probe.load_probe_input(path, expected_file_sha256=digest, scene_load_diagnostic_only=True)
+
+
+def test_runtime_source_is_bound_into_session_before_launch(monkeypatch):
+    observed = {}
+    source = object()
+
+    def factory(**kwargs):
+        observed["factory_inputs"] = kwargs
+        return source
+
+    def open_session(config):
+        observed["source"] = config.room06_runtime_hook_source_factory(base_env="live-env")
+        raise RuntimeError("stop before actual simulator")
+
+    monkeypatch.setitem(sys.modules, "simulator", SimpleNamespace(
+        open_simulator_session=open_session,
+        SimulatorLaunchConfig=lambda **kwargs: SimpleNamespace(**kwargs),
+    ))
+    monkeypatch.setattr(probe, "build_frozen_selection", lambda _: ({"scene_key": "room_06"}, {"robot": "robot_1"}))
+    monkeypatch.setattr(probe, "_load_runtime_hook", lambda _: factory)
+    prepared = {"request": _request(probe.FULL_MODE), "package": {"bound": [1]}, "runtime_source_ref": {"factory": "create_source"}, "runtime_hook_ref": {"factory": "collect"}}
+    with pytest.raises(RuntimeError, match="stop before actual simulator"):
+        probe.run_full_task(prepared)
+    assert observed["source"] is source
+    assert observed["factory_inputs"] == {
+        "base_env": "live-env", "package": {"bound": [1]}, "instance_agent_map": {"robot": "robot_1"},
+    }
+    observed["factory_inputs"]["package"]["bound"].append(2)
+    assert prepared["package"] == {"bound": [1]}
+
+
+def test_runtime_hook_bytes_rechecked_before_import(tmp_path):
+    hook = tmp_path / "hook.py"
+    hook.write_text("def create_source(**kwargs): return None\n")
+    ref = {"path": str(hook), "sha256": _sha(hook), "factory": "create_source"}
+    probe._verify_hook_ref(ref)
+    hook.write_text("raise AssertionError('changed code must never execute')\n")
+    with pytest.raises(probe.Room06GpuProbeError, match="digest mismatch"):
+        probe._load_runtime_hook(ref)
+
+
+@pytest.mark.parametrize("missing", ["runtime_hook_ref", "runtime_source_ref"])
+def test_full_task_missing_provider_stops_before_simulator(monkeypatch, missing):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("must not launch or load any provider")
+    monkeypatch.setattr(probe, "_load_runtime_hook", forbidden)
+    monkeypatch.setattr(probe, "_verify_hook_ref", lambda value: value)
+    request = _request(probe.FULL_MODE)
+    request["runtime_hook_ref"] = request["runtime_source_ref"] = {"factory": "test"}
+    request[missing] = None
+    with pytest.raises(probe.Room06GpuProbeError, match=missing):
+        probe.prepare_full_task(request)
+    with pytest.raises(probe.Room06GpuProbeError, match=missing):
+        probe.run_full_task({"request": request, "runtime_hook_ref": request["runtime_hook_ref"],
+                             "runtime_source_ref": request["runtime_source_ref"]})
+
+
+def test_invalid_provider_factory_stops_before_simulator_import(tmp_path, monkeypatch):
+    hook = tmp_path / "hook.py"
+    hook.write_text("factory = 42\n")
+    ref = {"path": str(hook), "sha256": _sha(hook), "factory": "factory"}
+    with pytest.raises(probe.Room06GpuProbeError, match="callable"):
+        probe.run_full_task({"request": _request(probe.FULL_MODE),
+                             "runtime_hook_ref": ref, "runtime_source_ref": ref})
+
+
 def test_full_task_rejects_partial_map_ready_handoff_before_simulator(monkeypatch):
     def should_not_import(*_args, **_kwargs):
         raise AssertionError("simulator must not start for an incomplete handoff")
@@ -413,6 +486,8 @@ def test_current_cross_floor_preflight_block_is_preserved_before_launch(
 
 def test_full_preparation_orders_fresh_preflight_before_package_verification(monkeypatch):
     request = _request(probe.FULL_MODE)
+    request["runtime_hook_ref"] = request["runtime_source_ref"] = {"factory": "test"}
+    monkeypatch.setattr(probe, "_verify_hook_ref", lambda ref: ref)
     monkeypatch.setattr(probe, "_verify_scene_ref", lambda _value: Path("/frozen/room_06.usda"))
     package_checked = False
 

@@ -20,6 +20,8 @@ from .room06_runtime_preflight_v1 import (
     FORMAL_GATES,
     PREFLIGHT_SCHEMA,
     TASK_SETUP_SCHEMA,
+    Room06RuntimePreflightError,
+    validate_semantic_target_summary,
 )
 
 
@@ -390,6 +392,15 @@ def _validate_preflight(
         raise Room06TaskRuntimeError(
             "preflight transition_handoff_node_id is internally inconsistent"
         )
+    if "navigation_authority" in semantic:
+        try:
+            validate_semantic_target_summary(semantic, node_id)
+        except Room06RuntimePreflightError as exc:
+            raise Room06TaskRuntimeError(f"preflight task target binding is invalid: {exc}") from exc
+        # This is the configured exchange observation location. Its membership
+        # is checked against the map by fresh preflight, not against a stair edge.
+        return node_id
+    # Read compatibility for frozen historical reports.
     if semantic.get("route_verified") is not True:
         raise Room06TaskRuntimeError("preflight transition route is not verified")
     cross_edges = semantic.get("cross_floor_edges")
@@ -584,7 +595,7 @@ class Room06TaskRuntime:
             )
         if node_id != self._transition_node_id:
             raise Room06TaskRuntimeError(
-                "transition observation does not match the frozen topology node"
+                "transition observation does not match the frozen topology node (task exchange location)"
             )
         tick = self._advance(tick)
         self._append_event("transition_handoff_observed", node_id, tick)

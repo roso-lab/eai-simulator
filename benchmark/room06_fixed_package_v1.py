@@ -536,7 +536,9 @@ def build_room06_fixed_package(
         "plan_digest": plan_digest,
         "replay": dict(REPLAY),
         "evaluator": dict(EVALUATOR),
-        "semantic_requirements": {"semantic_points": list(REQUIRED_POINTS)},
+        "semantic_requirements": {
+            "semantic_points": list(preflight["semantic_map"]["required_semantic_points"])
+        },
     }
     try:
         manifest = build_case_manifest(

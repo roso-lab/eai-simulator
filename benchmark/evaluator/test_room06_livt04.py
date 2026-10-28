@@ -198,10 +198,10 @@ def test_rejects_derived_success_supplied_by_caller():
         Room06LivT04Evaluator().collect_receipt_material(runtime, _job())
 
 
-def test_transition_event_must_match_frozen_real_node():
+def test_transition_event_must_match_frozen_handoff_observation_node():
     runtime = _runtime()
     runtime["streams"]["task_events"][0]["subject"] = "topology_transition_node"
-    with pytest.raises(Room06LivT04EvaluatorError, match="frozen real transition node"):
+    with pytest.raises(Room06LivT04EvaluatorError, match="frozen handoff observation node"):
         Room06LivT04Evaluator().collect_receipt_material(runtime, _job())
 
     runtime = _runtime()

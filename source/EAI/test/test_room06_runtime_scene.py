@@ -6,7 +6,7 @@ import pytest
 
 
 def _room06_candidate(root: Path, payload: bytes = b"room06-usd") -> tuple[Path, str]:
-    path = root / "scene" / "room_06" / "room_06.usda"
+    path = root / "scene" / "Living and public space" / "room_06" / "room_06.usda"
     path.parent.mkdir(parents=True)
     path.write_bytes(payload)
     return path, hashlib.sha256(payload).hexdigest()
@@ -41,6 +41,17 @@ def test_room06_catalog_and_requirement_use_public_logical_path():
     scene = next(item for item in graph.requirements if item.id == "scene:room_06")
     assert scene.relative_paths == (ROOM06_USD_RELATIVE_PATH,)
     assert SCENE_RESOURCE_PATHS["room_06"] == {}
+
+
+def test_room06_resolver_does_not_fall_back_to_flat_scene_copy(tmp_path, monkeypatch):
+    from EAI_assets.room06_asset import resolve_room06_scene
+
+    monkeypatch.setenv("EAI_USD_ROOT", str(tmp_path))
+    legacy = tmp_path / "scene" / "room_06" / "room_06.usda"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_bytes(b"obsolete-flat-copy")
+    with pytest.raises(FileNotFoundError, match="Living and public space"):
+        resolve_room06_scene()
 
 
 def test_room06_interactive_registration_binds_scene_owned_raycast_proxy():

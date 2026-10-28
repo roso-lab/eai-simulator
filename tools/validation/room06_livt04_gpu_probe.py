@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 from copy import deepcopy
+from functools import partial
 import hashlib
 import importlib.util
 import json
@@ -268,7 +269,10 @@ def probe_input_digest(value: Mapping[str, Any]) -> str:
 
 
 def _validate_common_input(value: Mapping[str, Any]) -> dict[str, Any]:
-    _exact(value, _INPUT_FIELDS, "probe input")
+    if not isinstance(value, Mapping) or set(value) not in (
+        _INPUT_FIELDS, _INPUT_FIELDS | {"runtime_source_ref"},
+    ):
+        raise Room06GpuProbeError("probe input schema mismatch")
     if value.get("schema") != INPUT_SCHEMA:
         raise Room06GpuProbeError("probe input schema is unsupported")
     declared = _digest(value.get("input_digest"), "input_digest")
@@ -323,7 +327,7 @@ def load_probe_input(
             f"probe input mode {value['mode']!r} does not match requested mode {expected_mode!r}"
         )
     if expected_mode == SCENE_MODE:
-        if any(value[field] is not None for field in ("package_ref", "preflight_inputs", "runtime_hook_ref")):
+        if any(value.get(field) is not None for field in ("package_ref", "preflight_inputs", "runtime_hook_ref", "runtime_source_ref")):
             raise Room06GpuProbeError(
                 "scene-load diagnostic input cannot contain task/package/runtime-hook fields"
             )
@@ -593,6 +597,10 @@ def prepare_full_task(request: Mapping[str, Any]) -> dict[str, Any]:
 
     if request.get("mode") != FULL_MODE:
         raise Room06GpuProbeError("full-task preparation requires full mode")
+    for field in ("runtime_hook_ref", "runtime_source_ref"):
+        if request.get(field) is None:
+            raise Room06GpuProbeError(f"full-task input requires {field} before simulator launch")
+        _verify_hook_ref(request[field])
     scene_path = _verify_scene_ref(request["scene_ref"])
     paths, fresh = _fresh_preflight(request["preflight_inputs"])
     if paths["scene_usd"] != scene_path:
@@ -603,6 +611,7 @@ def prepare_full_task(request: Mapping[str, Any]) -> dict[str, Any]:
     if package.get("readiness", {}).get("formal_gates") != FORMAL_GATES:
         raise Room06GpuProbeError("fixed package formal gates must remain false")
     hook_ref = _verify_hook_ref(request.get("runtime_hook_ref"))
+    source_ref = _verify_hook_ref(request.get("runtime_source_ref"))
     return {
         "request": deepcopy(dict(request)),
         "scene_path": scene_path,
@@ -610,6 +619,7 @@ def prepare_full_task(request: Mapping[str, Any]) -> dict[str, Any]:
         "preflight": fresh,
         "package": package,
         "runtime_hook_ref": hook_ref,
+        "runtime_source_ref": source_ref,
     }
 
 
@@ -874,6 +884,8 @@ def compose_terminal_evidence(
 
 
 def _load_runtime_hook(ref: Mapping[str, Any]) -> Callable[..., Any]:
+    # Recheck immediately before executing plugin code, not only at preparation.
+    _verify_hook_ref(ref)
     path = Path(ref["path"])
     name = f"_room06_probe_hook_{ref['sha256']}"
     spec = importlib.util.spec_from_file_location(name, path)
@@ -941,6 +953,7 @@ def _session_config(
     request: Mapping[str, Any],
     *,
     selection: Mapping[str, Any],
+    runtime_source_factory: Callable[..., Any] | None = None,
 ) -> Any:
     from simulator import SimulatorLaunchConfig
 
@@ -953,6 +966,7 @@ def _session_config(
         disable_orsus_ros_env=True,
         resolved_env_name="EAI-Interactive-v0",
         selection_data=deepcopy(dict(selection)),
+        room06_runtime_hook_source_factory=runtime_source_factory,
         app_launcher_args={
             "headless": request["headless"],
             "enable_cameras": True,
@@ -1024,11 +1038,24 @@ def run_full_task(
         raise Room06GpuProbeError(
             "orchestration_result requires terminal_job, evaluator_result and parameters"
         )
+    request = prepared["request"]
+    for field in ("runtime_hook_ref", "runtime_source_ref"):
+        if prepared.get(field) is None:
+            raise Room06GpuProbeError(f"full-task input requires {field} before simulator launch")
+    # Imports and callable checks must complete before any simulator process.
+    hook = _load_runtime_hook(prepared["runtime_hook_ref"])
+    source_provider = _load_runtime_hook(prepared["runtime_source_ref"])
     from simulator import open_simulator_session
 
-    request = prepared["request"]
     selection, instance_agent_map = build_frozen_selection(prepared)
-    with open_simulator_session(_session_config(request, selection=selection)) as session:
+    source_factory = partial(
+        source_provider,
+        package=deepcopy(prepared["package"]),
+        instance_agent_map=dict(instance_agent_map),
+    )
+    with open_simulator_session(_session_config(
+        request, selection=selection, runtime_source_factory=source_factory,
+    )) as session:
         identity = _query_device_identity(request)
         readback: dict[str, Any] | None = None
         try:
@@ -1037,12 +1064,6 @@ def run_full_task(
                 steps=request["diagnostic_steps"],
                 scene_path=prepared["scene_path"],
             )
-            hook_ref = prepared["runtime_hook_ref"]
-            if hook_ref is None:
-                raise Room06GpuProbeError(
-                    "room06 runtime hook provider is unavailable: no hash-bound liv-t-04 executor was supplied"
-                )
-            hook = _load_runtime_hook(hook_ref)
             capture = hook(
                 session=session,
                 package=deepcopy(prepared["package"]),

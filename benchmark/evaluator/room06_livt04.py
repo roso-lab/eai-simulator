@@ -132,7 +132,7 @@ def _check_runtime_binding(value: Any) -> dict[str, str]:
     )
     if node_id == "topology_transition_node":
         raise Room06LivT04EvaluatorError(
-            "runtime_binding must use a real transition node id, not a placeholder"
+            "runtime_binding must use a real handoff observation node id, not a placeholder"
         )
     return {
         "schema": RUNTIME_BINDING_SCHEMA,
@@ -210,7 +210,7 @@ def _check_streams(
             and subject != transition_handoff_node_id
         ):
             raise Room06LivT04EvaluatorError(
-                "transition_handoff_observed must identify the frozen real transition node"
+                "transition_handoff_observed must identify the frozen handoff observation node"
             )
         if name == "bilateral_support_established" and subject != "heavy_object":
             raise Room06LivT04EvaluatorError(

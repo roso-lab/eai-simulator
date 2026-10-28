@@ -1,4 +1,5 @@
 # room_06：场景任务分类
+
 - **场景族（scene family）**：residential_indoor
 - **建议主分类（paper task domain）**：**Living and public space**
 

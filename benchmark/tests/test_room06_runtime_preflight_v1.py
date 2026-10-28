@@ -80,11 +80,11 @@ def _map_bundle(tmp_path: Path, scene_digest: str) -> Path:
         ],
         "source": {"usd_layer_0000": scene_digest},
         "nodes": [
-            {"id": "node:start", "kind": "custom", "level_id": "1F"},
-            {"id": "node:handoff", "kind": "transition", "level_id": "2F"},
-            {"id": "node:target1", "kind": "custom", "level_id": "2F"},
-            {"id": "node:target2", "kind": "custom", "level_id": "2F"},
-            {"id": "node:target3", "kind": "custom", "level_id": "2F"},
+            {"id": "node:start", "kind": "custom", "level_id": "1F", "position_xyz": [0, 0, 0]},
+            {"id": "node:handoff", "kind": "transition", "level_id": "2F", "position_xyz": [1, 0, 2.58]},
+            {"id": "node:target1", "kind": "custom", "level_id": "2F", "position_xyz": [2, 0, 2.58]},
+            {"id": "node:target2", "kind": "custom", "level_id": "2F", "position_xyz": [3, 0, 2.58]},
+            {"id": "node:target3", "kind": "custom", "level_id": "2F", "position_xyz": [4, 0, 2.58]},
         ],
         "edges": [
             {
@@ -293,8 +293,8 @@ def test_minimal_cross_floor_boundary_passes_without_opening_any_gate(valid_inpu
     assert result["formal_gates"] == FORMAL_GATES
     assert result["runtime_binding_digest"] == _canonical_digest(valid_inputs[3])
     assert result["transition_handoff_node_id"] == "node:handoff"
-    assert result["semantic_map"]["route_verified"] is True
-    assert result["semantic_map"]["cross_floor_edges"][0]["edge_id"] == "edge:cross"
+    assert result["semantic_map"]["route_precomputed"] is False
+    assert result["semantic_map"]["navigation_authority"] == "system_runtime"
     assert all(row["room_specific_feasibility"] is False for row in result["robots"])
 
 
@@ -312,77 +312,29 @@ def test_require_wrapper_raises_the_exact_fail_closed_reason(valid_inputs):
         )
 
 
-def test_current_checked_in_room06_topology_reports_missing_cross_floor_edge(tmp_path):
-    repository = Path(__file__).resolve().parents[2]
-    current = repository / "usd/scene/Living and public space/room_06/semantic_map/current"
-    topology = json.loads((current / "topology.json").read_text(encoding="utf-8"))
-    project = json.loads((current.parent / "project.json").read_text(encoding="utf-8"))
-    scene_digest = topology["source"]["usd_layer_0000"]
-    usd = tmp_path / "unbundled-room06-placeholder.usda"
-    usd.write_text("#usda 1.0\n", encoding="utf-8")
-    roster = tmp_path / "roster.json"
-    _roster(roster)
-    setup = _task_setup()
-    spec = _binding(scene_digest, current, roster, setup)
-    spec["semantic_map_identity"] = {
-        "save_id": project["save_id"],
-        "semantic_binding_digest": project["semantic_binding_digest"],
-        "topology_digest": _digest(current / "topology.json"),
-    }
-    spec["transition_handoff_node_id"] = topology["nodes"][0]["id"]
-    # Use the known scene digest as the static identity while retaining the
-    # unbundled-asset failure.  The topology reason is checked independently
-    # below by calling the private dependency through a digest-matching copy.
-    spec["scene_asset_digest"] = _digest(usd)
-    topology_copy = deepcopy(topology)
-    topology_copy["source"] = {"usd_layer_0000": _digest(usd)}
-    copied = _map_bundle(tmp_path / "copied", _digest(usd))
-    _replace_topology(copied, topology_copy, spec)
-    actual_points = json.loads(
-        (current / "semantic-points.json").read_text(encoding="utf-8")
+def test_accepted_map_without_cross_floor_route_passes_static_input_check():
+    from benchmark.case_input_audit_v1 import audit_semantic_map
+    from benchmark.room06_runtime_preflight_v1 import _map_and_targets
+    current = Path(__file__).resolve().parents[2] / "usd/scene/Living and public space/room_06/semantic_map/current"
+    topology = json.loads((current / "topology.json").read_text())
+    project = json.loads((current.parent / "project.json").read_text())
+    assert audit_semantic_map(current)["case_ready"] is True
+    result = _map_and_targets(
+        current, scene_digest=topology["source"]["usd_layer_0000"],
+        identity={
+            "save_id": project["save_id"],
+            "semantic_binding_digest": project["semantic_binding_digest"],
+            "topology_digest": _digest(current / "topology.json"),
+        },
+        transition_handoff_node_id="node:0001",
+        point_labels={label: label for label, _ in POINTS},
     )
-    actual_points["points"] = [
-        {
-            **point,
-            "navigation_bindings": [
-                binding
-                for binding in point["navigation_bindings"]
-                if binding["domain"] == "ground"
-            ],
-        }
-        for point in actual_points["points"]
-        if point["label"] in {label for label, _ in POINTS}
-    ]
-    _write_json(copied / "semantic-points.json", actual_points)
-    copied_manifest = json.loads((copied / "manifest.json").read_text())
-    copied_manifest["files"]["semantic-points.json"] = _digest(
-        copied / "semantic-points.json"
-    )
-    _write_json(copied / "manifest.json", copied_manifest)
-    copied_project = json.loads((copied.parent / "project.json").read_text())
-    spec["semantic_map_identity"]["save_id"] = copied_project["save_id"]
-    spec["semantic_map_identity"]["semantic_binding_digest"] = copied_project[
-        "semantic_binding_digest"
-    ]
-
-    result = audit_room06_runtime_preflight(
-        semantic_root=copied,
-        scene_usd=usd,
-        robot_roster=roster,
-        binding=spec,
-        task_setup=setup,
-    )
-
-    assert result["preflight_passed"] is False
-    assert result["failures"] == ["ground topology has no real cross-floor edge"]
-    assert not any(
-        edge["from"] in {node["id"] for node in topology["nodes"] if node["level_id"] == "1F"}
-        and edge["to"] in {node["id"] for node in topology["nodes"] if node["level_id"] == "2F"}
-        for edge in topology["edges"]
-    )
+    assert result["route_precomputed"] is False
+    assert result["room_specific_feasibility"] is False
+    assert result["target_bindings"]["floor1-bookshelf"] == ["node:0001"]
 
 
-def test_ordinary_node_cannot_be_forged_as_handoff(valid_inputs):
+def test_case_can_bind_custom_node_as_handoff_without_rewriting_map_kind(valid_inputs):
     current, _, _, spec, _ = valid_inputs
     topology = json.loads((current / "topology.json").read_text())
     topology["nodes"][1]["kind"] = "custom"
@@ -390,32 +342,61 @@ def test_ordinary_node_cannot_be_forged_as_handoff(valid_inputs):
 
     result = _audit(valid_inputs)
 
-    assert result["failures"] == [
-        "transition_handoff_node_id must reference an explicitly authored transition node"
-    ]
+    assert result["preflight_passed"] is True
+    assert result["formal_gates"] == FORMAL_GATES
 
 
-def test_same_level_edge_is_not_a_cross_floor_route(valid_inputs):
+def test_map_without_cross_floor_edges_does_not_claim_or_require_a_route(valid_inputs):
     current, _, _, spec, _ = valid_inputs
     topology = json.loads((current / "topology.json").read_text())
+    topology["edges"] = [edge for edge in topology["edges"] if edge["id"] != "edge:cross"]
     for node in topology["nodes"]:
-        node["level_id"] = "1F"
+        node["kind"] = "custom"
     _replace_topology(current, topology, spec)
+    before = (current / "topology.json").read_bytes()
 
     result = _audit(valid_inputs)
 
-    assert result["failures"] == ["ground topology has no real cross-floor edge"]
+    assert result["preflight_passed"] is True
+    assert result["semantic_map"]["route_precomputed"] is False
+    assert result["room_specific_feasibility"] is False
+    assert (current / "topology.json").read_bytes() == before
 
 
-def test_cross_floor_edge_requires_explicit_stairs_mode(valid_inputs):
+def test_handoff_must_still_identify_an_existing_observation_node(valid_inputs):
+    valid_inputs[3]["transition_handoff_node_id"] = "node:unknown"
+    result = _audit(valid_inputs)
+    assert result["preflight_passed"] is False
+    assert "absent from ground topology" in result["failures"][0]
+
+
+def test_exact_floor_qualified_target_labels_can_be_bound(valid_inputs):
     current, _, _, spec, _ = valid_inputs
-    topology = json.loads((current / "topology.json").read_text())
-    topology["edges"][0]["traversal_mode"] = "walk"
-    _replace_topology(current, topology, spec)
-
+    points = json.loads((current / "semantic-points.json").read_text())
+    labels = dict(zip((label for label, _ in POINTS),
+                      ["一楼.书架", "二楼.书架1", "二楼.书架2", "二楼.书架3"]))
+    for point in points["points"]:
+        point["label"] = labels[point["label"]]
+    _write_json(current / "semantic-points.json", points)
+    manifest = json.loads((current / "manifest.json").read_text())
+    manifest["files"]["semantic-points.json"] = _digest(current / "semantic-points.json")
+    _write_json(current / "manifest.json", manifest)
+    spec["semantic_point_labels"] = labels
     result = _audit(valid_inputs)
+    assert result["preflight_passed"] is True
+    assert result["semantic_map"]["semantic_point_labels"] == labels
+    assert result["semantic_map"]["target_bindings"]["floor2-bookshelf-1"] == ["node:target1"]
+    spec["semantic_point_labels"]["floor2-bookshelf-1"] = "二楼.不存在"
+    assert _audit(valid_inputs)["preflight_passed"] is False
 
-    assert "cross-floor edge must explicitly use stairs traversal" in result["failures"][0]
+
+@pytest.mark.parametrize("labels", [None, {}, {
+    "floor1-bookshelf": "书架", "floor2-bookshelf-1": "书架",
+    "floor2-bookshelf-2": "书架", "floor2-bookshelf-3": "书架",
+}])
+def test_missing_or_ambiguous_target_label_mapping_rejected(valid_inputs, labels):
+    valid_inputs[3]["semantic_point_labels"] = labels
+    assert _audit(valid_inputs)["preflight_passed"] is False
 
 
 def test_unknown_robot_is_rejected(valid_inputs):
