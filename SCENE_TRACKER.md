@@ -27,19 +27,19 @@
 
 | 分类                     | 场景              | 工作者 | 打点(语义地图) | 任务设计 | 优化 | 备注 |
 | ------------------------ | ----------------- | ------ | :------------: | :------: | :--: | ---- |
-| Living and public space  | home_02           | LiO2   |       🚧       |    ⬜    |  ⬜  |      |
-| Living and public space  | house             | PUPIL  |       🚧       |    ⬜    |  ⬜  |      |
+| Living and public space  | home_02           | LiO2   |       ✅       |    ✅    |  ⬜  |      |
+| Living and public space  | house             | PUPIL  |       ✅       |    ✅    |  ⬜  |      |
 | Living and public space  | office            |        |       ⬜       |    ⬜    |  ⬜  |      |
-| Living and public space  | room_01           |        |       ⬜       |    ⬜    |  ⬜  |      |
+| Living and public space  | room_01           |        |       🚧       |    ⬜    |  ⬜  |      |
 | Living and public space  | room_02           |        |       ⬜       |    ⬜    |  ⬜  |      |
 | Living and public space  | room_03           |        |       ⬜       |    ⬜    |  ⬜  |      |
 | Living and public space  | room_04           |        |       ⬜       |    ⬜    |  ⬜  |      |
 | Living and public space  | room_05           |        |       ⬜       |    ⬜    |  ⬜  |      |
-| Living and public space  | room_06           | LiO2   |       ✅       |   🚧    |  ⬜  |      |
-| Living and public space  | school            |        |       ⬜       |    ⬜    |  ⬜  |      |
+| Living and public space  | room_06           | LiO2   |       ✅       |    ✅    |  ⬜  |      |
+| Living and public space  | school            | LiO2   |      🚧       |    ⬜    |  ⬜  |      |
 | Production and logistics | bar               | LiO2   |       ✅       |    ✅    |  ⬜  |      |
 | Production and logistics | candy_shop        | LiO2   |       ✅       |    ✅    |  ⬜  |      |
-| Production and logistics | coffee_shop       | LiO2   |       🚧       |    ⬜    |  ⬜  |      |
+| Production and logistics | coffee_shop       | LiO2   |       ✅       |    ⬜    |  ⬜  |      |
 | Production and logistics | consultation_room |        |       ⬜       |    ⬜    |  ⬜  |      |
 | Production and logistics | factory           | PUPIL  |       ✅       |    ✅    |  ⬜  |      |
 | Production and logistics | factory_02        |        |       ⬜       |    ⬜    |  ⬜  |      |

@@ -1,0 +1,193 @@
+algorithm,variant_id,tier,task_id,condition_id,success,failure_reason,makespan_s,hard_deadline_s,deadline_met,task_completion_rate,min_battery_remaining,battery_remaining,charge_services,resource_wait_s,resource_contention_requests,communication_delay_s,checkpoint_replay_equivalent,paper_score_eligible
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,nominal_no_battery,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,battery_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,battery_very_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,communication_stress,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,availability_loss,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,resource_contention,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,nominal_no_battery,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,battery_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,battery_very_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,communication_stress,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,availability_loss,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,resource_contention,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,3,bar_service_t3,nominal_no_battery,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,3,bar_service_t3,battery_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,3,bar_service_t3,battery_very_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,3,bar_service_t3,communication_stress,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,3,bar_service_t3,availability_loss,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,3,bar_service_t3,resource_contention,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,nominal_no_battery,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,battery_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,battery_very_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,communication_stress,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,availability_loss,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,resource_contention,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,nominal_no_battery,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,battery_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,battery_very_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,communication_stress,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,availability_loss,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,resource_contention,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,nominal_no_battery,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,battery_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,battery_very_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,communication_stress,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,availability_loss,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,resource_contention,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,3,bar_service_t3,nominal_no_battery,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,3,bar_service_t3,battery_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,3,bar_service_t3,battery_very_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,3,bar_service_t3,communication_stress,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,3,bar_service_t3,availability_loss,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,3,bar_service_t3,resource_contention,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,nominal_no_battery,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,battery_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,battery_very_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,communication_stress,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,availability_loss,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,resource_contention,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,nominal_no_battery,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,battery_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,battery_very_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,communication_stress,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,availability_loss,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,resource_contention,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,nominal_no_battery,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,battery_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,battery_very_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,communication_stress,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,availability_loss,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,resource_contention,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,nominal_no_battery,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,battery_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,battery_very_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,communication_stress,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,availability_loss,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,resource_contention,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,nominal_no_battery,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,battery_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,battery_very_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,communication_stress,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,availability_loss,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,resource_contention,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,nominal_no_battery,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,battery_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,battery_very_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,communication_stress,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,availability_loss,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,resource_contention,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,nominal_no_battery,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,battery_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,battery_very_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,communication_stress,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,availability_loss,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,resource_contention,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,nominal_no_battery,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,battery_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,battery_very_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,communication_stress,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,availability_loss,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,resource_contention,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,nominal_no_battery,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,battery_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,battery_very_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,communication_stress,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,availability_loss,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+EMOS-bar-case-goal-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,resource_contention,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,nominal_no_battery,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,battery_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,battery_very_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,communication_stress,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,availability_loss,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,1,bar_delivery_t1,resource_contention,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,nominal_no_battery,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,battery_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,battery_very_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,communication_stress,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,availability_loss,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,2,bar_delivery_t2,resource_contention,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,3,bar_service_t3,nominal_no_battery,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,3,bar_service_t3,battery_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,3,bar_service_t3,battery_very_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,3,bar_service_t3,communication_stress,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,3,bar_service_t3,availability_loss,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,3,bar_service_t3,resource_contention,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,nominal_no_battery,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,battery_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,battery_very_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20_d1': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,communication_stress,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,availability_loss,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_carter_m20_b2,4,bar_crossfloor_t4,resource_contention,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,nominal_no_battery,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,battery_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,battery_very_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,communication_stress,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,availability_loss,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,1,bar_delivery_t1,resource_contention,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,nominal_no_battery,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,battery_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,battery_very_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,communication_stress,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,availability_loss,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,2,bar_delivery_t2,resource_contention,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,3,bar_service_t3,nominal_no_battery,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,3,bar_service_t3,battery_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,3,bar_service_t3,battery_very_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,3,bar_service_t3,communication_stress,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,3,bar_service_t3,availability_loss,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,3,bar_service_t3,resource_contention,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,nominal_no_battery,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,battery_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,battery_very_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'b2_z1': 100.0, 'carter_d1': 100.0, 'm20': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,communication_stress,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,availability_loss,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_m20_carter_b2,4,bar_crossfloor_t4,resource_contention,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,nominal_no_battery,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,battery_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,battery_very_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,communication_stress,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,availability_loss,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,1,bar_delivery_t1,resource_contention,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,nominal_no_battery,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,battery_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,battery_very_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,communication_stress,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,availability_loss,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,2,bar_delivery_t2,resource_contention,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,nominal_no_battery,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,battery_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,battery_very_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,communication_stress,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,availability_loss,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,3,bar_service_t3,resource_contention,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,nominal_no_battery,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,battery_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,battery_very_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'carter_d1': 100.0, 'g1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,communication_stress,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,availability_loss,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_carter,4,bar_crossfloor_t4,resource_contention,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,nominal_no_battery,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,battery_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,battery_very_hard,False,unknown_object:order_1,0.22,240.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,communication_stress,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,availability_loss,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,1,bar_delivery_t1,resource_contention,False,unknown_object:order_1,0.22,240.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,nominal_no_battery,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,battery_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,battery_very_hard,False,unknown_object:order_1,0.22,480.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,communication_stress,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,availability_loss,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,2,bar_delivery_t2,resource_contention,False,unknown_object:order_1,0.22,480.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,nominal_no_battery,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,battery_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,battery_very_hard,False,unknown_object:order_1,0.22,720.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,communication_stress,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,availability_loss,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,3,bar_service_t3,resource_contention,False,unknown_object:order_1,0.22,720.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,nominal_no_battery,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,battery_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,battery_very_hard,False,unknown_object:order_1,0.22,1200.0,False,0.0,100.0,"{'g1': 100.0, 'm20_d1': 100.0, 'pepper': 100.0}",1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,communication_stress,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,availability_loss,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False
+TeamWeaver-bar-allocation-v1,bar_roster_g1_pepper_m20d1,4,bar_crossfloor_t4,resource_contention,False,unknown_object:order_1,0.22,1200.0,False,0.0,,{},1,0.0,0,0.0,True,False

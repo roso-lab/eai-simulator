@@ -28,6 +28,8 @@
 
 候选机器人能否承担 M（移动搬运）、A（操作制备）、S（楼梯运输）或 R（备用重分配）角色，必须由 runtime capability digest、controller digest 和对应 witness 决定。T4 的实际执行者必须具备已验证的 `stair_capable`、跨层载荷和目标放置能力；`G1` 排除 T4，`lite3` 不得承担楼梯任务。未被选中的候选不绑定上述起点。
 
+`floor1-charging_point`（ground `node:0066`）是正式充电资源，容量固定为 1。充电占用、进入、充电开始、充满和释放都写入共享资源账本；未被选中的候选机器人不绑定起点，也不产生本 episode 的电量状态。电量模式只在注册的 runtime condition 中启用，不改变机器人能力集合或任务关系图。
+
 冻结语义点及绑定如下：
 
 | 语义点 | 节点 | 任务用途 |
@@ -81,14 +83,14 @@ D1 只有在首次计划中声明 `not-deployable`、不派发违规动作、不
 
 ## 4. 四级难度与条件
 
-四档任务均从总机器人池中选择三台实际执行机器人。任务 Tier 由冻结合同的八维需求决定：`dependency_depth`、`coordination_width`、`capability_scarcity`、`contention`、`hazard`、`communication_demand`、`branching_load` 和 `uncertainty`；运行时成功率、solver 结果和 condition factor 不参与等级判定。
+四档任务均从总机器人池中选择三台实际执行机器人。任务 Tier 由冻结合同的八维需求决定：`dependency_depth`、`coordination_width`、`capability_scarcity`、`contention`、`hazard`、`communication_demand`、`branching_load` 和 `uncertainty`；运行时成功率、solver 结果和 condition factor 不参与等级判定。T1/T2 使用无电量基线；T3 是困难模式，T4 是非常困难模式。电量限制作为 T3/T4 的合同需求输入，但不改变任务 ID、地图、起点、机器人能力或订单关系图。
 
 | 难度 | task_id | 任务组成 | 主要测量维度 |
 |---|---|---|---|
 | T1 | `bar_delivery_t1` | 单订单冷藏饮品制备、吧台交接和一层交付 | 基础 P1/P2、物料身份、路径和终端放置 |
 | T2 | `bar_delivery_t2` | 双订单备料、齐套、固定优先级顺序交付 | P1、P2、P4、订单顺序和资源账本 |
-| T3 | `bar_service_t3` | 三订单连续服务、吧台内外交接和服务覆盖 | P1、P2、P3-S、P4、连续服务与通信 |
-| T4 | `bar_crossfloor_t4` | 二层双托盘经楼梯运输、同步交接和交付 | P1、P2、P3-J、P3-S、P4、楼梯能力与危险 |
+| T3 | `bar_service_t3` | 三订单连续服务、吧台内外交接和服务覆盖；困难电量模式 | P1、P2、P3-S、P4、连续服务、通信与电量预算 |
+| T4 | `bar_crossfloor_t4` | 二层双托盘经楼梯运输、同步交接和交付；非常困难电量模式 | P1、P2、P3-J、P3-S、P4、楼梯能力、电量预算与危险 |
 
 ### T1：单订单冷藏饮品配送
 
@@ -118,7 +120,7 @@ D1 只有在首次计划中声明 `not-deployable`、不派发违规动作、不
 
 **milestone 与成功。** `team_spawn_valid`、`service_window_open`、`order_stream_ready`、`handoff_1_valid`、`handoff_2_valid`、`handoff_3_valid`、`continuous_service_coverage_valid`、`episode_closeout`。三笔订单必须全部交付、每笔有成对 release/accept、无重叠锁；临时暂存导致的服务裸露超过阈值即失败。
 
-**难度来源。** 多订单连续服务增加依赖深度和通信需求；共享交接窗口和通道提高 contention；工作站和调度选择提高 branching_load；服务覆盖率使未到达 obligation 按零计分。
+**难度来源。** 多订单连续服务增加依赖深度和通信需求；共享交接窗口和通道提高 contention；工作站和调度选择提高 branching_load；服务覆盖率使未到达 obligation 按零计分。困难模式还要求三台机器人在连续服务期间管理连续耗电：低于安全阈值的机器人必须前往 `floor1-charging_point`，到达并验证占位后立即恢复为 100% 电量；回充路线和服务间隙仍计入时序。
 
 ### T4：跨楼层托盘配送与同步交接
 
@@ -128,18 +130,22 @@ D1 只有在首次计划中声明 `not-deployable`、不派发违规动作、不
 
 **milestone 与成功。** `team_spawn_valid`、`floor1_production_ready`、`inner_handoff_valid`、`stair_entry_acquired`、`joint_crossfloor_handoff_valid`、`floor2_delivery_1_valid`、`floor2_delivery_2_valid`、`service_closeout`。两个托盘必须完成制备、同步交接、楼梯运输和二层放置；双方在同步窗口均在位；楼梯能力、楼层节点、资源锁和 terminal predicates 均有外部证据。
 
-**难度来源。** 能力稀缺、楼梯危险、P3-J 同步、P3-S 营业窗口、P4 排他、多条前置链和通信时效共同形成 Tier 4；未知的二层绑定属于待验证前置，不得被当作已认证路线。
+**难度来源。** 能力稀缺、楼梯危险、P3-J 同步、P3-S 营业窗口、P4 排他、多条前置链和通信时效共同形成 Tier 4；未知的二层绑定属于待验证前置，不得被当作已认证路线。非常困难模式增加电量预算、楼梯运输与回充之间的时间竞争；`floor1-charging_point` 容量为 1，机器人到达后必须占用充电点并等待固定 `charge_wait_s` 才能恢复为 100%，其他机器人在此期间不能同时占用该点。
 
-条件与任务 Tier 正交。通信条件采用 city_02 风格的 `C0`（无损）、`C1`（延迟）、`C2`（丢包与重试）和 `C3`（压力下延迟、丢包、乱序）；命名条件为：
+条件与任务 Tier 正交，但 T3/T4 的电量模式是其冻结难度合同的一部分。通信条件采用 city_02 风格的 `C0`（无损）、`C1`（延迟）、`C2`（丢包与重试）和 `C3`（压力下延迟、丢包、乱序）；命名条件为：
 
 | condition | 作用 | 固定规则 |
 |---|---|---|
 | `nominal_no_battery` | 控制条件 | 不启用电量；通信使用 C0；保留能力、订单和资源账本。 |
+| `battery_hard` | T3 困难模式 | 电量归一化为 `[0, 100]`，按 `0.02 s` tick 连续扣减；低于安全阈值必须前往 `node:0066`，到达并验证占位后立即满电。 |
+| `battery_very_hard` | T4 非常困难模式 | 按 `0.02 s` tick 连续扣减；充电点容量为 1；到达后占位并等待固定 `charge_wait_s` 才满电。 |
 | `communication_stress` | 通信条件 | 运行 C0–C3；只改变传输、队列、重试和等待，不改变任务合同。 |
 | `availability_loss` | D4 条件 | 在预注册时刻使一个执行功能暂时或持久失效，记录通知、受影响工作和重分配。 |
 | `resource_contention` | P4 诊断条件 | 增加订单重叠和共享工作台/交接窗口竞争，不改变资源容量或 Tier。 |
 
-paired branch 必须从共同 pre-factor checkpoint digest 启动，共享任务合同、地图 revision、semantic binding digest、实际三机 roster、订单版本和随机种子摘要。电量不是默认难度输入；如需加入必须另行注册为配对条件。
+电量模式的状态机为：`battery_start → battery_drain → low_battery_threshold → charge_route_required → charging_point_acquire → charging → battery_full → charging_point_release`。初始电量、耗电速率、安全阈值和 `charge_wait_s` 由 runtime condition 注册，并进入 condition digest；电量按 `0.02 s` 逻辑 tick 连续扣减。低于安全阈值后必须规划到 `node:0066` 回充；电量耗尽或充电点不可达时立即 safe-stop，当前订单和未完成 obligation 判定失败。不能通过重置 episode、跳过耗电时间或伪造充满事件恢复电量。困难模式在验证占位后立即满电，非常困难模式在容量为 1 的充电点等待固定 `charge_wait_s` 后才满电。
+
+paired branch 必须从共同 `cp_02_pre_handoff` checkpoint digest 启动，共享任务合同、地图 revision、semantic binding digest、实际三机 roster、订单版本、初始电量、耗电速率、安全阈值、`charge_wait_s` 和随机种子摘要。T1/T2 保持 `nominal_no_battery` 基线；T3/T4 不得把电量模式改写成新的任务 ID 或新的 Tier。
 
 ## 5. Checkpoint 与阶段点
 
@@ -173,19 +179,19 @@ handoff
 | `cp_04_delivery_complete` | 所有注册桌位满足 | T1–T4 | 一层/二层交付、连续服务和楼梯结果审计 |
 | `cp_05_closeout` | 所有 mandatory obligations 关闭 | T1–T4 | 终止证据和 episode 关闭 |
 
-每个 checkpoint 至少记录：实际三台机器人及其配置、`task_id`、`episode_id`、`repeat_id`、`condition_id`、`phase_id`、三机位姿与模式、能力和 controller digest、active obligations/milestones、工作台/交接窗口/楼梯/柜台/托盘/充电资源锁、通信队列、event state、route certificate、订单和库存版本、地图 revision、semantic binding digest、随机种子摘要及 checkpoint digest。nominal、communication stress、resource contention 和 availability loss 分支只能从共同 `cp_02_pre_handoff` digest 开始。
+每个 checkpoint 至少记录：实际三台机器人及其配置、`task_id`、`episode_id`、`repeat_id`、`condition_id`、`phase_id`、三机位姿与模式、能力和 controller digest、每台机器人的当前电量、初始电量/耗电速率/安全阈值 digest、active obligations/milestones、低电量事件、回充计划与实际到达时间、charging point acquire/release、充电开始/等待/满电时间、电量耗尽与 safe-stop 原因、工作台/交接窗口/楼梯/柜台/托盘/充电资源锁、通信队列、event state、route certificate、订单和库存版本、地图 revision、semantic binding digest、随机种子摘要及 checkpoint digest。nominal、battery_hard、battery_very_hard、communication stress、resource contention 和 availability loss 分支只能从共同 `cp_02_pre_handoff` digest 开始。
 
 ## 6. 指标与可解释性
 
 正式结果沿用论文 D1–D6 的边界：
 
-- **D1 Task organization**：总池选择、三机起点绑定、M/A/S/R 角色分配、能力检查、P1/P2/P3/P4 约束和不可完成任务的安全拒绝。
-- **D2 Communication adaptation**：C0–C3 下的订单、交接和连续服务成功保持率，以及消息交付、延迟、丢失和重试记录。
-- **D3 Temporal coordination**：P2 release/accept、P3-J 联合动作、P3-S 连续服务和 P4 资源排他分别计分；未到达 obligation 按零处理。
+- **D1 Task organization**：总池选择、三机起点绑定、M/A/S/R 角色分配、电量预算、回充规划、充电资源登记、能力检查、P1/P2/P3/P4 约束和不可完成任务的安全拒绝。
+- **D2 Communication adaptation**：C0–C3 下的订单、交接、低电量和充电事件成功保持率，以及消息交付、延迟、丢失和重试记录。
+- **D3 Temporal coordination**：P2 release/accept、P3-J 联合动作、P3-S 连续服务、P4 资源排他和回充时序分别计分；未到达 obligation 按零处理。
 - **D4 Dynamic reconfiguration**：availability loss 后的受影响工作闭包、通知、重分配、功能恢复、服务保持和终止原因。
 - **D5 Cross-scenario adaptation**：当前 bar 没有经过认证的跨场景 common anchor，报告 `NA`。
-- **D6 Coordination efficiency**：仅在成功门控通过的 nominal run 中报告通信量、路径距离、makespan 和仿真时间；失败运行保留在分母和 failure ledger 中。
+- **D6 Coordination efficiency**：在成功门控通过的 nominal、`battery_hard` 和 `battery_very_hard` run 中分别报告通信量、耗电量、充电等待、路径距离、makespan 和仿真时间；失败运行保留在分母和 failure ledger 中。
 
-诊断指标包括：订单和物料绑定正确率、制备成功率、品类/数量保持率、release/accept 完整度、首次交接和交付时间、楼梯进入等待、楼梯运输成功率、联合同步窗口、工作台和交接窗口排队、连续服务覆盖率、资源互斥违反、订单版本冲突、重复事件抑制、通信延迟/丢包/重试、safe-stop 延迟、路径距离、makespan 以及 checkpoint/replay 等价性。
+诊断指标包括：订单和物料绑定正确率、制备成功率、品类/数量保持率、release/accept 完整度、首次交接和交付时间、楼梯进入等待、楼梯运输成功率、联合同步窗口、工作台和交接窗口排队、连续服务覆盖率、平均/最小剩余电量、低电量触发次数、回充次数、回充路线距离、充电点排队时间、困难模式即时充满延迟、非常困难模式 `charge_wait_s`、充电点互斥违反、电量耗尽次数、回充造成的 handoff/service 间隙、资源互斥违反、订单版本冲突、重复事件抑制、通信延迟/丢包/重试、safe-stop 延迟、路径距离、makespan、电量条件下的订单成功保持率以及 checkpoint/replay 等价性。
 
-当前文档只定义 Isaac-free 逻辑轨道，不宣称物理执行认证。`runtime_oracle_bound=false`、route/stair witness 未完成、robot validation 未完成、checkpoint runtime readback 未完成；在 semantic binding、三机能力绑定、楼梯和放置 witness、runtime oracle、checkpoint readback 及必要的跨场景配对目录全部完成前，`paper_score_eligible=false`。
+当前文档只定义 Isaac-free 逻辑轨道，不宣称物理执行认证。`runtime_oracle_bound=false`、route/stair witness 未完成、robot validation 未完成、battery condition witness 未完成、checkpoint runtime readback 未完成；在 semantic binding、三机能力绑定、楼梯和放置 witness、runtime oracle、battery state readback、checkpoint readback 及必要的跨场景配对目录全部完成前，`paper_score_eligible=false`。

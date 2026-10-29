@@ -1,0 +1,12 @@
+{
+  "schema":"heterocoord.bar.difficulty_contracts.v1",
+  "task_family":"bar_drink_delivery_v1",
+  "clock_dt_s":0.02,
+  "tiers":[
+    {"tier":1,"task_id":"bar_delivery_t1","default_condition":"nominal_no_battery","obligations":["prepare_order_1","release_order_1","accept_order_1","deliver_order_1"],"relation_signature":["P1","P2"]},
+    {"tier":2,"task_id":"bar_delivery_t2","default_condition":"nominal_no_battery","obligations":["prepare_order_1","prepare_order_2","release_order_1","accept_order_1","release_order_2","accept_order_2","deliver_order_1","deliver_order_2"],"relation_signature":["P1","P2","P4"]},
+    {"tier":3,"task_id":"bar_service_t3","default_condition":"battery_hard","obligations":["prepare_order_1","prepare_order_2","prepare_order_3","handoff_1","handoff_2","handoff_3","deliver_order_1","deliver_order_2","deliver_order_3"],"relation_signature":["P1","P2","P3-S","P4"],"battery_mode":"battery_hard"},
+    {"tier":4,"task_id":"bar_crossfloor_t4","default_condition":"battery_very_hard","obligations":["prepare_order_1","prepare_order_2","stair_transport_1","stair_transport_2","joint_handoff","deliver_order_1","deliver_order_2"],"relation_signature":["P1","P2","P3-J","P3-S","P4"],"battery_mode":"battery_very_hard"}
+  ],
+  "assessment":{"condition_invariant":true,"outcome_independent":true,"physical_qualified":false,"rankable":false,"paper_score_eligible":false}
+}
