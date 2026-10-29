@@ -1,7 +1,7 @@
 {
   "schema": "eai.semantic_map.revision",
   "version": 2,
-  "revision": "4222564dd7fb45d586866c1a44ccc40e",
+  "revision": "60878828dc38412496b1b322f687a829",
   "scene_key": "living_room_06",
   "levels": [
     {
@@ -34,19 +34,19 @@
     "aerial": "topology-aerial.json"
   },
   "semantic_point_product": "semantic-points.json",
-  "semantic_binding_digest": "4b47e8a2bbdf4ac4dac9519c550eb793c3c6269edfc1f3b2a16170c09a97fb01",
+  "semantic_binding_digest": "0a382650f572aa67b815254ad2b4487e8b582a352822f2fda1f32ee1550f35b7",
   "files": {
     "level-000-layer.png": "896e103d53aa3d00fa56c6af6d522ce86dedacba60612cfb0150ee8b6f34cd7e",
     "level-000-semantic-grid.npz": "4a75770749210b1c3ffc98ea438de9bde755c4f28c9079c482595dbc528673af",
-    "level-000-semantic-map.png": "d578d8e5e2391016fb09ffd44bd3a7b7da151d49edbe20dadf7a455c69311bfa",
+    "level-000-semantic-map.png": "d5f3e1b100f1c67f1c28157cd34025f01f1a771d36af7c2215bd7bfad82c087d",
     "level-001-layer.png": "875a25374647d4967c6dec728140ab548572968d6607381749b9025d8a84a2e2",
     "level-001-semantic-grid.npz": "6be019d06028587e4663b09df9df3e360137d45de76b9e50a3b732babf0bb86b",
-    "level-001-semantic-map.png": "5ca7830649e1243f39ce72bc457b374cae5d15c8c89ee901056a2dbb1e601b79",
-    "semantic-footprints.geojson": "896b88e59efb6bb2a1a23c97c19c60830cfd7a55f1715d1260d91545c4efae3f",
-    "semantic-footprints.json": "672d4ed926bc4d8c71d7112d0716a0b5ceb134965a26970301d282b69e82d4fe",
-    "semantic-points.json": "68e108fe76e4e05ff64803afc7bcc8dd85b715bdb95c6eae0ca2827227610c9b",
-    "topology-aerial.json": "702500c0230483807341dc59d1db63e017a98adb9de60e7c295ad5558e764acb",
-    "topology.json": "1b7a0081289a0726dc8bfcf07763e986ff0992f2d6a0208c34b8cbc167bf8176"
+    "level-001-semantic-map.png": "0b2b0729ad8d89578fca621e41b55c1efaccc3f65fe9642084beaad64e8cd095",
+    "semantic-footprints.geojson": "f2e34ca787f04965e10eab099eab6f2b44f82cf7308935a8ce58c79eb7089958",
+    "semantic-footprints.json": "452de21c57359c041c82d81632779a72ca0ee3a71b32e59774466a0f0a9f1bf3",
+    "semantic-points.json": "06762bd41402795e8e53c5505ff92c07b7d9be5cee68906820b449b11acb5fe0",
+    "topology-aerial.json": "a2b9307e4c3f20118fea30957f70c9b30a91a884738cb8adf5c5d8b4270dd859",
+    "topology.json": "8f8e84290a7fea052f0994c83af7856afd833104aaa0915c3d8d9520854afa0c"
   },
   "robot_validated": false
 }
