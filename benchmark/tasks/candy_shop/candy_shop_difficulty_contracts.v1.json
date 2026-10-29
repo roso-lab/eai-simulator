@@ -1,0 +1,12 @@
+{
+  "schema": "eai.candy_shop.difficulty_contracts.v1",
+  "task_family": "candy_restock_v1",
+  "semantic_map_revision": "412b1f18f44c4dab81a99e321618e361",
+  "contracts": [
+    {"task_id": "candy_delivery_t1", "difficulty_tier": 1, "primitive": "P2", "obligations": ["gate_open", "order_1_pick", "order_1_place"], "coordination": "single_ground_manipulator_with_gate_precondition"},
+    {"task_id": "candy_handoff_t2", "difficulty_tier": 2, "primitive": "P2", "obligations": ["gate_open", "order_1_pick", "order_1_release", "order_1_receive", "order_1_place", "order_2_pick", "order_2_release", "order_2_receive", "order_2_place"], "coordination": "cross_robot_object_handoff"},
+    {"task_id": "candy_contention_t3", "difficulty_tier": 3, "primitive": "P4", "obligations": ["inventory_scan_1", "inventory_scan_2", "access_1", "access_2", "order_1_pick", "order_1_place", "order_2_pick", "order_2_place"], "coordination": "aerial_ground_split_and_capacity_one_handoff_window"},
+    {"task_id": "candy_peak_t4", "difficulty_tier": 4, "primitive": "P4", "obligations": ["inventory_scan_1", "inventory_scan_2", "access_1", "access_2", "access_3", "order_1_pick", "order_1_place", "order_2_pick", "order_2_place", "order_3_pick", "order_3_place"], "coordination": "heterogeneous_peak_service_under_c3_or_availability_loss"}
+  ],
+  "assessment": {"condition_invariant": true, "outcome_independent": true, "physical_qualified": false, "rankable": false, "paper_score_eligible": false}
+}

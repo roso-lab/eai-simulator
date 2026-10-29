@@ -1,0 +1,45 @@
+{
+  "schema": "eai.candy_shop.task_manifest.v1",
+  "task_family": "candy_restock_v1",
+  "version": 1,
+  "task_status": "logic_runtime_ready_physical_pending",
+  "scene_key": "production_candy_shop",
+  "semantic_map": {
+    "path": "usd/scene/Production and logistics/candy_shop/semantic_map/current",
+    "revision": "412b1f18f44c4dab81a99e321618e361",
+    "semantic_binding_digest": "f9844182d9990edc0045724919e6b2a79e874c646c558dae516b1570d0737f3f",
+    "support_level": "1F",
+    "floor_semantics": "floor2 labels are opaque task targets; elevated access is expressed by topology and capabilities"
+  },
+  "logic_clock": {"dt_s": 0.02, "distance_unit": "m", "battery_unit": "distance_m"},
+  "robot_roster": [
+    {"robot_id": "go2_d1", "profile": "go2_d1", "domain": "ground", "initial_node": "node:0008", "speed_mps": 1.0, "capabilities": ["navigation", "manipulator", "loader", "gate_open", "stair_capable", "ground"]},
+    {"robot_id": "b2_z1", "profile": "b2_z1", "domain": "ground", "initial_node": "node:0002", "speed_mps": 1.0, "capabilities": ["navigation", "manipulator", "handoff_receive", "picker", "stair_capable", "ground"]},
+    {"robot_id": "pegasus_1", "profile": "pegasus", "domain": "aerial", "initial_node": "node:0001", "speed_mps": 4.0, "capabilities": ["navigation", "aerial", "aerial_observer", "aerial_pick", "manipulator"]}
+  ],
+  "difficulty_tiers": [
+    {"difficulty_tier": 1, "task_id": "candy_delivery_t1", "relation_signature": {"P1": true, "P2": true, "P4": false}, "primary_primitive": "P2", "default_condition": "nominal"},
+    {"difficulty_tier": 2, "task_id": "candy_handoff_t2", "relation_signature": {"P1": true, "P2": true, "P4": true}, "primary_primitive": "P2", "default_condition": "nominal"},
+    {"difficulty_tier": 3, "task_id": "candy_contention_t3", "relation_signature": {"P1": true, "P2": true, "P4": true}, "primary_primitive": "P4", "default_condition": "resource_contention"},
+    {"difficulty_tier": 4, "task_id": "candy_peak_t4", "relation_signature": {"P1": true, "P2": true, "P4": true}, "primary_primitive": "P4", "default_condition": "communication_stress"}
+  ],
+  "conditions": [
+    {"condition_id": "nominal", "communication": "C0", "battery_enabled": false, "availability_loss_task": null},
+    {"condition_id": "resource_contention", "communication": "C0", "battery_enabled": false, "availability_loss_task": null},
+    {"condition_id": "communication_stress", "communication": "C3", "battery_enabled": false, "availability_loss_task": null},
+    {"condition_id": "availability_loss", "communication": "C0", "battery_enabled": false, "availability_loss_task": "inventory_scan_2"}
+  ],
+  "resources": [
+    {"resource_id": "gate_mutex", "semantic_label": "floor1-gate-external", "capacity": 1, "service_s": 0.4},
+    {"resource_id": "handoff_window", "semantic_label": "floor1-handoff_point-inner", "capacity": 1, "service_s": 1.0}
+  ],
+  "checkpoint_policy": {
+    "schema": "eai.candy_shop.checkpoint-policy.v1",
+    "checkpoints": ["cp_00_spawn_valid", "cp_01_gate_open_verified", "cp_02_inventory_observed", "cp_03_handoff_complete", "cp_04_order_closeout"],
+    "branch_rule": "all paired conditions start from the same pre-factor checkpoint digest",
+    "evidence": ["robot_state", "active_obligations", "resource_ledger", "communication_queue", "object_state", "semantic_map_digest", "checkpoint_digest"]
+  },
+  "metrics": ["success", "makespan_s", "gate_service_s", "inventory_observation_latency_s", "handoff_latency_s", "resource_wait_s", "resource_contention_requests", "communication_delay_s", "communication_loss_bits", "object_place_success", "availability_loss", "checkpoint_replay_equivalent", "D1", "D2", "D3", "D4", "D5", "D6"],
+  "hard_deadline_ticks": {"t1": 12000, "t2": 24000, "t3": 36000, "t4": 60000},
+  "release_gates": {"robot_validated": false, "physical_qualified": false, "paper_score_eligible": false}
+}

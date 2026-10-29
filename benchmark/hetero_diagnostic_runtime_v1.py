@@ -177,6 +177,12 @@ class TaskSpec:
     announce_after: tuple[str, ...] = ()
     public_group: str | None = None
     public_rank: int | None = None
+    # Tasks sharing a cooperative group form one barrier: all assigned
+    # participants must reach their targets before the group may acquire its
+    # optional resource and start service.  This is distinct from
+    # ``distinct_group`` (which only prevents robot reuse) and lets scenarios
+    # express a real P3-J action instead of two serial jobs.
+    cooperative_group: str | None = None
 
 
 @dataclass(frozen=True)
@@ -492,6 +498,10 @@ class DiagnosticRuntime:
         self.notification_submitted = 0
         self.notification_delivered = 0
         self.object_state: dict[str, dict[str, Any]] = {}
+        # Runtime state for cooperative (P3-J) task barriers.  The mapping is
+        # deliberately evaluator-owned; controllers only see their public
+        # task goals and resource occupancy.
+        self._cooperative_states: dict[str, dict[str, Any]] = {}
         # Public task announcements are separate from the evaluator ledger.
         # This prevents hidden future obligations from entering an algorithm's
         # observation while retaining a complete internal oracle state.
@@ -538,7 +548,7 @@ class DiagnosticRuntime:
             ("world", self._world_snapshot, self._world_restore),
             ("clock", lambda: {"tick": self.clock_tick}, lambda s: setattr(self, "clock_tick", int(s["tick"]))),
             ("controller", lambda: {"robots": self._robot_snapshot()}, lambda s: self._robot_restore(s["robots"])),
-            ("skill", lambda: {"reallocation_count": self.reallocation_count, "message_counter": self._message_counter, "replay_equivalent": self._replay_equivalent, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "report_wait_ticks": self.report_wait_ticks, "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "object_state": deepcopy(self.object_state), "announced_tasks": sorted(self._announced_tasks), "observation_windows": deepcopy(self.observation_windows), "last_public_signature": deepcopy(self._last_public_signature), "invalid_assignment_pairs": sorted(self._invalid_assignment_pairs)}, self._skill_restore),
+            ("skill", lambda: {"reallocation_count": self.reallocation_count, "message_counter": self._message_counter, "replay_equivalent": self._replay_equivalent, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "report_wait_ticks": self.report_wait_ticks, "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "object_state": deepcopy(self.object_state), "cooperative_states": deepcopy(self._cooperative_states), "announced_tasks": sorted(self._announced_tasks), "observation_windows": deepcopy(self.observation_windows), "last_public_signature": deepcopy(self._last_public_signature), "invalid_assignment_pairs": sorted(self._invalid_assignment_pairs)}, self._skill_restore),
             ("task", self.tasks.snapshot, self.tasks.restore),
             ("algorithm", self.algorithm.snapshot, self.algorithm.restore),
             ("transport", lambda: self.communication.snapshot(), self._transport_restore),
@@ -566,6 +576,7 @@ class DiagnosticRuntime:
         self.notification_submitted = int(state.get("notification_submitted", 0))
         self.notification_delivered = int(state.get("notification_delivered", 0))
         self.object_state = deepcopy(state.get("object_state", self.object_state))
+        self._cooperative_states = deepcopy(state.get("cooperative_states", self._cooperative_states))
         self._announced_tasks = set(state.get("announced_tasks", ()))
         self.observation_windows = deepcopy(state.get("observation_windows", ()))
         self._last_public_signature = deepcopy(state.get("last_public_signature"))
@@ -930,6 +941,9 @@ class DiagnosticRuntime:
         if not task_id or target is None:
             robot.status = "idle"; return
         task = self.tasks.specs[task_id]
+        if task.cooperative_group:
+            self._arrive_cooperative(robot, task)
+            return
         if task.resource_id:
             accepted = self.resources.request(task.resource_id, robot.spec.robot_id, task_id, self.clock_tick, task.service_ticks or None)
             robot.resource_id, robot.status = task.resource_id, ("servicing" if accepted else "resource_wait")
@@ -947,6 +961,95 @@ class DiagnosticRuntime:
                                     "service_ticks": int(task.service_ticks)})
             else:
                 self._complete_target(robot)
+
+    def _cooperative_members(self, group: str) -> list[tuple[TaskSpec, _RobotState]]:
+        """Return the currently assigned task/robot pairs for a group."""
+        members: list[tuple[TaskSpec, _RobotState]] = []
+        for task in sorted(self.tasks.specs.values(), key=lambda item: item.task_id):
+            if task.cooperative_group != group:
+                continue
+            robot_id = self.tasks.assigned.get(task.task_id)
+            if robot_id in self.robot_states:
+                members.append((task, self.robot_states[robot_id]))
+        return members
+
+    def _arrive_cooperative(self, robot: _RobotState, task: TaskSpec) -> None:
+        """Place a participant at a barrier and start the group atomically.
+
+        A cooperative task is complete only after every member has arrived;
+        the optional resource is requested once for the group, so a capacity
+        of one represents one jointly occupied work area rather than one slot
+        per robot.  A queued group keeps all participants blocked until the
+        same lease becomes active.
+        """
+        group = str(task.cooperative_group)
+        robot.status = "cooperative_wait"
+        state = self._cooperative_states.setdefault(group, {"status": "waiting", "resource_id": None, "resource_task_id": f"__cooperative__:{group}", "robot_ids": []})
+        state["robot_ids"] = [item[1].spec.robot_id for item in self._cooperative_members(group)]
+        members = self._cooperative_members(group)
+        if not members or any(member.status != "cooperative_wait" for _, member in members):
+            return
+        if state.get("status") not in {"waiting", "resource_wait"}:
+            return
+        resource_id = task.resource_id
+        state["resource_id"] = resource_id
+        if resource_id:
+            accepted = self.resources.request(resource_id, robot.spec.robot_id,
+                                              str(state["resource_task_id"]), self.clock_tick,
+                                              task.service_ticks or None)
+            state["status"] = "servicing" if accepted else "resource_wait"
+            for member_task, member in members:
+                member.resource_id = resource_id
+                member.status = "cooperative_servicing" if accepted else "cooperative_resource_wait"
+            self.events.append({"tick": self.clock_tick, "kind": "cooperative_resource_request",
+                                "group": group, "robot_ids": state["robot_ids"],
+                                "resource_id": resource_id, "accepted": accepted})
+            if accepted:
+                self.events.append({"tick": self.clock_tick, "kind": "cooperative_service_started",
+                                    "group": group, "robot_ids": state["robot_ids"],
+                                    "resource_id": resource_id,
+                                    "service_ticks": int(task.service_ticks)})
+            return
+        state["status"] = "servicing"
+        for member_task, member in members:
+            member.status = "servicing"
+            member.service_until_tick = self.clock_tick + int(member_task.service_ticks)
+        self.events.append({"tick": self.clock_tick, "kind": "cooperative_service_started",
+                            "group": group, "robot_ids": state["robot_ids"],
+                            "service_ticks": int(task.service_ticks)})
+
+    def _start_queued_cooperative_groups(self) -> None:
+        """Admit any queued cooperative resource lease after ``advance``."""
+        for group, state in sorted(self._cooperative_states.items()):
+            if state.get("status") != "resource_wait" or not state.get("resource_id"):
+                continue
+            resource_id = str(state["resource_id"])
+            resource_task_id = str(state["resource_task_id"])
+            active = self.resources.active.get(resource_id, ())
+            if not any(item.get("task_id") == resource_task_id for item in active):
+                continue
+            for task, member in self._cooperative_members(group):
+                member.status = "cooperative_servicing"
+                member.resource_id = resource_id
+            state["status"] = "servicing"
+            self.events.append({"tick": self.clock_tick, "kind": "cooperative_service_started",
+                                "group": group, "robot_ids": state.get("robot_ids", []),
+                                "resource_id": resource_id, "wait_ticks": next(
+                                    int(item.get("wait_ticks", 0)) for item in active
+                                    if item.get("task_id") == resource_task_id)})
+
+    def _complete_cooperative_group(self, group: str) -> None:
+        state = self._cooperative_states.get(group)
+        if not state or state.get("status") != "servicing":
+            return
+        members = self._cooperative_members(group)
+        state["status"] = "completed"
+        for task, member in members:
+            member.resource_id = None
+            member.service_until_tick = None
+            self._complete_target(member)
+        self.events.append({"tick": self.clock_tick, "kind": "cooperative_service_completed",
+                            "group": group, "robot_ids": state.get("robot_ids", [])})
 
     def _complete_target(self, robot: _RobotState) -> None:
         task_id, target = robot.task_id, robot.target_key
@@ -1063,6 +1166,14 @@ class DiagnosticRuntime:
                 return
         # Complete resource services that ended this tick and release robots.
         for item in self.resources.advance(self.clock_tick):
+            cooperative_prefix = "__cooperative__:"
+            if str(item.get("task_id", "")).startswith(cooperative_prefix):
+                group = str(item["task_id"])[len(cooperative_prefix):]
+                self._complete_cooperative_group(group)
+                self.events.append({"tick": self.clock_tick, "kind": "resource_released",
+                                    "robot_id": item.get("robot_id"),
+                                    "resource_id": item.get("resource_id"), "group": group})
+                continue
             robot = self.robot_states[item["robot_id"]]
             if robot.status in {"servicing", "resource_wait"} and robot.task_id == item["task_id"]:
                 resource_id = robot.resource_id
@@ -1071,11 +1182,23 @@ class DiagnosticRuntime:
                 if resource is not None and (resource.recharges or str(resource_id).startswith("recover")):
                     robot.battery = robot.spec.battery_capacity_m
                 self.events.append({"tick": self.clock_tick, "kind": "resource_released", "robot_id": robot.spec.robot_id, "resource_id": resource_id})
+        self._start_queued_cooperative_groups()
         # Non-resource service actions (button presses, sampling, object
         # manipulation) use the same deterministic control clock but do not
         # consume a shared mutex.  They complete before the robot can be
         # allocated again.
+        completed_groups: set[str] = set()
         for robot in self.robot_states.values():
+            if robot.status == "servicing" and robot.task_id in self.tasks.specs:
+                coop = self.tasks.specs[robot.task_id].cooperative_group
+                if coop and coop not in completed_groups:
+                    members = self._cooperative_members(coop)
+                    if members and all(member.status == "servicing" and member.service_until_tick is not None
+                                      and member.service_until_tick <= self.clock_tick
+                                      for _, member in members):
+                        self._complete_cooperative_group(coop)
+                        completed_groups.add(coop)
+                    continue
             if robot.status == "servicing" and robot.service_until_tick is not None and robot.service_until_tick <= self.clock_tick:
                 task_id = robot.task_id
                 self._complete_target(robot)
