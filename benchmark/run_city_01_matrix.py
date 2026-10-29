@@ -27,7 +27,15 @@ def run_matrix(*, repeats: int = 1, output: Path | None = None) -> dict[str, Any
     rows: list[dict[str, Any]] = []
     for algorithm_id, algorithm_cls in ALGORITHMS.items():
         for tier in range(1, 5):
-            conditions = ("nominal_no_battery",) if tier < 3 else ("battery_homogeneous", "battery_heterogeneous")
+            if tier < 3:
+                conditions = ("nominal_no_battery",)
+            elif tier == 3:
+                conditions = ("battery_homogeneous", "battery_heterogeneous")
+            else:
+                # Availability loss is a registered D4 branch of the full
+                # compound task and is paired with the same communication
+                # axis as the energy conditions.
+                conditions = ("battery_homogeneous", "battery_heterogeneous", "availability_loss")
             for condition_id in conditions:
                 for communication in COMMUNICATIONS:
                     for repeat in range(1, repeats + 1):
@@ -66,6 +74,12 @@ def run_matrix(*, repeats: int = 1, output: Path | None = None) -> dict[str, Any
                             "communication_bits": metrics["communication_bits"],
                             "communication_delay_ticks": metrics["communication_delay_ticks"],
                             "communication_loss_bits": metrics["communication_loss_bits"],
+                            "notification_submitted": metrics["notification_submitted"],
+                            "notification_delivered": metrics["notification_delivered"],
+                            "notification_pending": metrics["notification_pending"],
+                            "report_wait_ticks": metrics["report_wait_ticks"],
+                            "lost_robots": json.dumps(metrics["lost_robots"], ensure_ascii=False),
+                            "availability_events": json.dumps(metrics["availability_events"], ensure_ascii=False, sort_keys=True),
                             "replay_equivalent": bool(replay["replay_equivalent"]),
                             "paper_score_eligible": False,
                         })
@@ -78,7 +92,7 @@ def run_matrix(*, repeats: int = 1, output: Path | None = None) -> dict[str, Any
         "notes": [
             "Model fields reserve the requested Dongli gpt-5.6-luna/low configuration.",
             "Current rows are deterministic contract-adapter diagnostics, not native LLM score columns.",
-            "Communication is metered by the runtime; algorithm replanning does not yet consume delivered frames.",
+            "Arrival/service notifications are metered by the runtime; tasks remain blocked until evaluator delivery or a bounded notification timeout.",
             "paper_score_eligible remains false until paired evidence and source-backed native gates are complete.",
         ],
     }

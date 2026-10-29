@@ -81,19 +81,27 @@ class City01ScenarioAdapter:
             for anchor in area.get("aerial_anchors", ()):
                 graph.bind(area_id, city.node(anchor["label"], "aerial"))
         battery = condition.get("battery", {})
-        budgets = battery.get("budgets_m", {})
+        budgets = dict(battery.get("budgets_m", {}))
+        if battery.get("enabled") and not budgets:
+            budgets = {item["robot_id"]: 120 for item in manifest["robot_roster"] if item["domain"] == "ground"}
         robots = tuple(RobotSpec(item["robot_id"], item["domain"], city.node(item["initial_point"], item["domain"]),
                                  speed_mps=1.0 if item["domain"] == "ground" else 4.0,
                                  capabilities=(item["role"],),
                                  battery_capacity_m=(float(budgets[item["robot_id"]]) if battery.get("enabled") and item["domain"] == "ground" else None),
                                  battery_reserve_m=float(battery.get("reserve_m", 0.0))) for item in manifest["robot_roster"])
-        tasks = [TaskSpec(f"coverage_{area['area_id']}", "coverage", (area["area_id"],)) for area in manifest["areas"]]
+        coverage_ids = tuple(f"coverage_{area['area_id']}" for area in manifest["areas"])
+        tasks = [TaskSpec(task_id, "coverage", (task_id.removeprefix("coverage_"),), report_required=True)
+                 for task_id in coverage_ids for _ in (0,)]
         observation_ids = []
         if tier >= 2:
+            trigger_id = "incident_trigger"
+            tasks.append(TaskSpec(trigger_id, "event", ("incident",), activation_tasks=coverage_ids,
+                                  activation_count=3))
             for row in manifest["incident"]["aerial_observations"]:
                 task_id = row["observation_id"]
                 observation_ids.append(task_id)
-                tasks.append(TaskSpec(task_id, "inspection", (row["semantic_label"],), required_domain="aerial"))
+                tasks.append(TaskSpec(task_id, "inspection", (row["semantic_label"],),
+                                      prerequisites=(trigger_id,), required_domain="aerial", report_required=True))
         if tier >= 3:
             required = 3 if tier == 3 else 4
             prereq = tuple(observation_ids)
@@ -103,10 +111,10 @@ class City01ScenarioAdapter:
                 recover_id = f"recover_service_{index}"
                 recover_ids.append(recover_id)
                 tasks.append(TaskSpec(recover_id, "recover", ("recover",), required_domain="ground",
-                                      resource_id=recover_row["resource_id"],
+                                      resource_id=recover_row["resource_id"], report_required=True,
                                       service_ticks=max(1, round(float(recover_row.get("occupancy_wait_s", 8.0)) / CONTROL_DT_S))))
             for index in range(required):
-                tasks.append(TaskSpec(f"response_{index + 1}", "response", ("accident",), prerequisites=prereq + tuple(recover_ids), required_domain="ground", distinct_group="ground_response"))
+                tasks.append(TaskSpec(f"response_{index + 1}", "response", ("accident",), prerequisites=prereq + tuple(recover_ids), required_domain="ground", distinct_group="ground_response", report_required=True))
         resources = tuple(ResourceSpec(item["resource_id"], f"ground::{item['node_id']}", capacity=int(item.get("capacity", 1)),
                                        service_ticks=max(1, round(float(item.get("occupancy_wait_s", 8.0)) / CONTROL_DT_S)),
                                        recharges=bool(battery.get("enabled") and condition.get("recover", {}).get("recharge_enabled")))
@@ -116,7 +124,8 @@ class City01ScenarioAdapter:
         if not isinstance(default_comm, str):
             default_comm = "C0"
         return EpisodeSpec(graph, robots, tuple(tasks), resources=resources, horizon_ticks=horizon,
-                           dt_s=CONTROL_DT_S, communication_condition=communication or default_comm)
+                           dt_s=CONTROL_DT_S, communication_condition=communication or default_comm,
+                           availability_loss_task=("incident_observation_2" if selected_condition == "availability_loss" else None))
 
     def run_generic(self, *, tier: int = 4, condition_id: str | None = None,
                     communication: str | None = None, algorithm: Any | None = None) -> dict[str, Any]:
