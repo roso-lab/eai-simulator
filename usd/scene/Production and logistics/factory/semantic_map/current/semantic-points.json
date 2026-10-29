@@ -1,9 +1,248 @@
 {
   "schema": "eai.semantic_points",
-  "version": 1,
+  "version": 3,
   "scene_key": "production_factory",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
   "up_axis": "Z",
-  "points": []
+  "points": [
+    {
+      "id": "semantic:1a3418daf4bc4a359c8301f64969f984",
+      "label": "2F Fire Extinguisher",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0001"
+        }
+      ]
+    },
+    {
+      "id": "semantic:de2e5ab40003463f92e04b08908a4763",
+      "label": "Workstation_1",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0006"
+        }
+      ]
+    },
+    {
+      "id": "semantic:1ee18993802f42c18ed7aa6581667e78",
+      "label": "Workstation_2",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0004"
+        }
+      ]
+    },
+    {
+      "id": "semantic:6aa386794790411fa535c904118b7661",
+      "label": "Workstation_3",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0005"
+        }
+      ]
+    },
+    {
+      "id": "semantic:a1495d085f8b4cee9c250489acc639b0",
+      "label": "Workstation_4",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0029"
+        }
+      ]
+    },
+    {
+      "id": "semantic:8c5e709ff35b42de895d71f288446370",
+      "label": "Machine_1",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0016"
+        }
+      ]
+    },
+    {
+      "id": "semantic:9cbc3300801e4ee99c265c828bdcafec",
+      "label": "Machine_2",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0028"
+        }
+      ]
+    },
+    {
+      "id": "semantic:e6eee85b6f4b4b6ea9a9eba2061d52a0",
+      "label": "start_1",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0019"
+        }
+      ]
+    },
+    {
+      "id": "semantic:cc7d954aa10f42e5905b7b8c95083938",
+      "label": "start_2",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0009"
+        }
+      ]
+    },
+    {
+      "id": "semantic:2ca67006501b40759e07cecefabdc765",
+      "label": "Fire alarm",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0030"
+        }
+      ]
+    },
+    {
+      "id": "semantic:f6a1b1bb841149bd8539e65c4e9b0fe9",
+      "label": "start_3",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0012"
+        }
+      ]
+    },
+    {
+      "id": "semantic:8d1c2215e71345ee85a8c57299e773e6",
+      "label": "fire",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0014"
+        }
+      ]
+    },
+    {
+      "id": "semantic:a2ac775c168d4014a3af7ecbc22d2365",
+      "label": "start_4",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0010"
+        }
+      ]
+    },
+    {
+      "id": "semantic:04f602082c3c47bd9a2ebd65ac8e3bea",
+      "label": "Inspection point_1",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0024"
+        }
+      ]
+    },
+    {
+      "id": "semantic:de4727f9e03d42d78b48f7fb63415f74",
+      "label": "Inspection point_2",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0022"
+        }
+      ]
+    },
+    {
+      "id": "semantic:c104c2afc5784487a1a994608850f5b2",
+      "label": "Transfer point",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0003"
+        }
+      ]
+    },
+    {
+      "id": "semantic:ad4d671aaf2641fcb21217d7c889a501",
+      "label": "help",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0018"
+        }
+      ]
+    }
+  ]
 }

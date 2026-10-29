@@ -1,0 +1,96 @@
+{
+  "schema": "heterocoord.factory.difficulty_contracts.v1",
+  "scenario_id": "factory_fire_rescue",
+  "clock_dt_s": 0.02,
+  "tiers": [
+    {
+      "tier": 1,
+      "task_id": "factory_patrol_t1",
+      "required_tasks": [
+        "patrol_01..patrol_08"
+      ],
+      "events": [],
+      "primary_primitive": "P1"
+    },
+    {
+      "tier": 2,
+      "task_id": "factory_fire_response_t2",
+      "required_tasks": [
+        "patrol_01..patrol_08",
+        "fire_event",
+        "carter_to_block",
+        "help_clear",
+        "carter_fire_sample",
+        "fire_alarm_press",
+        "extinguisher_pick",
+        "extinguisher_deliver"
+      ],
+      "events": [
+        "fire_alert",
+        "blockage"
+      ],
+      "primary_primitive": "P2"
+    },
+    {
+      "tier": 3,
+      "task_id": "factory_fire_handoff_t3",
+      "required_tasks": [
+        "patrol_01..patrol_08",
+        "fire_event",
+        "carter_to_block",
+        "help_clear",
+        "carter_fire_sample",
+        "fire_alarm_press",
+        "extinguisher_pick",
+        "extinguisher_release",
+        "extinguisher_receive",
+        "extinguisher_deliver"
+      ],
+      "events": [
+        "fire_alert",
+        "blockage",
+        "handoff"
+      ],
+      "primary_primitive": "P2"
+    },
+    {
+      "tier": 4,
+      "task_id": "factory_fire_stress_t4",
+      "required_tasks": [
+        "patrol_01..patrol_08",
+        "fire_event",
+        "carter_to_block",
+        "help_clear",
+        "carter_fire_sample",
+        "fire_alarm_press",
+        "extinguisher_pick",
+        "extinguisher_release",
+        "extinguisher_receive",
+        "extinguisher_deliver"
+      ],
+      "events": [
+        "fire_alert",
+        "blockage",
+        "handoff",
+        "communication_stress"
+      ],
+      "primary_primitive": "P4"
+    }
+  ],
+  "score_gates": {
+    "paper_score_eligible": false,
+    "required": [
+      "calibration_receipt",
+      "source_backed_algorithm_gate",
+      "paired_condition_directory",
+      "independent_physical_evidence"
+    ]
+  },
+  "hard_time_policy": {
+    "clock_dt_s": 0.02,
+    "deadline_is_evaluator_owned": true,
+    "deadline_is_algorithm_independent": true,
+    "deadline_miss_outcome": "task_unsuccessful",
+    "source": "factory_task_manifest.v1.json#/timing_policy/hard_deadline_ticks"
+  }
+}

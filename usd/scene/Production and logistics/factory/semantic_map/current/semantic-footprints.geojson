@@ -7,36 +7,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            10.550000000000002,
-            4.35,
-            0.0
+            1.48,
+            -7.027,
+            1.715
           ],
           [
-            8.65,
-            6.25,
-            0.0
+            1.469,
+            -2.02,
+            0.118
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0001",
+        "id": "edge:0001",
         "kind": "custom_connection",
-        "from": "node:production_factory:1F:component-001:route-start",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0001",
+        "from": "node:0002",
+        "to": "node:0003",
         "directed": false,
         "polyline_xyz": [
           [
-            10.550000000000002,
-            4.35,
-            0.0
+            1.48,
+            -7.027,
+            1.715
           ],
           [
-            8.65,
-            6.25,
-            0.0
+            1.469,
+            -2.02,
+            0.118
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -46,8 +49,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -58,36 +63,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            8.65,
-            6.25,
-            0.0
+            1.594,
+            -8.71,
+            1.643
           ],
           [
-            8.250000000000002,
-            6.25,
-            0.0
+            1.48,
+            -7.027,
+            1.715
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0002",
+        "id": "edge:0002",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0001",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0002",
+        "from": "node:0001",
+        "to": "node:0002",
         "directed": false,
         "polyline_xyz": [
           [
-            8.65,
-            6.25,
-            0.0
+            1.594,
+            -8.71,
+            1.643
           ],
           [
-            8.250000000000002,
-            6.25,
-            0.0
+            1.48,
+            -7.027,
+            1.715
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -97,8 +105,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -109,36 +119,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            8.250000000000002,
-            6.25,
-            0.0
+            5.052,
+            -4.95,
+            0.1
           ],
           [
-            5.950000000000001,
-            8.55,
-            0.0
+            5.544,
+            -6.781,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0003",
+        "id": "edge:0003",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0002",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0003",
+        "from": "node:0029",
+        "to": "node:0005",
         "directed": false,
         "polyline_xyz": [
           [
-            8.250000000000002,
-            6.25,
-            0.0
+            5.052,
+            -4.95,
+            0.1
           ],
           [
-            5.950000000000001,
-            8.55,
-            0.0
+            5.544,
+            -6.781,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -148,8 +161,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -160,36 +175,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            5.950000000000001,
-            8.55,
-            0.0
+            5.544,
+            -6.781,
+            0.1
           ],
           [
-            5.85,
-            8.55,
-            0.0
+            8.002,
+            -6.631,
+            0.2
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0004",
+        "id": "edge:0004",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0003",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0004",
+        "from": "node:0005",
+        "to": "node:0004",
         "directed": false,
         "polyline_xyz": [
           [
-            5.950000000000001,
-            8.55,
-            0.0
+            5.544,
+            -6.781,
+            0.1
           ],
           [
-            5.85,
-            8.55,
-            0.0
+            8.002,
+            -6.631,
+            0.2
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -199,8 +217,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -211,36 +231,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            5.85,
-            8.55,
-            0.0
+            8.002,
+            -6.631,
+            0.2
           ],
           [
-            5.250000000000002,
-            9.150000000000002,
-            0.0
+            8.365,
+            -3.321,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0005",
+        "id": "edge:0005",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0004",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0005",
+        "from": "node:0004",
+        "to": "node:0006",
         "directed": false,
         "polyline_xyz": [
           [
-            5.85,
-            8.55,
-            0.0
+            8.002,
+            -6.631,
+            0.2
           ],
           [
-            5.250000000000002,
-            9.150000000000002,
-            0.0
+            8.365,
+            -3.321,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -250,8 +273,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -262,36 +287,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            5.250000000000002,
-            9.150000000000002,
-            0.0
+            6.994,
+            -2.006,
+            0.1
           ],
           [
-            5.049999999999999,
-            9.150000000000002,
-            0.0
+            8.365,
+            -3.321,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0006",
+        "id": "edge:0006",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0005",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0006",
+        "from": "node:0007",
+        "to": "node:0006",
         "directed": false,
         "polyline_xyz": [
           [
-            5.250000000000002,
-            9.150000000000002,
-            0.0
+            6.994,
+            -2.006,
+            0.1
           ],
           [
-            5.049999999999999,
-            9.150000000000002,
-            0.0
+            8.365,
+            -3.321,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -301,8 +329,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -313,36 +343,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            5.049999999999999,
-            9.150000000000002,
-            0.0
+            6.994,
+            -2.006,
+            0.1
           ],
           [
-            4.950000000000001,
-            9.25,
-            0.0
+            5.052,
+            -4.95,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0007",
+        "id": "edge:0007",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0006",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0007",
+        "from": "node:0007",
+        "to": "node:0029",
         "directed": false,
         "polyline_xyz": [
           [
-            5.049999999999999,
-            9.150000000000002,
-            0.0
+            6.994,
+            -2.006,
+            0.1
           ],
           [
-            4.950000000000001,
-            9.25,
-            0.0
+            5.052,
+            -4.95,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -352,8 +385,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -364,36 +399,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            4.950000000000001,
-            9.25,
-            0.0
+            7.093,
+            2.066,
+            0.1
           ],
           [
-            4.85,
-            9.25,
-            0.0
+            6.994,
+            -2.006,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0008",
+        "id": "edge:0008",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0007",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0008",
+        "from": "node:0008",
+        "to": "node:0007",
         "directed": false,
         "polyline_xyz": [
           [
-            4.950000000000001,
-            9.25,
-            0.0
+            7.093,
+            2.066,
+            0.1
           ],
           [
-            4.85,
-            9.25,
-            0.0
+            6.994,
+            -2.006,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -403,8 +441,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -415,36 +455,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            4.85,
-            9.25,
-            0.0
+            8.945,
+            5.912,
+            0.1
           ],
           [
-            4.750000000000002,
-            9.350000000000001,
-            0.0
+            6.509,
+            5.926,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0009",
+        "id": "edge:0011",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0008",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0009",
+        "from": "node:0009",
+        "to": "node:0010",
         "directed": false,
         "polyline_xyz": [
           [
-            4.85,
-            9.25,
-            0.0
+            8.945,
+            5.912,
+            0.1
           ],
           [
-            4.750000000000002,
-            9.350000000000001,
-            0.0
+            6.509,
+            5.926,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -454,8 +497,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -466,36 +511,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            4.750000000000002,
-            9.350000000000001,
-            0.0
+            6.49,
+            8.323,
+            0.1
           ],
           [
-            4.65,
-            9.350000000000001,
-            0.0
+            6.509,
+            5.926,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0010",
+        "id": "edge:0012",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0009",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0010",
+        "from": "node:0012",
+        "to": "node:0010",
         "directed": false,
         "polyline_xyz": [
           [
-            4.750000000000002,
-            9.350000000000001,
-            0.0
+            6.49,
+            8.323,
+            0.1
           ],
           [
-            4.65,
-            9.350000000000001,
-            0.0
+            6.509,
+            5.926,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -505,8 +553,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -517,36 +567,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            4.65,
-            9.350000000000001,
-            0.0
+            6.509,
+            5.926,
+            0.1
           ],
           [
-            4.550000000000001,
-            9.45,
-            0.0
+            7.093,
+            2.066,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0011",
+        "id": "edge:0013",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0010",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0011",
+        "from": "node:0010",
+        "to": "node:0008",
         "directed": false,
         "polyline_xyz": [
           [
-            4.65,
-            9.350000000000001,
-            0.0
+            6.509,
+            5.926,
+            0.1
           ],
           [
-            4.550000000000001,
-            9.45,
-            0.0
+            7.093,
+            2.066,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -556,8 +609,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -568,36 +623,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            4.550000000000001,
-            9.45,
-            0.0
+            8.945,
+            5.912,
+            0.1
           ],
           [
-            4.450000000000001,
-            9.45,
-            0.0
+            7.093,
+            2.066,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0012",
+        "id": "edge:0014",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0011",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0012",
+        "from": "node:0009",
+        "to": "node:0008",
         "directed": false,
         "polyline_xyz": [
           [
-            4.550000000000001,
-            9.45,
-            0.0
+            8.945,
+            5.912,
+            0.1
           ],
           [
-            4.450000000000001,
-            9.45,
-            0.0
+            7.093,
+            2.066,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -607,8 +665,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -619,36 +679,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            4.450000000000001,
-            9.45,
-            0.0
+            6.49,
+            8.323,
+            0.1
           ],
           [
-            4.35,
-            9.55,
-            0.0
+            0.403,
+            7.649,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0013",
+        "id": "edge:0015",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0012",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0013",
+        "from": "node:0012",
+        "to": "node:0014",
         "directed": false,
         "polyline_xyz": [
           [
-            4.450000000000001,
-            9.45,
-            0.0
+            6.49,
+            8.323,
+            0.1
           ],
           [
-            4.35,
-            9.55,
-            0.0
+            0.403,
+            7.649,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -658,8 +721,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -670,36 +735,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            4.35,
-            9.55,
-            0.0
+            6.509,
+            5.926,
+            0.1
           ],
           [
-            4.15,
-            9.55,
-            0.0
+            0.403,
+            7.649,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0014",
+        "id": "edge:0016",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0013",
-        "to": "route:production_factory:1F:component-001:free-centerline:point:0014",
+        "from": "node:0010",
+        "to": "node:0014",
         "directed": false,
         "polyline_xyz": [
           [
-            4.35,
-            9.55,
-            0.0
+            6.509,
+            5.926,
+            0.1
           ],
           [
-            4.15,
-            9.55,
-            0.0
+            0.403,
+            7.649,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -709,8 +777,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -721,36 +791,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            4.15,
-            9.55,
-            0.0
+            0.403,
+            7.649,
+            0.1
           ],
           [
-            4.050000000000001,
-            9.650000000000002,
-            0.0
+            0.353,
+            5.709,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-001:free-centerline:edge:0015",
+        "id": "edge:0017",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-001:free-centerline:point:0014",
-        "to": "node:production_factory:1F:component-001:route-end",
+        "from": "node:0014",
+        "to": "node:0013",
         "directed": false,
         "polyline_xyz": [
           [
-            4.15,
-            9.55,
-            0.0
+            0.403,
+            7.649,
+            0.1
           ],
           [
-            4.050000000000001,
-            9.650000000000002,
-            0.0
+            0.353,
+            5.709,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -760,8 +833,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -772,36 +847,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            -2.5500000000000007,
-            -1.1500000000000004,
-            0.0
+            0.353,
+            5.709,
+            0.1
           ],
           [
-            -0.9499999999999993,
-            -1.1500000000000004,
-            0.0
+            0.302,
+            3.874,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0001",
+        "id": "edge:0018",
         "kind": "custom_connection",
-        "from": "node:production_factory:1F:component-002:route-start",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0001",
+        "from": "node:0013",
+        "to": "node:0015",
         "directed": false,
         "polyline_xyz": [
           [
-            -2.5500000000000007,
-            -1.1500000000000004,
-            0.0
+            0.353,
+            5.709,
+            0.1
           ],
           [
-            -0.9499999999999993,
-            -1.1500000000000004,
-            0.0
+            0.302,
+            3.874,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -811,8 +889,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -823,36 +903,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            -0.9499999999999993,
-            -1.1500000000000004,
-            0.0
+            0.302,
+            3.874,
+            0.1
           ],
           [
-            -0.8499999999999996,
-            -1.25,
-            0.0
+            0.068,
+            0.389,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0002",
+        "id": "edge:0019",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0001",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0002",
+        "from": "node:0015",
+        "to": "node:0017",
         "directed": false,
         "polyline_xyz": [
           [
-            -0.9499999999999993,
-            -1.1500000000000004,
-            0.0
+            0.302,
+            3.874,
+            0.1
           ],
           [
-            -0.8499999999999996,
-            -1.25,
-            0.0
+            0.068,
+            0.389,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -862,8 +945,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -874,36 +959,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            -0.8499999999999996,
-            -1.25,
-            0.0
+            0.068,
+            0.389,
+            0.1
           ],
           [
-            0.6500000000000004,
-            -1.25,
-            0.0
+            1.469,
+            -2.02,
+            0.118
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0003",
+        "id": "edge:0020",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0002",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0003",
+        "from": "node:0017",
+        "to": "node:0003",
         "directed": false,
         "polyline_xyz": [
           [
-            -0.8499999999999996,
-            -1.25,
-            0.0
+            0.068,
+            0.389,
+            0.1
           ],
           [
-            0.6500000000000004,
-            -1.25,
-            0.0
+            1.469,
+            -2.02,
+            0.118
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -913,8 +1001,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -925,36 +1015,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            0.6500000000000004,
-            -1.25,
-            0.0
+            0.302,
+            3.874,
+            0.1
           ],
           [
-            1.8499999999999996,
-            -2.45,
-            0.0
+            -6.912,
+            4.53,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0004",
+        "id": "edge:0021",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0003",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0004",
+        "from": "node:0015",
+        "to": "node:0028",
         "directed": false,
         "polyline_xyz": [
           [
-            0.6500000000000004,
-            -1.25,
-            0.0
+            0.302,
+            3.874,
+            0.1
           ],
           [
-            1.8499999999999996,
-            -2.45,
-            0.0
+            -6.912,
+            4.53,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -964,8 +1057,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -976,36 +1071,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            1.8499999999999996,
-            -2.45,
-            0.0
+            -6.843,
+            7.99,
+            0.1
           ],
           [
-            1.950000000000001,
-            -2.45,
-            0.0
+            -6.912,
+            4.53,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0005",
+        "id": "edge:0022",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0004",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0005",
+        "from": "node:0016",
+        "to": "node:0028",
         "directed": false,
         "polyline_xyz": [
           [
-            1.8499999999999996,
-            -2.45,
-            0.0
+            -6.843,
+            7.99,
+            0.1
           ],
           [
-            1.950000000000001,
-            -2.45,
-            0.0
+            -6.912,
+            4.53,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -1015,8 +1113,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -1027,36 +1127,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            1.950000000000001,
-            -2.45,
-            0.0
+            -6.843,
+            7.99,
+            0.1
           ],
           [
-            2.0500000000000007,
-            -2.5500000000000007,
-            0.0
+            0.403,
+            7.649,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0006",
+        "id": "edge:0023",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0005",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0006",
+        "from": "node:0016",
+        "to": "node:0014",
         "directed": false,
         "polyline_xyz": [
           [
-            1.950000000000001,
-            -2.45,
-            0.0
+            -6.843,
+            7.99,
+            0.1
           ],
           [
-            2.0500000000000007,
-            -2.5500000000000007,
-            0.0
+            0.403,
+            7.649,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -1066,8 +1169,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -1078,36 +1183,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            2.0500000000000007,
-            -2.5500000000000007,
-            0.0
+            0.068,
+            0.389,
+            0.1
           ],
           [
-            2.1500000000000004,
-            -2.5500000000000007,
-            0.0
+            -3.56,
+            -0.041,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0007",
+        "id": "edge:0024",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0006",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0007",
+        "from": "node:0017",
+        "to": "node:0023",
         "directed": false,
         "polyline_xyz": [
           [
-            2.0500000000000007,
-            -2.5500000000000007,
-            0.0
+            0.068,
+            0.389,
+            0.1
           ],
           [
-            2.1500000000000004,
-            -2.5500000000000007,
-            0.0
+            -3.56,
+            -0.041,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -1117,8 +1225,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -1129,36 +1239,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            2.1500000000000004,
-            -2.5500000000000007,
-            0.0
+            -3.56,
+            -0.041,
+            0.1
           ],
           [
-            2.25,
-            -2.6500000000000004,
-            0.0
+            -4.117,
+            -1.576,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0008",
+        "id": "edge:0025",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0007",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0008",
+        "from": "node:0023",
+        "to": "node:0027",
         "directed": false,
         "polyline_xyz": [
           [
-            2.1500000000000004,
-            -2.5500000000000007,
-            0.0
+            -3.56,
+            -0.041,
+            0.1
           ],
           [
-            2.25,
-            -2.6500000000000004,
-            0.0
+            -4.117,
+            -1.576,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -1168,8 +1281,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -1180,36 +1295,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            2.25,
-            -2.6500000000000004,
-            0.0
+            -3.56,
+            -0.041,
+            0.1
           ],
           [
-            2.3499999999999996,
-            -2.6500000000000004,
-            0.0
+            -7.716,
+            0.012,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0009",
+        "id": "edge:0026",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0008",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0009",
+        "from": "node:0023",
+        "to": "node:0018",
         "directed": false,
         "polyline_xyz": [
           [
-            2.25,
-            -2.6500000000000004,
-            0.0
+            -3.56,
+            -0.041,
+            0.1
           ],
           [
-            2.3499999999999996,
-            -2.6500000000000004,
-            0.0
+            -7.716,
+            0.012,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -1219,8 +1337,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -1231,36 +1351,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            2.3499999999999996,
-            -2.6500000000000004,
-            0.0
+            -7.819,
+            -1.694,
+            0.1
           ],
           [
-            2.450000000000001,
-            -2.75,
-            0.0
+            -7.716,
+            0.012,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0010",
+        "id": "edge:0027",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0009",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0010",
+        "from": "node:0022",
+        "to": "node:0018",
         "directed": false,
         "polyline_xyz": [
           [
-            2.3499999999999996,
-            -2.6500000000000004,
-            0.0
+            -7.819,
+            -1.694,
+            0.1
           ],
           [
-            2.450000000000001,
-            -2.75,
-            0.0
+            -7.716,
+            0.012,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -1270,8 +1393,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -1282,36 +1407,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            2.450000000000001,
-            -2.75,
-            0.0
+            -7.888,
+            -3.365,
+            0.1
           ],
           [
-            2.5500000000000007,
-            -2.75,
-            0.0
+            -7.819,
+            -1.694,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0011",
+        "id": "edge:0028",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0010",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0011",
+        "from": "node:0021",
+        "to": "node:0022",
         "directed": false,
         "polyline_xyz": [
           [
-            2.450000000000001,
-            -2.75,
-            0.0
+            -7.888,
+            -3.365,
+            0.1
           ],
           [
-            2.5500000000000007,
-            -2.75,
-            0.0
+            -7.819,
+            -1.694,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -1321,8 +1449,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -1333,36 +1463,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            2.5500000000000007,
-            -2.75,
-            0.0
+            -7.905,
+            -5.72,
+            0.1
           ],
           [
-            2.6500000000000004,
-            -2.8500000000000005,
-            0.0
+            -7.888,
+            -3.365,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0012",
+        "id": "edge:0029",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0011",
-        "to": "route:production_factory:1F:component-002:free-centerline:point:0012",
+        "from": "node:0020",
+        "to": "node:0021",
         "directed": false,
         "polyline_xyz": [
           [
-            2.5500000000000007,
-            -2.75,
-            0.0
+            -7.905,
+            -5.72,
+            0.1
           ],
           [
-            2.6500000000000004,
-            -2.8500000000000005,
-            0.0
+            -7.888,
+            -3.365,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -1372,8 +1505,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -1384,36 +1519,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            2.6500000000000004,
-            -2.8500000000000005,
-            0.0
+            -7.844,
+            -8.79,
+            0.1
           ],
           [
-            2.75,
-            -2.8500000000000005,
-            0.0
+            -7.905,
+            -5.72,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-002:free-centerline:edge:0013",
+        "id": "edge:0030",
         "kind": "custom_connection",
-        "from": "route:production_factory:1F:component-002:free-centerline:point:0012",
-        "to": "node:production_factory:1F:component-002:route-end",
+        "from": "node:0019",
+        "to": "node:0020",
         "directed": false,
         "polyline_xyz": [
           [
-            2.6500000000000004,
-            -2.8500000000000005,
-            0.0
+            -7.844,
+            -8.79,
+            0.1
           ],
           [
-            2.75,
-            -2.8500000000000005,
-            0.0
+            -7.905,
+            -5.72,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -1423,8 +1561,10 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }
@@ -1435,36 +1575,39 @@
         "type": "LineString",
         "coordinates": [
           [
-            0.34999999999999964,
-            -0.34999999999999964,
-            0.0
+            -4.082,
+            -3.708,
+            0.1
           ],
           [
-            -0.34999999999999964,
-            0.34999999999999964,
-            0.0
+            -4.117,
+            -1.576,
+            0.1
           ]
         ]
       },
       "properties": {
-        "id": "route:production_factory:1F:component-003:free-centerline:edge:0001",
+        "id": "edge:0031",
         "kind": "custom_connection",
-        "from": "node:production_factory:1F:component-003:route-start",
-        "to": "node:production_factory:1F:component-003:route-end",
+        "from": "node:0026",
+        "to": "node:0027",
         "directed": false,
         "polyline_xyz": [
           [
-            0.34999999999999964,
-            -0.34999999999999964,
-            0.0
+            -4.082,
+            -3.708,
+            0.1
           ],
           [
-            -0.34999999999999964,
-            0.34999999999999964,
-            0.0
+            -4.117,
+            -1.576,
+            0.1
           ]
         ],
         "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
           "ground_small": {
             "clearance_m": 0.8
           },
@@ -1474,8 +1617,1186 @@
         },
         "source_ref": null,
         "locked_geometry": false,
-        "traversal_mode": "walk",
-        "required_controller_capabilities": [],
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.898,
+            -5.835,
+            0.1
+          ],
+          [
+            -4.082,
+            -3.708,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0032",
+        "kind": "custom_connection",
+        "from": "node:0025",
+        "to": "node:0026",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.898,
+            -5.835,
+            0.1
+          ],
+          [
+            -4.082,
+            -3.708,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.898,
+            -5.835,
+            0.1
+          ],
+          [
+            -3.934,
+            -7.792,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0033",
+        "kind": "custom_connection",
+        "from": "node:0025",
+        "to": "node:0024",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.898,
+            -5.835,
+            0.1
+          ],
+          [
+            -3.934,
+            -7.792,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.353,
+            5.709,
+            0.1
+          ],
+          [
+            -6.912,
+            4.53,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0034",
+        "kind": "custom_connection",
+        "from": "node:0013",
+        "to": "node:0028",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            0.353,
+            5.709,
+            0.1
+          ],
+          [
+            -6.912,
+            4.53,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.353,
+            5.709,
+            0.1
+          ],
+          [
+            6.509,
+            5.926,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0035",
+        "kind": "custom_connection",
+        "from": "node:0013",
+        "to": "node:0010",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            0.353,
+            5.709,
+            0.1
+          ],
+          [
+            6.509,
+            5.926,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            7.093,
+            2.066,
+            0.1
+          ],
+          [
+            0.353,
+            5.709,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0036",
+        "kind": "custom_connection",
+        "from": "node:0008",
+        "to": "node:0013",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            7.093,
+            2.066,
+            0.1
+          ],
+          [
+            0.353,
+            5.709,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            7.093,
+            2.066,
+            0.1
+          ],
+          [
+            0.302,
+            3.874,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0037",
+        "kind": "custom_connection",
+        "from": "node:0008",
+        "to": "node:0015",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            7.093,
+            2.066,
+            0.1
+          ],
+          [
+            0.302,
+            3.874,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            7.093,
+            2.066,
+            0.1
+          ],
+          [
+            0.068,
+            0.389,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0038",
+        "kind": "custom_connection",
+        "from": "node:0008",
+        "to": "node:0017",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            7.093,
+            2.066,
+            0.1
+          ],
+          [
+            0.068,
+            0.389,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            6.994,
+            -2.006,
+            0.1
+          ],
+          [
+            5.544,
+            -6.781,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0039",
+        "kind": "custom_connection",
+        "from": "node:0007",
+        "to": "node:0005",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            6.994,
+            -2.006,
+            0.1
+          ],
+          [
+            5.544,
+            -6.781,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            6.994,
+            -2.006,
+            0.1
+          ],
+          [
+            8.002,
+            -6.631,
+            0.2
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0040",
+        "kind": "custom_connection",
+        "from": "node:0007",
+        "to": "node:0004",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            6.994,
+            -2.006,
+            0.1
+          ],
+          [
+            8.002,
+            -6.631,
+            0.2
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.068,
+            0.389,
+            0.1
+          ],
+          [
+            -4.117,
+            -1.576,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0041",
+        "kind": "custom_connection",
+        "from": "node:0017",
+        "to": "node:0027",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            0.068,
+            0.389,
+            0.1
+          ],
+          [
+            -4.117,
+            -1.576,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.302,
+            3.874,
+            0.1
+          ],
+          [
+            -3.56,
+            -0.041,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0042",
+        "kind": "custom_connection",
+        "from": "node:0015",
+        "to": "node:0023",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            0.302,
+            3.874,
+            0.1
+          ],
+          [
+            -3.56,
+            -0.041,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.353,
+            5.709,
+            0.1
+          ],
+          [
+            -6.843,
+            7.99,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0043",
+        "kind": "custom_connection",
+        "from": "node:0013",
+        "to": "node:0016",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            0.353,
+            5.709,
+            0.1
+          ],
+          [
+            -6.843,
+            7.99,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            6.509,
+            5.926,
+            0.1
+          ],
+          [
+            0.302,
+            3.874,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0044",
+        "kind": "custom_connection",
+        "from": "node:0010",
+        "to": "node:0015",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            6.509,
+            5.926,
+            0.1
+          ],
+          [
+            0.302,
+            3.874,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            6.49,
+            8.323,
+            0.1
+          ],
+          [
+            7.093,
+            2.066,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0048",
+        "kind": "custom_connection",
+        "from": "node:0012",
+        "to": "node:0008",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            6.49,
+            8.323,
+            0.1
+          ],
+          [
+            7.093,
+            2.066,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            8.945,
+            5.912,
+            0.1
+          ],
+          [
+            0.068,
+            0.389,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0051",
+        "kind": "custom_connection",
+        "from": "node:0009",
+        "to": "node:0017",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            8.945,
+            5.912,
+            0.1
+          ],
+          [
+            0.068,
+            0.389,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            8.945,
+            5.912,
+            0.1
+          ],
+          [
+            0.403,
+            7.649,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0052",
+        "kind": "custom_connection",
+        "from": "node:0009",
+        "to": "node:0014",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            8.945,
+            5.912,
+            0.1
+          ],
+          [
+            0.403,
+            7.649,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.068,
+            0.389,
+            0.1
+          ],
+          [
+            -3.934,
+            -7.792,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0053",
+        "kind": "custom_connection",
+        "from": "node:0017",
+        "to": "node:0024",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            0.068,
+            0.389,
+            0.1
+          ],
+          [
+            -3.934,
+            -7.792,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.068,
+            0.389,
+            0.1
+          ],
+          [
+            -4.082,
+            -3.708,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0054",
+        "kind": "custom_connection",
+        "from": "node:0017",
+        "to": "node:0026",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            0.068,
+            0.389,
+            0.1
+          ],
+          [
+            -4.082,
+            -3.708,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.302,
+            3.874,
+            0.1
+          ],
+          [
+            -6.843,
+            7.99,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0055",
+        "kind": "custom_connection",
+        "from": "node:0015",
+        "to": "node:0016",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            0.302,
+            3.874,
+            0.1
+          ],
+          [
+            -6.843,
+            7.99,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            1.469,
+            -2.02,
+            0.118
+          ],
+          [
+            6.509,
+            5.926,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0056",
+        "kind": "custom_connection",
+        "from": "node:0003",
+        "to": "node:0010",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            1.469,
+            -2.02,
+            0.118
+          ],
+          [
+            6.509,
+            5.926,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            10.441,
+            1.061,
+            0.1
+          ],
+          [
+            7.093,
+            2.066,
+            0.1
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0057",
+        "kind": "custom_connection",
+        "from": "node:0030",
+        "to": "node:0008",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            10.441,
+            1.061,
+            0.1
+          ],
+          [
+            7.093,
+            2.066,
+            0.1
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "stairs",
+        "required_controller_capabilities": [
+          "stair_capable"
+        ],
         "feature_type": "topology_edge",
         "robot_validated": false
       }

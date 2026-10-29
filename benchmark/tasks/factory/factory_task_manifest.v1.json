@@ -1,0 +1,252 @@
+{
+  "schema": "heterocoord.factory.task_manifest.v1",
+  "version": 1,
+  "scene_key": "production_factory",
+  "scenario_id": "factory_fire_rescue",
+  "task_family": "factory_patrol_fire_rescue",
+  "task_contract_version": "factory.final.v1",
+  "semantic_map": {
+    "root": "usd/scene/Production and logistics/factory/semantic_map/current",
+    "revision": "0c9aa2a962c04cdc9f1817952ab0e8bc",
+    "semantic_binding_digest": "fb42d05141aed31026df11f8a1d1665c507469c8206ea290b6e904c04375df6e",
+    "robot_validated": false
+  },
+  "clock": {
+    "dt_s": 0.02,
+    "wall_clock_excluded": true
+  },
+  "robot_roster": [
+    {
+      "robot_id": "carter",
+      "model": "Carter",
+      "domain": "ground",
+      "initial_point": "start_1",
+      "speed_mps": 0.75,
+      "capabilities": [
+        "navigation",
+        "incident_response",
+        "fire_sensor"
+      ]
+    },
+    {
+      "robot_id": "m20_d1",
+      "model": "M20+D1",
+      "domain": "ground",
+      "initial_point": "start_2",
+      "speed_mps": 0.75,
+      "capabilities": [
+        "navigation",
+        "patrol_ground",
+        "manipulator",
+        "button_press",
+        "extinguisher_pick",
+        "extinguisher_transport",
+        "handoff_receive"
+      ]
+    },
+    {
+      "robot_id": "lite3",
+      "model": "lite3",
+      "domain": "ground",
+      "initial_point": "start_3",
+      "speed_mps": 0.75,
+      "capabilities": [
+        "navigation",
+        "patrol_ground",
+        "handoff_receive",
+        "extinguisher_transport"
+      ]
+    },
+    {
+      "robot_id": "scout",
+      "model": "scout",
+      "domain": "ground",
+      "initial_point": "start_4",
+      "speed_mps": 0.75,
+      "capabilities": [
+        "navigation",
+        "patrol_ground",
+        "handoff_receive",
+        "extinguisher_transport"
+      ]
+    }
+  ],
+  "patrol": {
+    "required_labels": [
+      "Inspection point_1",
+      "Inspection point_2",
+      "Workstation_1",
+      "Workstation_2",
+      "Workstation_3",
+      "Workstation_4",
+      "Machine_1",
+      "Machine_2"
+    ],
+    "carter_visibility": "hidden_until_fire_event",
+    "machine_1_event_trigger": "first_reported_completion"
+  },
+  "events": {
+    "fire": {
+      "event_id": "fire_alert",
+      "trigger_task": "patrol_07",
+      "trigger_mode": "first_completion_idempotent",
+      "required_responses": [
+        "carter_fire_sample",
+        "help_clear",
+        "fire_alarm_press",
+        "extinguisher_deliver"
+      ]
+    },
+    "blockage": {
+      "trigger": "carter_to_block_arrival_at_Inspection_point_2",
+      "release_task": "help_clear",
+      "policy": "carter_holds_until_manipulator_report_accepted"
+    }
+  },
+  "objects": [
+    {
+      "object_id": "extinguisher",
+      "source": "2F Fire Extinguisher",
+      "destination": "fire",
+      "required_capability": "extinguisher_pick"
+    }
+  ],
+  "service_actions": {
+    "help_clear": 3.0,
+    "carter_fire_sample": 2.0,
+    "fire_alarm_press": 2.0,
+    "extinguisher_pick": 3.0,
+    "extinguisher_deliver": 3.0,
+    "extinguisher_release": 2.0,
+    "extinguisher_receive": 2.0
+  },
+  "conditions": [
+    {
+      "condition_id": "nominal_direct",
+      "kind": "control",
+      "communication": "C0",
+      "extinguisher_mode": "direct",
+      "horizon_ticks": 120000,
+      "report_retry_limit": 8,
+      "report_retry_interval_ticks": 10
+    },
+    {
+      "condition_id": "nominal_handoff",
+      "kind": "handoff_factor",
+      "communication": "C0",
+      "extinguisher_mode": "handoff",
+      "horizon_ticks": 120000,
+      "report_retry_limit": 8,
+      "report_retry_interval_ticks": 10
+    },
+    {
+      "condition_id": "communication_stress_direct",
+      "kind": "communication_factor",
+      "communication": "C3",
+      "extinguisher_mode": "direct",
+      "horizon_ticks": 120000,
+      "report_retry_limit": 8,
+      "report_retry_interval_ticks": 10
+    },
+    {
+      "condition_id": "communication_stress_handoff",
+      "kind": "communication_factor",
+      "communication": "C3",
+      "extinguisher_mode": "handoff",
+      "horizon_ticks": 120000,
+      "report_retry_limit": 8,
+      "report_retry_interval_ticks": 10
+    }
+  ],
+  "difficulty_tiers": [
+    {
+      "difficulty_tier": 1,
+      "task_id": "factory_patrol_t1",
+      "default_condition": "nominal_direct",
+      "relation_signature": {
+        "P1": true,
+        "P2": false,
+        "P4": false
+      }
+    },
+    {
+      "difficulty_tier": 2,
+      "task_id": "factory_fire_response_t2",
+      "default_condition": "nominal_direct",
+      "relation_signature": {
+        "P1": false,
+        "P2": true,
+        "P4": false
+      }
+    },
+    {
+      "difficulty_tier": 3,
+      "task_id": "factory_fire_handoff_t3",
+      "default_condition": "nominal_handoff",
+      "relation_signature": {
+        "P1": false,
+        "P2": true,
+        "P4": false
+      }
+    },
+    {
+      "difficulty_tier": 4,
+      "task_id": "factory_fire_stress_t4",
+      "default_condition": "communication_stress_handoff",
+      "relation_signature": {
+        "P1": false,
+        "P2": true,
+        "P4": true
+      }
+    }
+  ],
+  "checkpoint_policy": {
+    "schema": "factory.checkpoints.v1",
+    "capture": [
+      "spawn_valid",
+      "patrol_ready",
+      "machine_1_fire_triggered",
+      "carter_blocked",
+      "help_clear",
+      "fire_sample",
+      "fire_alarm",
+      "extinguisher_picked",
+      "handoff_release",
+      "handoff_accept",
+      "extinguisher_delivered",
+      "terminal"
+    ],
+    "paired_from": "machine_1_fire_triggered",
+    "replay_required": true
+  },
+  "timing_policy": {
+    "calibration_status": "frozen_v1",
+    "deadline_source": "measured_p95_plus_registered_margin",
+    "margin_fraction": 0.15,
+    "margin_floor_s": 5.0,
+    "formal_score_requires": [
+      "calibration_receipt",
+      "three_repeats",
+      "paired_conditions"
+    ],
+    "hard_deadline_ticks": {
+      "t1:nominal_direct": 3133,
+      "t1:nominal_handoff": 3133,
+      "t1:communication_stress_direct": 3133,
+      "t1:communication_stress_handoff": 3133,
+      "t2:nominal_direct": 9062,
+      "t2:nominal_handoff": 9062,
+      "t2:communication_stress_direct": 9243,
+      "t2:communication_stress_handoff": 9243,
+      "t3:nominal_direct": 10099,
+      "t3:nominal_handoff": 10099,
+      "t3:communication_stress_direct": 10278,
+      "t3:communication_stress_handoff": 10278,
+      "t4:nominal_direct": 10099,
+      "t4:nominal_handoff": 10099,
+      "t4:communication_stress_direct": 10278,
+      "t4:communication_stress_handoff": 10278
+    }
+  },
+  "paper_score_eligible": false
+}

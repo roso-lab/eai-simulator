@@ -1,0 +1,309 @@
+{
+  "schema": "heterocoord.factory.timing_calibration.v1",
+  "control_dt_s": 0.02,
+  "margin_fraction": 0.15,
+  "margin_floor_s": 5.0,
+  "method": "10 deterministic seed repeats per algorithm/condition; deadline=max(indexed P95*1.15,P95+5 s), quantized to control tick",
+  "rows": [
+    {
+      "algorithm": "EMOS-factory-case-goal-v1",
+      "tier": 1,
+      "condition": "nominal_direct",
+      "repeats": 10,
+      "success_count": 10,
+      "makespan_s": {
+        "min": 54.480000000000004,
+        "p50": 54.480000000000004,
+        "p95_indexed": 54.480000000000004,
+        "max": 54.480000000000004
+      },
+      "report_wait_ticks": {
+        "p95": 0
+      },
+      "deadline_s": 62.660000000000004,
+      "deadline_tick": 3133,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "algorithm": "EMOS-factory-case-goal-v1",
+      "tier": 2,
+      "condition": "nominal_direct",
+      "repeats": 10,
+      "success_count": 10,
+      "makespan_s": {
+        "min": 157.6,
+        "p50": 157.6,
+        "p95_indexed": 157.6,
+        "max": 157.6
+      },
+      "report_wait_ticks": {
+        "p95": 0
+      },
+      "deadline_s": 181.24,
+      "deadline_tick": 9062,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "algorithm": "EMOS-factory-case-goal-v1",
+      "tier": 2,
+      "condition": "communication_stress_direct",
+      "repeats": 10,
+      "success_count": 10,
+      "makespan_s": {
+        "min": 159.06,
+        "p50": 159.72,
+        "p95_indexed": 160.74,
+        "max": 180.52
+      },
+      "report_wait_ticks": {
+        "p95": 211
+      },
+      "deadline_s": 184.86,
+      "deadline_tick": 9243,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "algorithm": "EMOS-factory-case-goal-v1",
+      "tier": 3,
+      "condition": "nominal_handoff",
+      "repeats": 10,
+      "success_count": 10,
+      "makespan_s": {
+        "min": 175.64000000000001,
+        "p50": 175.64000000000001,
+        "p95_indexed": 175.64000000000001,
+        "max": 175.64000000000001
+      },
+      "report_wait_ticks": {
+        "p95": 0
+      },
+      "deadline_s": 201.98000000000002,
+      "deadline_tick": 10099,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "algorithm": "EMOS-factory-case-goal-v1",
+      "tier": 3,
+      "condition": "communication_stress_handoff",
+      "repeats": 10,
+      "success_count": 10,
+      "makespan_s": {
+        "min": 176.08,
+        "p50": 178.1,
+        "p95_indexed": 178.74,
+        "max": 179.14000000000001
+      },
+      "report_wait_ticks": {
+        "p95": 250
+      },
+      "deadline_s": 205.56,
+      "deadline_tick": 10278,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "algorithm": "TeamWeaver-factory-allocation-v1",
+      "tier": 1,
+      "condition": "nominal_direct",
+      "repeats": 10,
+      "success_count": 10,
+      "makespan_s": {
+        "min": 54.480000000000004,
+        "p50": 54.480000000000004,
+        "p95_indexed": 54.480000000000004,
+        "max": 54.480000000000004
+      },
+      "report_wait_ticks": {
+        "p95": 0
+      },
+      "deadline_s": 62.660000000000004,
+      "deadline_tick": 3133,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "algorithm": "TeamWeaver-factory-allocation-v1",
+      "tier": 2,
+      "condition": "nominal_direct",
+      "repeats": 10,
+      "success_count": 10,
+      "makespan_s": {
+        "min": 157.6,
+        "p50": 157.6,
+        "p95_indexed": 157.6,
+        "max": 157.6
+      },
+      "report_wait_ticks": {
+        "p95": 0
+      },
+      "deadline_s": 181.24,
+      "deadline_tick": 9062,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "algorithm": "TeamWeaver-factory-allocation-v1",
+      "tier": 2,
+      "condition": "communication_stress_direct",
+      "repeats": 10,
+      "success_count": 10,
+      "makespan_s": {
+        "min": 159.06,
+        "p50": 159.72,
+        "p95_indexed": 160.74,
+        "max": 180.52
+      },
+      "report_wait_ticks": {
+        "p95": 211
+      },
+      "deadline_s": 184.86,
+      "deadline_tick": 9243,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "algorithm": "TeamWeaver-factory-allocation-v1",
+      "tier": 3,
+      "condition": "nominal_handoff",
+      "repeats": 10,
+      "success_count": 10,
+      "makespan_s": {
+        "min": 175.64000000000001,
+        "p50": 175.64000000000001,
+        "p95_indexed": 175.64000000000001,
+        "max": 175.64000000000001
+      },
+      "report_wait_ticks": {
+        "p95": 0
+      },
+      "deadline_s": 201.98000000000002,
+      "deadline_tick": 10099,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "algorithm": "TeamWeaver-factory-allocation-v1",
+      "tier": 3,
+      "condition": "communication_stress_handoff",
+      "repeats": 10,
+      "success_count": 10,
+      "makespan_s": {
+        "min": 176.08,
+        "p50": 178.1,
+        "p95_indexed": 178.74,
+        "max": 179.14000000000001
+      },
+      "report_wait_ticks": {
+        "p95": 250
+      },
+      "deadline_s": 205.56,
+      "deadline_tick": 10278,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    }
+  ]
+}
