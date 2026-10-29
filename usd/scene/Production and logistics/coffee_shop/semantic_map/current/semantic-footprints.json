@@ -2,7 +2,7 @@
   "schema": "eai.semantic_footprints",
   "version": 1,
   "scene_id": "production_coffee_shop",
-  "project_revision": "23d7f3b37c0e4737aa700758cdb8fc89",
+  "project_revision": "48912c4fd29349f2a2386308f8781089",
   "coordinate_frame": "scene_world",
   "objects": [],
   "semantics": {

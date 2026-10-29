@@ -1,9 +1,214 @@
 {
   "schema": "eai.semantic_points",
-  "version": 1,
+  "version": 3,
   "scene_key": "production_coffee_shop",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
   "up_axis": "Z",
-  "points": []
+  "points": [
+    {
+      "id": "semantic:1e64c2851a24457bbf5cbafae3a60d15",
+      "label": "cup_holder",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0004"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0037"
+        }
+      ]
+    },
+    {
+      "id": "semantic:acaf8f9a6517412a867dad8dcd201ed8",
+      "label": "coffee_machine",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0003"
+        }
+      ]
+    },
+    {
+      "id": "semantic:738e7d7f11f3489ea3d3299b216f148d",
+      "label": "sink",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0005"
+        }
+      ]
+    },
+    {
+      "id": "semantic:15a3bb0305b34b3fabd4085da05a387b",
+      "label": "milk_frother",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0006"
+        }
+      ]
+    },
+    {
+      "id": "semantic:7c24993a870a4f46a266d45a74b59c70",
+      "label": "spice_rack",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0019"
+        }
+      ]
+    },
+    {
+      "id": "semantic:44a5ec20ffd540ef9dbdef5d23b1b0e8",
+      "label": "ordering_counter-worker",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0007"
+        }
+      ]
+    },
+    {
+      "id": "semantic:425190a9b15144c0b00813dd27ffb9ff",
+      "label": "ordering_counter-customer",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0021"
+        }
+      ]
+    },
+    {
+      "id": "semantic:9234580fd9b54d23bdb3317eef508f54",
+      "label": "bread_counter",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0017"
+        }
+      ]
+    },
+    {
+      "id": "semantic:8dc2e8a4db094f49ae01f578c5df07cc",
+      "label": "gate-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0001"
+        }
+      ]
+    },
+    {
+      "id": "semantic:3f78529c4bcb4e738098e119b7826b30",
+      "label": "gate-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0002"
+        }
+      ]
+    },
+    {
+      "id": "semantic:d1f6532abd894328ac4be54aa488ad40",
+      "label": "side_door-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0008"
+        }
+      ]
+    },
+    {
+      "id": "semantic:8f9049bc5e58473aa33930a998dd80e3",
+      "label": "side_door-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0009"
+        }
+      ]
+    },
+    {
+      "id": "semantic:881ecd161ed446618f57c4ea8a8e0b00",
+      "label": "shaker",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0037"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0038"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b25e4d417628428281fe376823f10df9",
+      "label": "rest_area",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0040"
+        }
+      ]
+    }
+  ]
 }
