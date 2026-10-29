@@ -1,0 +1,147 @@
+{
+  "schema": "heterocoord.living_house.timing_calibration.v1",
+  "status": "logical_topology_calibration_after_stair_gate_update",
+  "clock_dt_s": 0.02,
+  "algorithm": "emos_living_house_goal_v1",
+  "repeat_count": 10,
+  "rows": [
+    {
+      "tier": 1,
+      "condition_id": "C0",
+      "seeds": 10,
+      "success_count": 10,
+      "completion_ticks": [
+        1339,
+        1339,
+        1339,
+        1339,
+        1339,
+        1339,
+        1339,
+        1339,
+        1339,
+        1339
+      ],
+      "completion_s": [
+        26.78,
+        26.78,
+        26.78,
+        26.78,
+        26.78,
+        26.78,
+        26.78,
+        26.78,
+        26.78,
+        26.78
+      ],
+      "p50_tick": 1339.0,
+      "p95_tick": 1339,
+      "max_tick": 1339,
+      "candidate_deadline_tick": 1589
+    },
+    {
+      "tier": 2,
+      "condition_id": "C0",
+      "seeds": 10,
+      "success_count": 10,
+      "completion_ticks": [
+        3498,
+        3498,
+        3498,
+        3498,
+        3498,
+        3498,
+        3498,
+        3498,
+        3498,
+        3498
+      ],
+      "completion_s": [
+        69.96,
+        69.96,
+        69.96,
+        69.96,
+        69.96,
+        69.96,
+        69.96,
+        69.96,
+        69.96,
+        69.96
+      ],
+      "p50_tick": 3498.0,
+      "p95_tick": 3498,
+      "max_tick": 3498,
+      "candidate_deadline_tick": 4022
+    },
+    {
+      "tier": 3,
+      "condition_id": "C1",
+      "seeds": 10,
+      "success_count": 10,
+      "completion_ticks": [
+        1172,
+        1172,
+        1172,
+        1172,
+        1172,
+        1172,
+        1172,
+        1172,
+        1172,
+        1172
+      ],
+      "completion_s": [
+        23.44,
+        23.44,
+        23.44,
+        23.44,
+        23.44,
+        23.44,
+        23.44,
+        23.44,
+        23.44,
+        23.44
+      ],
+      "p50_tick": 1172.0,
+      "p95_tick": 1172,
+      "max_tick": 1172,
+      "candidate_deadline_tick": 1422
+    },
+    {
+      "tier": 4,
+      "condition_id": "C2",
+      "seeds": 10,
+      "success_count": 10,
+      "completion_ticks": [
+        4570,
+        4581,
+        4591,
+        4581,
+        4581,
+        4635,
+        4570,
+        4613,
+        4613,
+        3983
+      ],
+      "completion_s": [
+        91.4,
+        91.62,
+        91.82,
+        91.62,
+        91.62,
+        92.7,
+        91.4,
+        92.26,
+        92.26,
+        79.66
+      ],
+      "p50_tick": 4581.0,
+      "p95_tick": 4613,
+      "max_tick": 4635,
+      "candidate_deadline_tick": 5304
+    }
+  ],
+  "freeze_rule": "quantize_to_0.02(max(P95+5s,P95*1.15))",
+  "paper_score_eligible": false
+}

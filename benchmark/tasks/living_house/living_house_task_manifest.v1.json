@@ -1,0 +1,100 @@
+{
+  "schema": "heterocoord.living_house.task_manifest.v1",
+  "version": 1,
+  "scene_key": "living_house",
+  "scenario_id": "living_house",
+  "task_family": "家庭场景椅子协作搬运、跨域取物与表面操作",
+  "task_contract_version": "living_house.final.v1",
+  "semantic_map": {
+    "root": "usd/scene/Living and public space/house/semantic_map/current",
+    "revision": "4a5247338b1a4297ae6f93dbff12ae51",
+    "semantic_binding_digest": "109ee095c96533c026e60c78fd0fe0ec421689fa147dc9f34cd3816f4f756bc3",
+    "robot_validated": false,
+    "surface_interaction_witness": "logical_pose_from_Manipulation_point1",
+    "status": "logical_track_pending_robot_and_interaction_witness"
+  },
+  "spawn_contract": {
+    "Pegasus": {"model": "Pegasus", "domain": "aerial", "initial_point": "start_1"},
+    "Pepper": {"model": "Pepper", "domain": "ground", "initial_point": "Manipulation point1"},
+    "M20_D1": {"model": "M20+D1", "domain": "ground", "initial_point": "start_2"},
+    "Scout_D1": {"model": "scout+D1", "domain": "ground", "initial_point": "start_3"},
+    "Go2": {"model": "Go2", "domain": "ground", "initial_point": "start_4"}
+  },
+  "robot_roster": [
+    {"robot_id": "Pegasus", "model": "Pegasus", "domain": "aerial", "initial_point": "start_1", "speed_mps": 4.0, "capabilities": ["navigation", "aerial_payload", "pot_pick", "aerial_handoff"]},
+    {"robot_id": "Pepper", "model": "Pepper", "domain": "ground", "initial_point": "Manipulation point1", "speed_mps": 0.75, "capabilities": ["navigation", "arm_manipulation", "surface_transfer", "indoor_transport"]},
+    {"robot_id": "M20_D1", "model": "M20+D1", "domain": "ground", "initial_point": "start_2", "speed_mps": 1.0, "capabilities": ["navigation", "payload_transport", "handoff_receive", "outdoor_transport", "chair_carry", "chair_grasp", "manipulator", "stair_down", "stair_up"]},
+    {"robot_id": "Scout_D1", "model": "scout+D1", "domain": "ground", "initial_point": "start_3", "speed_mps": 1.0, "capabilities": ["navigation", "payload_transport", "handoff_receive", "outdoor_transport", "chair_carry", "chair_grasp", "stair_down_once"], "one_shot_capabilities": ["stair_down_once"]},
+    {"robot_id": "Go2", "model": "Go2", "domain": "ground", "initial_point": "start_4", "speed_mps": 1.0, "capabilities": ["navigation", "payload_transport", "handoff_receive", "outdoor_transport", "chair_carry", "chair_grasp"]}
+  ],
+  "diagnostic_robot_roster": [
+    {"robot_id": "M20_D1", "model": "M20+D1", "domain": "ground", "initial_point": "start_2", "speed_mps": 1.0, "capabilities": ["navigation", "payload_transport", "table_carry", "stair_down", "stair_up"]},
+    {"robot_id": "Carter_D1", "model": "Carter+D1", "domain": "ground", "initial_point": "start_3", "speed_mps": 1.0, "capabilities": ["navigation", "payload_transport", "table_carry"]}
+  ],
+  "diagnostic_cases": {
+    "D1_infeasible_wrong_team_table": {
+      "status": "team-state-infeasible",
+      "robot_pool": ["M20_D1", "Carter_D1"],
+      "task": "standalone_joint_table_transport_downstairs",
+      "required_capabilities": ["table_carry", "stair_down"],
+      "required_distinct_holders": 2,
+      "certificate": "only M20+D1 satisfies table_carry and stair_down; Carter+D1 cannot traverse the stairs",
+      "expected_action": "not-deployable_safe-stop"
+    }
+  },
+  "semantic_points": {
+    "chair_source_left": "chair_left",
+    "chair_source_right": "chair_right",
+    "chair_destination": "chair_new",
+    "door_id": "door_3",
+    "door_in": "door_in_3",
+    "door_out": "door_out_3",
+    "stair_edge": "edge:0005",
+    "surface_pose": "Manipulation point1",
+    "surface_labels": ["bowl", "fruit", "trans1", "trans2", "air_trans"],
+    "pot_source": "Pot",
+    "pot_destination": "Table",
+    "air_grasp_pose": "air grasping point",
+    "sink": "Sink"
+  },
+  "surface_interaction": {
+    "enabled": true,
+    "pose_label": "Manipulation point1",
+    "logical_bindings": {"bowl": "Manipulation point1", "fruit": "Manipulation point1", "trans1": "Manipulation point1", "trans2": "Manipulation point1", "air_trans": "Manipulation point1"},
+    "physical_meaning": "这些高位语义点由Pepper的机械臂在同一可达操作位完成取放；它们不是额外地面导航边。",
+    "map_edit_required_for_physical_score": true
+  },
+  "objects": {
+    "chair": {"kind": "joint_load", "sources": ["chair_left", "chair_right"], "destination": "chair_new", "minimum_holders": 2},
+    "table": {"kind": "joint_load", "source": "Manipulation point1", "source_semantic_label": "table interaction proxy", "destination": "chair_new", "minimum_holders": 2, "route_witness": ["door_in_3", "door_out_3", "edge:0005", "chair_new"], "logical_interaction_proxy": true},
+    "pot": {"kind": "aerial_payload", "source": "Pot", "destination": "Table"},
+    "fruit": {"kind": "payload", "source": "Manipulation point1", "source_semantic_label": "fruit", "default_destination": "chair_new"},
+    "bowl": {"kind": "payload", "source": "Manipulation point1", "source_semantic_label": "bowl", "default_destination": "chair_new"}
+  },
+  "difficulty_tiers": [
+    {"difficulty_tier": 1, "task_id": "living_house_t1_joint_and_air", "default_condition": "C0", "transfer_mode": "none", "sink_cycle": false, "relation_signature": ["P1", "P3-J", "P4"]},
+    {"difficulty_tier": 2, "task_id": "living_house_t2_ground_handoff", "default_condition": "C0", "transfer_mode": "ground", "sink_cycle": false, "relation_signature": ["P1", "P2", "P3-R", "P3-J"]},
+    {"difficulty_tier": 3, "task_id": "living_house_t3_cross_domain", "default_condition": "C1", "transfer_mode": "air", "sink_cycle": false, "relation_signature": ["P1", "P2", "P3-R", "P3-X", "P3-J"]},
+    {"difficulty_tier": 4, "task_id": "living_house_t4_compound", "default_condition": "C2", "transfer_mode": "mixed", "sink_cycle": true, "relation_signature": ["P1", "P2", "P3-R", "P3-X", "P3-J", "P4"]}
+  ],
+  "conditions": [
+    {"condition_id": "C0", "communication": "C0", "door_capacity": 1, "availability_loss": false},
+    {"condition_id": "C1", "communication": "C1", "door_capacity": 1, "availability_loss": false},
+    {"condition_id": "C2", "communication": "C2", "door_capacity": 1, "availability_loss": false},
+    {"condition_id": "C3", "communication": "C3", "door_capacity": 1, "availability_loss": true}
+  ],
+  "checkpoint_policy": {
+    "clock_dt_s": 0.02,
+    "labels": ["cp_00_spawn_valid", "cp_01_parallel_release", "cp_02_chair_grasps", "cp_03_chair_at_door_in", "cp_04_chair_through_door", "cp_05_chair_placed", "cp_06_pot_on_table", "cp_07_surface_pick", "cp_08_handoff_accepted", "cp_09_sink_started", "cp_10_sink_complete", "cp_11_closeout"],
+    "supports": ["checkpoint", "restore", "replay", "fork", "branch"],
+    "checkpoint_is_state_snapshot": true
+  },
+  "timing_policy": {
+    "clock": "registered_control_dt",
+    "hard_deadline_calibration": "pending_10_seed_repeat_after_stair_and_gate_update",
+    "provisional_deadline_ticks": {"t1:C0": 30000, "t2:C0": 42000, "t3:C1": 46000, "t4:C2": 62000},
+    "logical_candidate_deadline_ticks": {"t1:C0": 1589, "t1:C1": 1597, "t1:C2": 1618, "t1:C3": 1676, "t2:C0": 4022, "t2:C1": 4041, "t2:C2": 4041, "t2:C3": 3483, "t3:C0": 1414, "t3:C1": 1422, "t3:C2": 1445, "t3:C3": 1552, "t4:C0": 5233, "t4:C1": 5256, "t4:C2": 5269, "t4:C3": 4689},
+    "freeze_rule": "quantize_to_0.02(max(P95+5s, P95*1.15)) after deterministic topology runs"
+  },
+  "paper_score_eligible": false
+}

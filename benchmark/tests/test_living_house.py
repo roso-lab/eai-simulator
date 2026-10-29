@@ -46,6 +46,14 @@ def test_living_house_contract_freezes_all_condition_deadlines():
                for tier in range(1, 5) for condition in range(4))
 
 
+def test_living_house_spawn_contract_matches_normal_robot_roster():
+    manifest = LivingHouseScenarioAdapter().manifest()
+    roster_ids = {row["robot_id"] for row in manifest["robot_roster"]}
+    spawn_ids = set(manifest["spawn_contract"])
+    assert roster_ids == spawn_ids
+    assert "Carter_D1" not in spawn_ids
+
+
 def test_all_living_house_conditions_complete_with_goal_baselines():
     adapter = LivingHouseScenarioAdapter()
     for algorithm_type in (EmosLivingHouseAlgorithm, TeamWeaverLivingHouseAlgorithm):
