@@ -27,7 +27,7 @@
 
 | 分类 | 场景 | 工作者 | 打点(语义地图) | 任务设计 | 优化 | 备注 |
 | --- | --- | --- | :-: | :-: | :-: | --- |
-| Living and public space | home_02 |  | ⬜ | ⬜ | ⬜ |  |
+| Living and public space | home_02 | LiO2 | 🚧 | ⬜ | ⬜ |  |
 | Living and public space | house |  | ⬜ | ⬜ | ⬜ |  |
 | Living and public space | office |  | ⬜ | ⬜ | ⬜ |  |
 | Living and public space | room_01 |  | ⬜ | ⬜ | ⬜ |  |
@@ -35,27 +35,27 @@
 | Living and public space | room_03 |  | ⬜ | ⬜ | ⬜ |  |
 | Living and public space | room_04 |  | ⬜ | ⬜ | ⬜ |  |
 | Living and public space | room_05 |  | ⬜ | ⬜ | ⬜ |  |
-| Living and public space | room_06 |  | ⬜ | ⬜ | ⬜ |  |
+| Living and public space | room_06 | LiO2 | 🚧 | ⬜ | ⬜ |  |
 | Living and public space | school |  | ⬜ | ⬜ | ⬜ |  |
-| Production and logistics | bar |  | ⬜ | ⬜ | ⬜ |  |
-| Production and logistics | candy_shop |  | ⬜ | ⬜ | ⬜ |  |
-| Production and logistics | coffee_shop |  | ⬜ | ⬜ | ⬜ |  |
+| Production and logistics | bar | LiO2 | ✅ | ✅ | ⬜ |  |
+| Production and logistics | candy_shop | LiO2 | ✅ | 🚧 | ⬜ |  |
+| Production and logistics | coffee_shop | LiO2 | 🚧 | ⬜ | ⬜ |  |
 | Production and logistics | consultation_room |  | ⬜ | ⬜ | ⬜ |  |
-| Production and logistics | factory |  | ⬜ | ⬜ | ⬜ |  |
+| Production and logistics | factory | PUPIL | 🚧 | 🚧 | ⬜ |  |
 | Production and logistics | factory_02 |  | ⬜ | ⬜ | ⬜ |  |
 | Production and logistics | minimarket |  | ⬜ | ⬜ | ⬜ |  |
 | Production and logistics | restaurant |  | ⬜ | ⬜ | ⬜ |  |
-| Production and logistics | warehouse |  | ⬜ | ⬜ | ⬜ |  |
+| Production and logistics | warehouse | LiO2 | 🚧 | ⬜ | ⬜ |  |
 | Production and logistics | warehouse_02 |  | ⬜ | ⬜ | ⬜ |  |
-| Service and operations | city_01 |  | ⬜ | ⬜ | ⬜ |  |
-| Service and operations | city_02 |  | ⬜ | ⬜ | ⬜ |  |
+| Service and operations | city_01 | PUPIL | ✅ | ✅ | ⬜ |  |
+| Service and operations | city_02 | PUPIL | ✅ | ✅ | ⬜ |  |
 | Service and operations | forest |  | ⬜ | ⬜ | ⬜ |  |
 | Service and operations | hospital |  | ⬜ | ⬜ | ⬜ |  |
 | Service and operations | land |  | ⬜ | ⬜ | ⬜ |  |
 | Service and operations | restaurant |  | ⬜ | ⬜ | ⬜ |  |
 | Service and operations | ruined_city |  | ⬜ | ⬜ | ⬜ |  |
 | Service and operations | stadium |  | ⬜ | ⬜ | ⬜ |  |
-| Service and operations | subway |  | ⬜ | ⬜ | ⬜ |  |
+| Service and operations | subway | LiO2 | ✅ | 🚧 | ⬜ |  |
 | Service and operations | tram_station |  | ⬜ | ⬜ | ⬜ |  |
 
 > 注：`restaurant` 在 Production and logistics 与 Service and operations 下各有一个，是两个不同场景，认领时注意区分。
