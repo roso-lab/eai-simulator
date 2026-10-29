@@ -52,6 +52,8 @@ class SemanticEdge:
     target: str
     distance_m: float
     bidirectional: bool = True
+    traversal_mode: str = "walk"
+    required_controller_capabilities: tuple[str, ...] = ()
 
 
 class SemanticGraph:
@@ -60,6 +62,8 @@ class SemanticGraph:
     def __init__(self, nodes: Sequence[SemanticNode] = (), edges: Sequence[SemanticEdge] = ()):
         self.nodes: dict[str, SemanticNode] = {}
         self.adjacency: dict[str, list[tuple[str, float]]] = {}
+        self.edge_requirements: dict[tuple[str, str], tuple[str, ...]] = {}
+        self.edge_modes: dict[tuple[str, str], str] = {}
         self.bindings: dict[str, list[str]] = {}
         for node in nodes:
             self.add_node(node)
@@ -83,8 +87,12 @@ class SemanticGraph:
         if edge.source not in self.nodes or edge.target not in self.nodes or edge.distance_m <= 0:
             raise ValueError("edge endpoints must exist and distance must be positive")
         self.adjacency[edge.source].append((edge.target, float(edge.distance_m)))
+        self.edge_requirements[(edge.source, edge.target)] = tuple(edge.required_controller_capabilities)
+        self.edge_modes[(edge.source, edge.target)] = str(edge.traversal_mode)
         if edge.bidirectional:
             self.adjacency[edge.target].append((edge.source, float(edge.distance_m)))
+            self.edge_requirements[(edge.target, edge.source)] = tuple(edge.required_controller_capabilities)
+            self.edge_modes[(edge.target, edge.source)] = str(edge.traversal_mode)
 
     def bind(self, label: str, node_id: str) -> None:
         if node_id not in self.nodes or not label:
@@ -103,7 +111,7 @@ class SemanticGraph:
             raise ValueError(f"unknown semantic target {target!r}")
         return tuple(sorted(candidates))
 
-    def shortest(self, source: str, target: str) -> tuple[float, list[str]]:
+    def shortest(self, source: str, target: str, capabilities: Sequence[str] | None = None) -> tuple[float, list[str]]:
         if source not in self.nodes or target not in self.nodes:
             raise ValueError("shortest path endpoints must exist")
         if source == target:
@@ -118,6 +126,8 @@ class SemanticGraph:
             if node == target:
                 break
             for neighbour, weight in sorted(self.adjacency[node]):
+                if capabilities is not None and not self.edge_allowed(node, neighbour, capabilities):
+                    continue
                 candidate = distance + weight
                 if candidate < distances.get(neighbour, math.inf):
                     distances[neighbour] = candidate
@@ -131,6 +141,20 @@ class SemanticGraph:
         path.reverse()
         return distances[target], path
 
+    def edge_allowed(self, source: str, target: str, capabilities: Sequence[str]) -> bool:
+        required = set(self.edge_requirements.get((source, target), ()))
+        available = set(capabilities)
+        if not required.issubset(available):
+            return False
+        if self.edge_modes.get((source, target)) == "stairs":
+            source_z = self.nodes[source].position[2]
+            target_z = self.nodes[target].position[2]
+            if target_z < source_z:
+                return "stair_down" in available or "stair_down_once" in available or "stair_capable" in available
+            if target_z > source_z:
+                return "stair_up" in available or "stair_capable" in available
+        return True
+
 
 @dataclass(frozen=True)
 class RobotSpec:
@@ -142,6 +166,7 @@ class RobotSpec:
     battery_per_meter: float = 1.0
     capabilities: tuple[str, ...] = ()
     battery_reserve_m: float = 0.0
+    one_shot_capabilities: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -183,6 +208,9 @@ class TaskSpec:
     # ``distinct_group`` (which only prevents robot reuse) and lets scenarios
     # express a real P3-J action instead of two serial jobs.
     cooperative_group: str | None = None
+    gate_id: str | None = None
+    gate_action: str | None = None
+    hold_until_prerequisites: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -192,6 +220,14 @@ class ResourceSpec:
     capacity: int = 1
     service_ticks: int = 1
     recharges: bool = False
+
+
+@dataclass(frozen=True)
+class GateSpec:
+    gate_id: str
+    node_a: str
+    node_b: str
+    capacity: int = 1
 
 
 @dataclass(frozen=True)
@@ -210,6 +246,11 @@ class EpisodeSpec:
     seed: int = 0
     communication_condition: str = "C0"
     availability_loss_task: str | None = None
+    # Optional barrier for an availability-loss trigger.  When set, the
+    # aerial robot is removed only after every listed task has completed and
+    # reported, so a paired fault remains solvable rather than depending on
+    # the incidental order of two independent aerial obligations.
+    availability_loss_after_tasks: tuple[str, ...] = ()
     # Arrival/service reports are part of the task protocol. A bounded retry
     # budget keeps a lossy channel from silently becoming an out-of-band
     # oracle: the robot remains blocked while reports are pending, and the
@@ -219,6 +260,7 @@ class EpisodeSpec:
     # Initial object records are optional.  Each record is a mapping with an
     # ``object_id``, ``source`` and ``destination`` semantic labels.
     objects: tuple[Mapping[str, Any], ...] = ()
+    gates: tuple[GateSpec, ...] = ()
 
 
 class AlgorithmAdapter(Protocol):
@@ -453,6 +495,9 @@ class _RobotState:
     report_next_tick: int | None = None
     hold_release_task: str | None = None
     service_until_tick: int | None = None
+    active_capabilities: set[str] = field(default_factory=set)
+    load_id: str | None = None
+    hold_until_tasks: tuple[str, ...] = ()
 
 
 class DiagnosticRuntime:
@@ -479,7 +524,8 @@ class DiagnosticRuntime:
                 raise ValueError("robot id/domain/speed must be valid")
             if spec.battery_per_meter < 0 or (spec.battery_capacity_m is not None and spec.battery_capacity_m < 0):
                 raise ValueError("battery limits must be nonnegative")
-        self.robot_states = {r.robot_id: _RobotState(r, r.start_node, r.battery_capacity_m) for r in episode.robots}
+        self.robot_states = {r.robot_id: _RobotState(r, r.start_node, r.battery_capacity_m,
+                                                     active_capabilities=set(r.capabilities)) for r in episode.robots}
         for state in self.robot_states.values():
             if state.node_id not in episode.graph.nodes:
                 raise ValueError(f"robot start node {state.node_id!r} is unknown")
@@ -512,6 +558,14 @@ class DiagnosticRuntime:
         # tick.  This models a normal replan round without filtering the
         # algorithm's original decision before it reaches the protocol gate.
         self._invalid_assignment_pairs: set[tuple[str, str]] = set()
+        self.gate_state: dict[str, dict[str, Any]] = {
+            gate.gate_id: {"status": "closed", "opened_tick": None, "closed_tick": None,
+                           "node_a": gate.node_a, "node_b": gate.node_b}
+            for gate in episode.gates
+        }
+        for task in episode.tasks:
+            if task.gate_id:
+                self.gate_state.setdefault(str(task.gate_id), {"status": "closed", "opened_tick": None, "closed_tick": None})
         self.observation_windows: list[dict[str, Any]] = []
         for item in episode.objects:
             object_id = str(item.get("object_id", ""))
@@ -525,6 +579,7 @@ class DiagnosticRuntime:
                 "destination": str(item.get("destination", "")),
                 "status": "available",
                 "held_by": None,
+                "location": str(item.get("source", "")),
             }
         # This becomes true only after an explicit paired replay comparison;
         # a normal run must never imply that replay was checked.
@@ -548,7 +603,7 @@ class DiagnosticRuntime:
             ("world", self._world_snapshot, self._world_restore),
             ("clock", lambda: {"tick": self.clock_tick}, lambda s: setattr(self, "clock_tick", int(s["tick"]))),
             ("controller", lambda: {"robots": self._robot_snapshot()}, lambda s: self._robot_restore(s["robots"])),
-            ("skill", lambda: {"reallocation_count": self.reallocation_count, "message_counter": self._message_counter, "replay_equivalent": self._replay_equivalent, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "report_wait_ticks": self.report_wait_ticks, "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "object_state": deepcopy(self.object_state), "cooperative_states": deepcopy(self._cooperative_states), "announced_tasks": sorted(self._announced_tasks), "observation_windows": deepcopy(self.observation_windows), "last_public_signature": deepcopy(self._last_public_signature), "invalid_assignment_pairs": sorted(self._invalid_assignment_pairs)}, self._skill_restore),
+            ("skill", lambda: {"reallocation_count": self.reallocation_count, "message_counter": self._message_counter, "replay_equivalent": self._replay_equivalent, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "report_wait_ticks": self.report_wait_ticks, "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "object_state": deepcopy(self.object_state), "cooperative_states": deepcopy(self._cooperative_states), "gate_state": deepcopy(self.gate_state), "announced_tasks": sorted(self._announced_tasks), "observation_windows": deepcopy(self.observation_windows), "last_public_signature": deepcopy(self._last_public_signature), "invalid_assignment_pairs": sorted(self._invalid_assignment_pairs)}, self._skill_restore),
             ("task", self.tasks.snapshot, self.tasks.restore),
             ("algorithm", self.algorithm.snapshot, self.algorithm.restore),
             ("transport", lambda: self.communication.snapshot(), self._transport_restore),
@@ -577,6 +632,7 @@ class DiagnosticRuntime:
         self.notification_delivered = int(state.get("notification_delivered", 0))
         self.object_state = deepcopy(state.get("object_state", self.object_state))
         self._cooperative_states = deepcopy(state.get("cooperative_states", self._cooperative_states))
+        self.gate_state = deepcopy(state.get("gate_state", self.gate_state))
         self._announced_tasks = set(state.get("announced_tasks", ()))
         self.observation_windows = deepcopy(state.get("observation_windows", ()))
         self._last_public_signature = deepcopy(state.get("last_public_signature"))
@@ -589,12 +645,14 @@ class DiagnosticRuntime:
         self.terminal = bool(state["terminal"]); self.success = bool(state["success"]); self.failure_reason = str(state["failure_reason"])
 
     def _robot_snapshot(self) -> dict[str, Any]:
-        return {rid: {"node_id": s.node_id, "battery": s.battery, "distance_m": s.distance_m, "route": list(s.route), "route_index": s.route_index, "edge_progress_m": s.edge_progress_m, "task_id": s.task_id, "target_key": s.target_key, "status": s.status, "resource_id": s.resource_id, "report_frame_id": s.report_frame_id, "report_attempts": s.report_attempts, "report_next_tick": s.report_next_tick, "hold_release_task": s.hold_release_task, "service_until_tick": s.service_until_tick} for rid, s in sorted(self.robot_states.items())}
+        return {rid: {"node_id": s.node_id, "battery": s.battery, "distance_m": s.distance_m, "route": list(s.route), "route_index": s.route_index, "edge_progress_m": s.edge_progress_m, "task_id": s.task_id, "target_key": s.target_key, "status": s.status, "resource_id": s.resource_id, "report_frame_id": s.report_frame_id, "report_attempts": s.report_attempts, "report_next_tick": s.report_next_tick, "hold_release_task": s.hold_release_task, "hold_until_tasks": list(s.hold_until_tasks), "service_until_tick": s.service_until_tick, "active_capabilities": sorted(s.active_capabilities), "load_id": s.load_id} for rid, s in sorted(self.robot_states.items())}
 
     def _robot_restore(self, state: Mapping[str, Any]) -> None:
         for rid, payload in state.items():
             robot = self.robot_states[rid]
             for key, value in payload.items():
+                if key == "active_capabilities":
+                    value = set(value)
                 setattr(robot, key, value)
 
     def _observation(self) -> dict[str, Any]:
@@ -616,6 +674,7 @@ class DiagnosticRuntime:
                 target_position = self.episode.graph.nodes[target_nodes[0]].position
                 target_domains = {self.episode.graph.nodes[node_id].domain for node_id in target_nodes}
                 eligible = []
+                reachable = []
                 continuation_robot = self.tasks.continuation_members.get(task.continuation_group or "") if task.continuation_group else None
                 for state in self.robot_states.values():
                     if task.required_domain and state.spec.domain != task.required_domain:
@@ -626,14 +685,25 @@ class DiagnosticRuntime:
                     # robot that cannot resolve a route to it.
                     if task.kind == "coverage" and state.spec.domain not in target_domains:
                         continue
-                    if task.required_capabilities and not set(task.required_capabilities).issubset(state.spec.capabilities):
+                    if task.required_capabilities and not set(task.required_capabilities).issubset(state.active_capabilities):
                         continue
                     if task.distinct_group and state.spec.robot_id in self.tasks.group_members.get(task.distinct_group, set()):
                         continue
                     if continuation_robot and state.spec.robot_id != continuation_robot:
                         continue
                     eligible.append(state.spec.robot_id)
-                pending.append({"task_id": task_id, "target": target, "goal_key": f"{task_id}:{target}", "required_domain": task.required_domain, "target_position": tuple(target_position), "kind": task.kind, "distinct_group": task.distinct_group, "required_capabilities": tuple(task.required_capabilities), "continuation_group": task.continuation_group, "object_id": task.object_id, "object_action": task.object_action, "eligible_robots": sorted(eligible)})
+                    try:
+                        targets_for_state = self.episode.graph.resolve(target, state.spec.domain)
+                        for node in targets_for_state:
+                            try:
+                                self.episode.graph.shortest(state.node_id, node, state.active_capabilities)
+                            except ValueError:
+                                continue
+                            reachable.append(state.spec.robot_id)
+                            break
+                    except ValueError:
+                        pass
+                pending.append({"task_id": task_id, "target": target, "goal_key": f"{task_id}:{target}", "required_domain": task.required_domain, "target_position": tuple(target_position), "kind": task.kind, "distinct_group": task.distinct_group, "required_capabilities": tuple(task.required_capabilities), "continuation_group": task.continuation_group, "object_id": task.object_id, "object_action": task.object_action, "eligible_robots": sorted(eligible), "reachable_robots": sorted(reachable)})
         # Hidden obligations are represented as repeatable action opportunities.
         # The evaluator retains their exact count and IDs, while the algorithm
         # only learns that another service/response action is currently
@@ -660,12 +730,13 @@ class DiagnosticRuntime:
                 for goal in pending:
                     try:
                         targets = self.episode.graph.resolve(goal["target"], goal["required_domain"] or state.spec.domain)
-                        distance = min(self.episode.graph.shortest(state.node_id, node)[0] for node in targets)
+                        distance = min(self.episode.graph.shortest(state.node_id, node, state.active_capabilities)[0] for node in targets)
                     except ValueError:
                         continue
             available[state.spec.robot_id] = {"robot_id": state.spec.robot_id, "domain": state.spec.domain, "distance": distance, "position": tuple(self.episode.graph.nodes[state.node_id].position), "capabilities": tuple(state.spec.capabilities),
                                               "battery_remaining_m": state.battery,
-                                              "battery_reserve_m": state.spec.battery_reserve_m}
+                                              "battery_reserve_m": state.spec.battery_reserve_m,
+                                              "active_capabilities": tuple(sorted(state.active_capabilities))}
         resources = []
         for resource_id, spec in sorted(self.resources.specs.items()):
             node = self.episode.graph.nodes[spec.node_id]
@@ -817,11 +888,22 @@ class DiagnosticRuntime:
             robot.hold_release_task = task.hold_release_task
             robot.status = "hold"
             self.events.append({"tick": self.clock_tick, "kind": "robot_hold_started", "robot_id": robot.spec.robot_id, "release_task": task.hold_release_task})
+        elif task.hold_until_prerequisites:
+            robot.hold_until_tasks = tuple(task.hold_until_prerequisites)
+            robot.status = "hold"
+            self.events.append({"tick": self.clock_tick, "kind": "robot_hold_started", "robot_id": robot.spec.robot_id, "release_tasks": list(task.hold_until_prerequisites)})
         else:
             robot.status = "idle"
         self.notification_delivered += 1
         self._release_holds(task_id)
-        if task_id == self.episode.availability_loss_task and robot.spec.domain == "aerial":
+        loss_trigger = task_id == self.episode.availability_loss_task
+        if self.episode.availability_loss_after_tasks:
+            loss_trigger = loss_trigger or (
+                task_id in self.episode.availability_loss_after_tasks
+                and all(self.tasks.status.get(item) == "completed"
+                        for item in self.episode.availability_loss_after_tasks)
+            )
+        if loss_trigger and robot.spec.domain == "aerial":
             robot.status = "lost"
             self.lost_robots.add(robot.spec.robot_id)
             event = {"tick": self.clock_tick, "kind": "availability_loss", "robot_id": robot.spec.robot_id,
@@ -878,7 +960,7 @@ class DiagnosticRuntime:
                 self.events.append({"tick": self.clock_tick, "kind": "invalid_assignment", "robot_id": robot_id, "task_id": task_id, "reason": "distinct_group_robot_reuse"})
                 self._invalid_assignment_pairs.add((robot_id, task_id))
                 continue
-            if task.required_capabilities and not set(task.required_capabilities).issubset(robot.spec.capabilities):
+            if task.required_capabilities and not set(task.required_capabilities).issubset(robot.active_capabilities):
                 self.events.append({"tick": self.clock_tick, "kind": "invalid_assignment", "robot_id": robot_id, "task_id": task_id, "reason": "missing_required_capability"})
                 self._invalid_assignment_pairs.add((robot_id, task_id))
                 continue
@@ -914,8 +996,17 @@ class DiagnosticRuntime:
                 self._invalid_assignment_pairs.add((robot_id, task_id))
                 continue
             try:
-                destination = min(candidates, key=lambda node: (self.episode.graph.shortest(robot.node_id, node)[0], node))
-                _, route = self.episode.graph.shortest(robot.node_id, destination)
+                reachable = []
+                for node in candidates:
+                    try:
+                        distance, _ = self.episode.graph.shortest(robot.node_id, node, robot.active_capabilities)
+                    except ValueError:
+                        continue
+                    reachable.append((distance, node))
+                if not reachable:
+                    raise ValueError("no reachable semantic binding")
+                destination = min(reachable)[1]
+                _, route = self.episode.graph.shortest(robot.node_id, destination, robot.active_capabilities)
             except ValueError:
                 self._fail(f"no_route:{robot_id}:{task_id}:{target}")
                 continue
@@ -941,6 +1032,26 @@ class DiagnosticRuntime:
         if not task_id or target is None:
             robot.status = "idle"; return
         task = self.tasks.specs[task_id]
+        gate_at_target = None
+        try:
+            target_nodes = self.episode.graph.resolve(target, task.required_domain or robot.spec.domain)
+            for gate_id, gate in self.gate_state.items():
+                if any(node in {gate.get("node_a"), gate.get("node_b")} for node in target_nodes):
+                    gate_at_target = gate_id
+                    break
+        except ValueError:
+            pass
+        carrying = bool(robot.load_id) or task.kind in {"cooperative_carry", "door_transit", "cooperative_place"}
+        if gate_at_target and not carrying:
+            self._open_gate(gate_at_target, robot_id=robot.spec.robot_id, reason="unladen_robot_at_door_side")
+        if task.gate_id and task.gate_action == "transit":
+            gate = self.gate_state.setdefault(str(task.gate_id), {"status": "closed", "opened_tick": None, "closed_tick": None})
+            if gate.get("status") != "open":
+                self.events.append({"tick": self.clock_tick, "kind": "gate_violation", "gate_id": task.gate_id,
+                                    "robot_id": robot.spec.robot_id, "task_id": task_id,
+                                    "reason": "transit_before_open"})
+                self._fail(f"gate_not_open:{task.gate_id}:{task_id}")
+                return
         if task.cooperative_group:
             self._arrive_cooperative(robot, task)
             return
@@ -985,6 +1096,12 @@ class DiagnosticRuntime:
         group = str(task.cooperative_group)
         robot.status = "cooperative_wait"
         state = self._cooperative_states.setdefault(group, {"status": "waiting", "resource_id": None, "resource_task_id": f"__cooperative__:{group}", "robot_ids": []})
+        expected = [item for item in self.tasks.specs.values() if item.cooperative_group == group]
+        # A barrier is meaningful only after every declared participant has
+        # been assigned.  Without this guard the first arriving robot could
+        # complete a group before the controller had assigned its partner.
+        if any(self.tasks.assigned.get(item.task_id) is None for item in expected):
+            return
         state["robot_ids"] = [item[1].spec.robot_id for item in self._cooperative_members(group)]
         members = self._cooperative_members(group)
         if not members or any(member.status != "cooperative_wait" for _, member in members):
@@ -1048,6 +1165,13 @@ class DiagnosticRuntime:
             member.resource_id = None
             member.service_until_tick = None
             self._complete_target(member)
+        transit_tasks = [task for task, _ in members if task.gate_id and task.gate_action == "transit"]
+        if transit_tasks:
+            gate_id = str(transit_tasks[0].gate_id)
+            gate = self.gate_state.setdefault(gate_id, {"status": "closed", "opened_tick": None, "closed_tick": None})
+            gate["status"] = "closed"
+            gate["closed_tick"] = self.clock_tick
+            self.events.append({"tick": self.clock_tick, "kind": "gate_closed", "gate_id": gate_id, "group": group})
         self.events.append({"tick": self.clock_tick, "kind": "cooperative_service_completed",
                             "group": group, "robot_ids": state.get("robot_ids", [])})
 
@@ -1061,27 +1185,40 @@ class DiagnosticRuntime:
             if obj is None:
                 self._fail(f"unknown_object:{task.object_id}"); return
             if task.object_action == "pick":
-                if obj["status"] != "available" or obj["source"] != target:
+                if obj["status"] not in {"available", "placed"} or obj.get("location") != target:
                     self._fail(f"invalid_pick:{task.object_id}:{target}"); return
                 obj["status"], obj["held_by"] = "held", robot.spec.robot_id
+                obj["location"] = target
+                robot.load_id = task.object_id
                 self.events.append({"tick": self.clock_tick, "kind": "object_picked", "robot_id": robot.spec.robot_id, "object_id": task.object_id, "target": target})
             elif task.object_action == "handoff_release":
                 if obj["status"] != "held" or obj["held_by"] != robot.spec.robot_id:
                     self._fail(f"invalid_handoff_release:{task.object_id}:{target}"); return
                 obj["status"], obj["held_by"] = "at_handoff", None
+                obj["location"] = target
+                robot.load_id = None
                 self.events.append({"tick": self.clock_tick, "kind": "handoff_release", "robot_id": robot.spec.robot_id, "object_id": task.object_id, "target": target})
             elif task.object_action == "handoff_receive":
                 if obj["status"] != "at_handoff" or obj["held_by"] is not None:
                     self._fail(f"invalid_handoff_receive:{task.object_id}:{target}"); return
                 obj["status"], obj["held_by"] = "held", robot.spec.robot_id
+                obj["location"] = target
+                robot.load_id = task.object_id
                 self.events.append({"tick": self.clock_tick, "kind": "handoff_accept", "robot_id": robot.spec.robot_id, "object_id": task.object_id, "target": target})
-            elif task.object_action == "place":
-                if obj["status"] != "held" or obj["held_by"] != robot.spec.robot_id or obj["destination"] != target:
+            elif task.object_action in {"place", "place_intermediate"}:
+                if obj["status"] != "held" or obj["held_by"] != robot.spec.robot_id:
                     self._fail(f"invalid_place:{task.object_id}:{target}"); return
+                if task.object_action == "place" and obj.get("destination") != target:
+                    self._fail(f"invalid_place_destination:{task.object_id}:{target}"); return
                 obj["status"], obj["held_by"] = "placed", None
+                obj["location"] = target
+                robot.load_id = None
                 self.events.append({"tick": self.clock_tick, "kind": "object_placed", "robot_id": robot.spec.robot_id, "object_id": task.object_id, "target": target})
             else:
                 self._fail(f"unknown_object_action:{task.object_action}"); return
+        if task.gate_id and task.gate_action == "open":
+            gate_id = str(task.gate_id)
+            self._open_gate(gate_id, robot_id=robot.spec.robot_id, reason=f"task:{task_id}")
         if task.report_required:
             robot.status = "report_wait"
             self._submit_report(robot)
@@ -1103,15 +1240,21 @@ class DiagnosticRuntime:
             robot.hold_release_task = task.hold_release_task
             robot.status = "hold"
             self.events.append({"tick": self.clock_tick, "kind": "robot_hold_started", "robot_id": robot.spec.robot_id, "release_task": task.hold_release_task})
+        elif task.hold_until_prerequisites:
+            robot.hold_until_tasks = tuple(task.hold_until_prerequisites)
+            robot.status = "hold"
+            self.events.append({"tick": self.clock_tick, "kind": "robot_hold_started", "robot_id": robot.spec.robot_id, "release_tasks": list(task.hold_until_prerequisites)})
         else:
             robot.status = "idle"
         self._release_holds(task_id)
 
     def _release_holds(self, completed_task_id: str) -> None:
         for held in self.robot_states.values():
-            if held.status == "hold" and held.hold_release_task == completed_task_id:
+            prereq_ready = held.hold_until_tasks and all(self.tasks.status.get(task_id) == "completed" for task_id in held.hold_until_tasks)
+            if held.status == "hold" and (held.hold_release_task == completed_task_id or prereq_ready):
                 held.status = "idle"
                 held.hold_release_task = None
+                held.hold_until_tasks = ()
                 self.events.append({"tick": self.clock_tick, "kind": "robot_hold_released", "robot_id": held.spec.robot_id, "release_task": completed_task_id})
 
     def _should_hold(self, robot: _RobotState, task: TaskSpec) -> bool:
@@ -1131,6 +1274,25 @@ class DiagnosticRuntime:
         remaining_m = robot.spec.speed_mps * CONTROL_DT_S
         while remaining_m > 0 and robot.route_index + 1 < len(robot.route):
             source, target = robot.route[robot.route_index], robot.route[robot.route_index + 1]
+            if not self.episode.graph.edge_allowed(source, target, robot.active_capabilities):
+                self.events.append({"tick": self.clock_tick, "kind": "capability_blocked",
+                                    "robot_id": robot.spec.robot_id, "source": source, "target": target,
+                                    "task_id": robot.task_id})
+                self._fail(f"capability_lost:{robot.spec.robot_id}:{source}:{target}")
+                return
+            gate_id = self._gate_for_edge(source, target)
+            if gate_id and self.gate_state.get(gate_id, {}).get("status") != "open":
+                # The motion skill does not return a route across a closed
+                # door.  A loaded robot waits in place until an unladen robot
+                # opens the gate; this is a protocol wait, not a post-hoc
+                # collision penalty.
+                if robot.load_id or (robot.task_id and self.tasks.specs[robot.task_id].kind in {"cooperative_carry", "door_transit", "cooperative_place"}):
+                    robot.status = "gate_wait"
+                    self.events.append({"tick": self.clock_tick, "kind": "gate_blocked",
+                                        "robot_id": robot.spec.robot_id, "gate_id": gate_id,
+                                        "source": source, "target": target})
+                    return
+                self._open_gate(gate_id, robot_id=robot.spec.robot_id, reason="unladen_motion_at_door_side")
             edge_length, _ = self.episode.graph.shortest(source, target)
             # shortest(source,target) is the direct edge in a valid route; use
             # the adjacency edge when parallel edges exist.
@@ -1144,9 +1306,34 @@ class DiagnosticRuntime:
                     self._fail("battery_exhausted"); return
             if robot.edge_progress_m + 1e-12 >= edge_length:
                 robot.node_id = target; robot.route_index += 1; robot.edge_progress_m = 0.0
+                if self.episode.graph.edge_modes.get((source, target)) == "stairs":
+                    if self.episode.graph.nodes[target].position[2] < self.episode.graph.nodes[source].position[2]:
+                        for capability in tuple(robot.spec.one_shot_capabilities):
+                            if capability in robot.active_capabilities:
+                                robot.active_capabilities.remove(capability)
+                                self.events.append({"tick": self.clock_tick, "kind": "capability_lost",
+                                                    "robot_id": robot.spec.robot_id, "capability": capability,
+                                                    "reason": "one_shot_stair_descent_consumed"})
                 if robot.route_index + 1 == len(robot.route):
                     self.events.append({"tick": self.clock_tick, "kind": "goal_reached", "robot_id": robot.spec.robot_id, "target": robot.target_key})
                     self._arrive(robot); return
+
+    def _gate_for_edge(self, source: str, target: str) -> str | None:
+        for gate_id, gate in self.gate_state.items():
+            if {source, target} == {gate.get("node_a"), gate.get("node_b")}:
+                return gate_id
+        return None
+
+    def _open_gate(self, gate_id: str, *, robot_id: str, reason: str) -> None:
+        gate = self.gate_state.setdefault(gate_id, {"status": "closed", "opened_tick": None, "closed_tick": None})
+        if gate.get("status") == "open":
+            return
+        gate["status"] = "open"; gate["opened_tick"] = self.clock_tick
+        self.events.append({"tick": self.clock_tick, "kind": "gate_opened", "gate_id": gate_id,
+                            "robot_id": robot_id, "reason": reason})
+        for waiting in self.robot_states.values():
+            if waiting.status == "gate_wait":
+                waiting.status = "moving"
 
     def _fail(self, reason: str) -> None:
         self.terminal = True; self.success = False; self.failure_reason = reason
@@ -1320,4 +1507,4 @@ class DiagnosticRuntime:
         return {"schema_version": self.schema_version, "success": self.success, "failure_reason": self.failure_reason, "tick": self.clock_tick, "makespan_s": self.clock_tick * CONTROL_DT_S, "hard_deadline_tick": deadline_tick, "hard_deadline_s": (deadline_tick * CONTROL_DT_S if deadline_tick is not None else None), "deadline_met": deadline_met, "completion_tick": completion_tick, "completion_s": completion_tick * CONTROL_DT_S, "task_completion_rate": completed / len(required_ids) if required_ids else 1.0, "coverage_fraction": coverage_done / len(coverage_tasks) if coverage_tasks else 1.0, "completed_task_ids": sorted(task_id for task_id, status in self.tasks.status.items() if status == "completed"), "task_status": dict(sorted(self.tasks.status.items())), "completed_ticks": dict(sorted(self.tasks.completed_tick.items())), "resource_wait_ticks": self.resources.wait_ticks, "resource_contention_requests": self.resources.contention_requests, "recover_services": self.resources.total_services, "battery_remaining_m": batteries, "min_battery_remaining_m": min(batteries.values()) if batteries else None, "communication_bits": comm["transmitted_bits"], "communication_delay_ticks": comm["delay_ticks_total"], "communication_loss_bits": comm["loss_bits"], "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "notification_pending": notification_pending, "report_wait_ticks": self.report_wait_ticks, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "reallocation_count": self.reallocation_count, "replay_digest": replay_digest, "replay_equivalent": self._replay_equivalent, "observation_windows": deepcopy(self.observation_windows), "paper_score_eligible": False, "D1_eligible": bool(self.success), "D2_eligible": False, "D3_eligible": bool(self.success and self.resources.contention_requests >= 0), "D4_eligible": False, "D5_eligible": False, "D6_eligible": False, "eligibility_reasons": {"D2": "paired C0-C3 retention directory required", "D4": "registered availability-loss branch required", "D5": "certified cross-scenario family required", "D6": "independent calibration reference required"}, "events": deepcopy(self.events), "assignment": dict(self.tasks.assigned)}
 
 
-__all__ = ["CONTROL_DT_S", "SemanticNode", "SemanticEdge", "SemanticGraph", "RobotSpec", "TaskSpec", "ResourceSpec", "EpisodeSpec", "AlgorithmAdapter", "GreedyGoalAlgorithm", "TaskLedger", "ResourceLedger", "CommunicationModel", "DiagnosticRuntime"]
+__all__ = ["CONTROL_DT_S", "SemanticNode", "SemanticEdge", "SemanticGraph", "RobotSpec", "TaskSpec", "ResourceSpec", "GateSpec", "EpisodeSpec", "AlgorithmAdapter", "GreedyGoalAlgorithm", "TaskLedger", "ResourceLedger", "CommunicationModel", "DiagnosticRuntime"]

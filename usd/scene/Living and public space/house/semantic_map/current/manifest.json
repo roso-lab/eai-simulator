@@ -1,7 +1,7 @@
 {
   "schema": "eai.semantic_map.revision",
   "version": 2,
-  "revision": "daabbcc05eba46f2835fb270cbe8f9c6",
+  "revision": "4a5247338b1a4297ae6f93dbff12ae51",
   "scene_key": "living_house",
   "levels": [
     {
@@ -22,15 +22,16 @@
     "aerial": "topology-aerial.json"
   },
   "semantic_point_product": "semantic-points.json",
+  "semantic_binding_digest": "109ee095c96533c026e60c78fd0fe0ec421689fa147dc9f34cd3816f4f756bc3",
   "files": {
     "level-000-layer.png": "6b1ccf8294e674362934b668a63bc473e37695a0b97e5246b49532e479989b05",
     "level-000-semantic-grid.npz": "13bf2702456206bbf55e0742ed216e430c8678b3628dcd6e0f8b01469761e556",
-    "level-000-semantic-map.png": "f259ce6ec31b2bd7735fa7a597199e78395a932ef9d40c6e21a84276ed195302",
-    "semantic-footprints.geojson": "386ea51c3f3caea14133274960b6e3944127dd0b9ac8bf87fe2d9c0593b90f75",
-    "semantic-footprints.json": "995cbbf699c98701a7fb31a240e2c938de43b7fb7e42aa11329458b24e8c1e06",
-    "semantic-points.json": "0b1b46267c450fa5b6ba5c0677287003c697960444ac4fbcaf84b4ee3b559759",
-    "topology-aerial.json": "cb2052776243dd6b72a50c314b7effdebb4d50708ff17c9d65a3a4a878bf4ab8",
-    "topology.json": "e49a73547cd4642ee91279a1d1fc9a6021d8e92f1f20cdb5525cf0340a37daa2"
+    "level-000-semantic-map.png": "1c5e7565274dcde49bd06d88f522077ead090b714515f90ae0a971cca02c1c69",
+    "semantic-footprints.geojson": "21b34fd9e339dcb7e4dd1cad51eb24cddcc455064cbc3a11d2d30e46e763f584",
+    "semantic-footprints.json": "d33c3b3e2a1da22917c081c9dd96fdda2d691620e4061ceea56eea252a90f248",
+    "semantic-points.json": "a0a199a7f69ea0a6b8887c9bf6925800fe668cfcf240cb6d594c7db8f0a1a78e",
+    "topology-aerial.json": "11dd1b608aad90c0523284859a347980975853969351b985944514474f19e2e8",
+    "topology.json": "eee39ca76593c4929b3a6fbdfa6551fe71859d4e4ca6ffd78ea4864f8fa16fbf"
   },
   "robot_validated": false
 }
