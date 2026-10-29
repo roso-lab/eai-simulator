@@ -29,6 +29,19 @@ class DecisionProvider(Protocol):
         ...
 
 
+class CoalitionScopeError(ValueError):
+    """The current single-owner runner cannot execute a coalition decision."""
+
+    na_reason = "task_runner_single_owner_contract_cannot_execute_coalition"
+
+    def __init__(self, decision: AlgorithmDecision):
+        self.decision = decision
+        super().__init__(
+            "TaskRunner single-owner contract cannot execute coalition assignments; "
+            "the complete decision is retained on exception.decision"
+        )
+
+
 class ReplayBackend(Protocol):
     def fork(self, checkpoint: str, branch_id: str) -> None:
         ...
@@ -97,6 +110,8 @@ def _validate_decision(
     robot_by_id: Mapping[str, Any],
     allowed_task_ids: set[str] | None = None,
 ) -> None:
+    if decision.coalition_assignments:
+        raise CoalitionScopeError(decision)
     assigned_task_ids = [item.task_id for item in decision.assignments]
     if len(set(assigned_task_ids)) != len(assigned_task_ids):
         raise ValueError("algorithm decision assigns a task more than once")

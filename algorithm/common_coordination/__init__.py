@@ -10,6 +10,9 @@ Sim, ROS, Torch, or an LLM client.
 from .contract import (
     AlgorithmCondition,
     Assignment,
+    CoalitionAssignment,
+    CoalitionSkillRequest,
+    CoalitionExecutionReceipt,
     ContractError,
     CoordinationTask,
     EventLedger,
@@ -24,6 +27,9 @@ from .contract import (
 __all__ = [
     "AlgorithmCondition",
     "Assignment",
+    "CoalitionAssignment",
+    "CoalitionSkillRequest",
+    "CoalitionExecutionReceipt",
     "ContractError",
     "CoordinationTask",
     "EventLedger",

@@ -98,6 +98,7 @@ def test_unified_factory_and_real_cli(case, output):
         write_json(output / f"{case}.factory.json", {
             "status": "scope_rejected", "native_assignments": exc.value.native_assignments,
             "N/A_reason": exc.value.na_reason,
+            "native_coalition_receipt": exc.value.native_coalition_receipt,
             "coalitions": exc.value.decision.provenance["coalitions"],
             "assignments": [a.__dict__ for a in exc.value.decision.assignments], "dispatch_count": 0,
         })
@@ -131,6 +132,7 @@ def test_unified_factory_and_real_cli(case, output):
         assert report["error_type"] == ("NativeCoalitionScopeError" if case == "coalition_rejected" else "CheckpointCompatibilityError")
         if case == "coalition_rejected":
             assert report["N/A_reason"] == "benchmark_contract_cannot_represent_native_coalition"
+            assert report["native_coalition_receipt"]["schema"] == "heterocoord.native_coalition_receipt.v1"
     else:
         assert proc.returncode == 0 and report["status"] == "native_decision_returned"
         assert report["result"]["assignments"] == [a.__dict__ for a in result.decision.assignments]

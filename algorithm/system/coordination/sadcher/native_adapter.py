@@ -25,7 +25,13 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Sequence
 
-from algorithm.common_coordination.contract import AlgorithmCondition, Assignment, ContractError, FailureCode
+from algorithm.common_coordination.contract import (
+    AlgorithmCondition,
+    Assignment,
+    CoalitionAssignment,
+    ContractError,
+    FailureCode,
+)
 from task.contracts import AlgorithmDecision, EaiTaskPackage, OrchestrationState, RobotState
 
 
@@ -56,7 +62,56 @@ class NativeCoalitionScopeError(ContractError):
         self.decision = decision
         self.native_assignments = decision.provenance["native_assignments"]
         self.na_reason = self.NA_REASON
+        self.native_coalition_receipt = {
+            "schema": "heterocoord.native_coalition_receipt.v1",
+            "algorithm_id": decision.condition.algorithm_id,
+            "source_reference": decision.condition.source_reference,
+            "coalition_assignments": [item.__dict__ for item in native_coalition_assignments(decision)],
+            "native_assignments": dict(self.native_assignments),
+            "predicted_rewards_including_sentinels": decision.provenance[
+                "predicted_rewards_including_sentinels"
+            ],
+            "scope": "native_decision_scope_rejected",
+            "N/A_reason": self.na_reason,
+            "task_runner_compatible": False,
+        }
         super().__init__("native SADCHER coalition cannot map to single-owner TaskRunner; full decision retained on exception.decision")
+
+
+def native_coalition_assignments(decision: AlgorithmDecision) -> tuple[CoalitionAssignment, ...]:
+    """Read-only conversion of retained native coalition membership."""
+    coalitions = decision.provenance.get("coalitions")
+    native_rows = decision.provenance.get("native_assignments")
+    robot_index = decision.provenance.get("robot_index")
+    task_index = decision.provenance.get("task_index")
+    if (not isinstance(coalitions, dict) or not isinstance(native_rows, dict)
+            or not isinstance(robot_index, list) or not isinstance(task_index, list)):
+        raise ContractError("SADCHER coalition provenance is incomplete")
+    converted = tuple(
+        CoalitionAssignment(
+            task_id=str(task_id), robot_ids=tuple(members),
+            source="native_sadcher", plan_version="native-decision",
+        )
+        for task_id, members in sorted(coalitions.items())
+    )
+    expected = sorted((str(task_id), tuple(sorted(str(member) for member in members)))
+                     for task_id, members in coalitions.items())
+    observed = sorted((item.task_id, item.robot_ids) for item in converted)
+    if observed != expected:
+        raise ContractError("SADCHER coalition conversion changed native membership")
+    native_members: dict[str, list[str]] = defaultdict(list)
+    for robot_position, task_position in native_rows.items():
+        if not str(robot_position).isdigit() or not isinstance(task_position, int):
+            raise ContractError("SADCHER native assignment provenance is malformed")
+        if not 0 <= int(robot_position) < len(robot_index) or not 0 <= task_position < len(task_index):
+            raise ContractError("SADCHER native assignment provenance is out of range")
+        task_name = task_index[task_position]
+        if task_name in coalitions:
+            native_members[str(task_name)].append(str(robot_index[int(robot_position)]))
+    native_observed = sorted((task_id, tuple(sorted(members))) for task_id, members in native_members.items())
+    if native_observed != expected:
+        raise ContractError("SADCHER coalition conversion disagrees with native assignment rows")
+    return converted
 
 
 class NativePrematureExitError(ContractError):
@@ -435,4 +490,4 @@ class NativeSadcherAdapter:
         return self(replace(task, graph=replace(task.graph, tasks=nodes)), robots)
 
 
-__all__ = ["NativeSadcherAdapter", "NativeCoalitionScopeError", "NativePrematureExitError", "CheckpointCompatibilityError", "audit_checkpoint"]
+__all__ = ["NativeSadcherAdapter", "NativeCoalitionScopeError", "NativePrematureExitError", "CheckpointCompatibilityError", "audit_checkpoint", "native_coalition_assignments"]
