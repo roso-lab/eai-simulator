@@ -1535,7 +1535,7 @@
           ],
           [
             -68.692,
-            -43.156,
+            -41.228,
             -10.009
           ]
         ]
@@ -1544,12 +1544,56 @@
         "id": "edge:0038",
         "kind": "custom_connection",
         "from": "node:0037",
-        "to": "node:0036",
+        "to": "node:0043",
         "directed": false,
         "polyline_xyz": [
           [
             -68.692,
             -34.174,
+            -10.009
+          ],
+          [
+            -68.692,
+            -41.228,
+            -10.009
+          ]
+        ],
+        "profiles": {},
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -68.692,
+            -41.228,
+            -10.009
+          ],
+          [
+            -68.692,
+            -43.156,
+            -10.009
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0046",
+        "kind": "custom_connection",
+        "from": "node:0043",
+        "to": "node:0036",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -68.692,
+            -41.228,
             -10.009
           ],
           [
@@ -1579,7 +1623,7 @@
           ],
           [
             -68.692,
-            -81.28,
+            -48.052,
             -10.009
           ]
         ]
@@ -1588,12 +1632,100 @@
         "id": "edge:0036",
         "kind": "custom_connection",
         "from": "node:0036",
-        "to": "node:0033",
+        "to": "node:0046",
         "directed": false,
         "polyline_xyz": [
           [
             -68.692,
             -43.156,
+            -10.009
+          ],
+          [
+            -68.692,
+            -48.052,
+            -10.009
+          ]
+        ],
+        "profiles": {},
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -68.692,
+            -48.052,
+            -10.009
+          ],
+          [
+            -68.692,
+            -79.935,
+            -10.009
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0048",
+        "kind": "custom_connection",
+        "from": "node:0046",
+        "to": "node:0047",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -68.692,
+            -48.052,
+            -10.009
+          ],
+          [
+            -68.692,
+            -79.935,
+            -10.009
+          ]
+        ],
+        "profiles": {},
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -68.692,
+            -79.935,
+            -10.009
+          ],
+          [
+            -68.692,
+            -81.28,
+            -10.009
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0050",
+        "kind": "custom_connection",
+        "from": "node:0047",
+        "to": "node:0033",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -68.692,
+            -79.935,
             -10.009
           ],
           [
@@ -1618,7 +1750,7 @@
         "coordinates": [
           [
             -73.713,
-            -26.836,
+            -27.944,
             -9.862
           ],
           [
@@ -1637,7 +1769,7 @@
         "polyline_xyz": [
           [
             -73.713,
-            -26.836,
+            -27.944,
             -9.862
           ],
           [
@@ -1711,7 +1843,7 @@
           ],
           [
             -73.713,
-            -45.644,
+            -44.82,
             -9.862
           ]
         ]
@@ -1730,7 +1862,7 @@
           ],
           [
             -73.713,
-            -45.644,
+            -44.82,
             -9.862
           ]
         ],
@@ -1843,6 +1975,270 @@
             "clearance_m": 1.4
           }
         },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -68.692,
+            -41.228,
+            -10.009
+          ],
+          [
+            -65.272,
+            -41.228,
+            -10.009
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0047",
+        "kind": "custom_connection",
+        "from": "node:0043",
+        "to": "node:0044",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -68.692,
+            -41.228,
+            -10.009
+          ],
+          [
+            -65.272,
+            -41.228,
+            -10.009
+          ]
+        ],
+        "profiles": {},
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -67.647,
+            -48.052,
+            -10.009
+          ],
+          [
+            -68.692,
+            -48.052,
+            -10.009
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0049",
+        "kind": "custom_connection",
+        "from": "node:0045",
+        "to": "node:0046",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -67.647,
+            -48.052,
+            -10.009
+          ],
+          [
+            -68.692,
+            -48.052,
+            -10.009
+          ]
+        ],
+        "profiles": {},
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -68.692,
+            -79.935,
+            -10.009
+          ],
+          [
+            -67.053,
+            -79.935,
+            -10.009
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0051",
+        "kind": "custom_connection",
+        "from": "node:0047",
+        "to": "node:0048",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -68.692,
+            -79.935,
+            -10.009
+          ],
+          [
+            -67.053,
+            -79.935,
+            -10.009
+          ]
+        ],
+        "profiles": {},
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -31.753,
+            -12.242,
+            -4.92
+          ],
+          [
+            -32.732,
+            -8.931,
+            -4.92
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0052",
+        "kind": "custom_connection",
+        "from": "node:0018",
+        "to": "node:0049",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -31.753,
+            -12.242,
+            -4.92
+          ],
+          [
+            -32.732,
+            -8.931,
+            -4.92
+          ]
+        ],
+        "profiles": {},
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -28.669,
+            -12.245,
+            -4.92
+          ],
+          [
+            -28.669,
+            -9.353,
+            -4.92
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0053",
+        "kind": "custom_connection",
+        "from": "node:0020",
+        "to": "node:0050",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -28.669,
+            -12.245,
+            -4.92
+          ],
+          [
+            -28.669,
+            -9.353,
+            -4.92
+          ]
+        ],
+        "profiles": {},
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -31.753,
+            -12.242,
+            -4.92
+          ],
+          [
+            -32.985,
+            -12.242,
+            -4.92
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0056",
+        "kind": "custom_connection",
+        "from": "node:0018",
+        "to": "node:0051",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -31.753,
+            -12.242,
+            -4.92
+          ],
+          [
+            -32.985,
+            -12.242,
+            -4.92
+          ]
+        ],
+        "profiles": {},
         "source_ref": null,
         "locked_geometry": false,
         "traversal_mode": "walk",
