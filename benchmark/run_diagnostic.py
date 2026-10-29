@@ -18,6 +18,7 @@ from .hetero_diagnostic_runtime_v1 import (
     RobotSpec, SemanticEdge, SemanticGraph, SemanticNode, TaskSpec,
 )
 from .scenarios.city_01 import City01ScenarioAdapter
+from .city_01_algorithms import EmosCity01Algorithm, TeamWeaverCity01Algorithm
 
 
 def _episode_from_json(path: Path, communication: str | None = None) -> EpisodeSpec:
@@ -38,6 +39,10 @@ def _episode_from_json(path: Path, communication: str | None = None) -> EpisodeS
 def _algorithm(name: str) -> Any:
     if name == "greedy_goal_v1":
         return GreedyGoalAlgorithm()
+    if name in {"emos", "EMOS", "emos_city01"}:
+        return EmosCity01Algorithm()
+    if name in {"teamweaver", "TeamWeaver", "teamweaver_city01"}:
+        return TeamWeaverCity01Algorithm()
     if ":" not in name:
         raise ValueError("algorithm must be greedy_goal_v1 or a local module:path")
     module_name, attribute = name.split(":", 1)

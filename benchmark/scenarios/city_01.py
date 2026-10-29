@@ -58,6 +58,12 @@ class City01ScenarioAdapter:
         exposes resources and battery state for other scenes.
         """
         manifest = self.manifest()
+        tiers = {item["difficulty_tier"]: item for item in manifest["difficulty_tiers"]}
+        selected_condition = condition_id or tiers[tier]["default_condition"]
+        conditions = {item["condition_id"]: item for item in manifest["conditions"]}
+        if selected_condition not in conditions:
+            raise ValueError(f"unknown city_01 condition {selected_condition!r}")
+        condition = conditions[selected_condition]
         city = self.semantic_graph()
         nodes = [SemanticNode(node_id, city.domains[node_id], city.node_positions[node_id])
                  for node_id in sorted(city.node_positions)]
@@ -74,9 +80,13 @@ class City01ScenarioAdapter:
             graph.bind(area_id, city.node(area["ground_anchor"]["label"], "ground"))
             for anchor in area.get("aerial_anchors", ()):
                 graph.bind(area_id, city.node(anchor["label"], "aerial"))
+        battery = condition.get("battery", {})
+        budgets = battery.get("budgets_m", {})
         robots = tuple(RobotSpec(item["robot_id"], item["domain"], city.node(item["initial_point"], item["domain"]),
                                  speed_mps=1.0 if item["domain"] == "ground" else 4.0,
-                                 capabilities=(item["role"],)) for item in manifest["robot_roster"])
+                                 capabilities=(item["role"],),
+                                 battery_capacity_m=(float(budgets[item["robot_id"]]) if battery.get("enabled") and item["domain"] == "ground" else None),
+                                 battery_reserve_m=float(battery.get("reserve_m", 0.0))) for item in manifest["robot_roster"])
         tasks = [TaskSpec(f"coverage_{area['area_id']}", "coverage", (area["area_id"],)) for area in manifest["areas"]]
         observation_ids = []
         if tier >= 2:
@@ -87,14 +97,26 @@ class City01ScenarioAdapter:
         if tier >= 3:
             required = 3 if tier == 3 else 4
             prereq = tuple(observation_ids)
+            recover_row = manifest["recover_resources"][0]
+            recover_ids = []
+            for index, _robot in enumerate((item for item in manifest["robot_roster"] if item["domain"] == "ground"), start=1):
+                recover_id = f"recover_service_{index}"
+                recover_ids.append(recover_id)
+                tasks.append(TaskSpec(recover_id, "recover", ("recover",), required_domain="ground",
+                                      resource_id=recover_row["resource_id"],
+                                      service_ticks=max(1, round(float(recover_row.get("occupancy_wait_s", 8.0)) / CONTROL_DT_S))))
             for index in range(required):
-                tasks.append(TaskSpec(f"response_{index + 1}", "response", ("accident",), prerequisites=prereq, required_domain="ground"))
+                tasks.append(TaskSpec(f"response_{index + 1}", "response", ("accident",), prerequisites=prereq + tuple(recover_ids), required_domain="ground", distinct_group="ground_response"))
         resources = tuple(ResourceSpec(item["resource_id"], f"ground::{item['node_id']}", capacity=int(item.get("capacity", 1)),
-                                       service_ticks=max(1, round(float(item.get("occupancy_wait_s", 8.0)) / CONTROL_DT_S)), recharges=True)
+                                       service_ticks=max(1, round(float(item.get("occupancy_wait_s", 8.0)) / CONTROL_DT_S)),
+                                       recharges=bool(battery.get("enabled") and condition.get("recover", {}).get("recharge_enabled")))
                           for item in manifest.get("recover_resources", ()))
         horizon = 200000
+        default_comm = condition.get("communication", "C0")
+        if not isinstance(default_comm, str):
+            default_comm = "C0"
         return EpisodeSpec(graph, robots, tuple(tasks), resources=resources, horizon_ticks=horizon,
-                           dt_s=CONTROL_DT_S, communication_condition=communication or "C0")
+                           dt_s=CONTROL_DT_S, communication_condition=communication or default_comm)
 
     def run_generic(self, *, tier: int = 4, condition_id: str | None = None,
                     communication: str | None = None, algorithm: Any | None = None) -> dict[str, Any]:
