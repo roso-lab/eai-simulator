@@ -19,7 +19,7 @@
         "area_ids": [
           "area_3"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory"
       },
       "navigation_bindings": [
@@ -42,7 +42,7 @@
         "area_ids": [
           "area_5"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory"
       },
       "navigation_bindings": [
@@ -65,7 +65,7 @@
         "area_ids": [
           "area_2"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory",
         "shared_semantics": [
           "incident_aerial_1"
@@ -91,7 +91,7 @@
         "area_ids": [
           "area_4"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory"
       },
       "navigation_bindings": [
@@ -114,7 +114,7 @@
         "area_ids": [
           "area_1"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory"
       },
       "navigation_bindings": [
@@ -137,7 +137,7 @@
         "area_ids": [
           "area_1"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory"
       },
       "navigation_bindings": [
@@ -236,7 +236,7 @@
         "area_ids": [
           "area_6"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory",
         "shared_semantics": [
           "incident_aerial_2"
@@ -338,7 +338,7 @@
         "resource_id": "recover",
         "capacity": 1,
         "occupancy_wait_s": 8.0,
-        "service_radius_m": 1.5,
+        "service_radius_m": 9.369937305749,
         "recharge_policy": "condition_enabled_full",
         "occupancy_rule": "enter_service_radius_acquire_wait_release"
       },
@@ -384,7 +384,7 @@
         "semantic_role": "ground_rendezvous",
         "domain": "ground",
         "incident_id": "incident_01",
-        "service_radius_m": 2.0,
+        "service_radius_m": 12.493249740999,
         "stability_window_s": 1.0
       },
       "navigation_bindings": [
@@ -407,7 +407,7 @@
         "area_ids": [
           "area_1"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory"
       },
       "navigation_bindings": [
@@ -430,7 +430,7 @@
         "area_ids": [
           "area_2"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory"
       },
       "navigation_bindings": [
@@ -453,7 +453,7 @@
         "area_ids": [
           "area_3"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory"
       },
       "navigation_bindings": [
@@ -476,7 +476,7 @@
         "area_ids": [
           "area_4"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory"
       },
       "navigation_bindings": [
@@ -499,7 +499,7 @@
         "area_ids": [
           "area_5"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory"
       },
       "navigation_bindings": [
@@ -522,7 +522,7 @@
         "area_ids": [
           "area_6"
         ],
-        "coverage_radius_m": 20.0,
+        "coverage_radius_m": 124.932497409993,
         "coverage_rule": "xy_any_modal_valid_trajectory"
       },
       "navigation_bindings": [

@@ -3,7 +3,7 @@
 **版本**：city_01_patrol_emergency_v1 / v1
 **状态**：设计冻结，等待 runtime oracle 绑定
 **场景**：`service_city_01`
-**地图 revision**：`b7d43c2a1ffd4109a22853a30bd6f6ad`
+**地图 revision**：`059dc09570e6429da534f0d7935494cd`
 **semantic binding digest**：`d2d52468b4d3a3a2940951acc1f51b3eaf813d2e4c398de1856604bc3d076a0e`
 **论文设计版本**：`paper_commit 0ffd470fecdf5b4bdad82dbd9c23c439198b43d3`
 
@@ -35,7 +35,7 @@ city_01 是一个跨模态城市巡检与突发事故响应场景。地面机器
 
 ### 2.2 六个跨模态巡检区域
 
-区域采用固定的 XY 投影规则：半径 **20 m** 内存在任意一个地面或空中有效轨迹交点，即认为该 area 完成。`crossroads_*` 和 `build_*` 是候选 anchor；默认不要求两个模态都分别到达。若要测试“地面与空中各自必须覆盖”的更严格协作条件，应注册为独立 condition，不能改变本版本的默认判定。
+区域采用固定的 XY 投影规则：半径 **124.932497 m** 内存在任意一个地面或空中有效轨迹交点，即认为该 area 完成。`crossroads_*` 和 `build_*` 是候选 anchor；默认不要求两个模态都分别到达。若要测试“地面与空中各自必须覆盖”的更严格协作条件，应注册为独立 condition，不能改变本版本的默认判定。
 
 | area | 地面 anchor（节点） | 空中 anchor（节点） | 共享语义 |
 |---|---|---|---|
@@ -54,7 +54,7 @@ city_01 是一个跨模态城市巡检与突发事故响应场景。地面机器
 
 `recover_01..07` → `ground node:0057..0063`。
 
-每个实例的冻结规则为：容量 `1`、服务半径 `1.5 m`、进入服务半径后占用并等待 `8.0 s`、完成等待后释放。只有启用 battery condition 时，等待完成才产生电量恢复；在 nominal 条件下仍保留资源互斥账本，用于隔离“资源占用”与“充电效果”。
+每个实例的冻结规则为：容量 `1`、服务半径 `9.369937 m`、进入服务半径后占用并等待 `8.0 s`、完成等待后释放。只有启用 battery condition 时，等待完成才产生电量恢复；在 nominal 条件下仍保留资源互斥账本，用于隔离“资源占用”与“充电效果”。
 
 ### 2.4 事故语义
 
@@ -67,6 +67,8 @@ city_01 是一个跨模态城市巡检与突发事故响应场景。地面机器
 事故真值、事故发生时刻和受影响区域由 evaluator 隐藏并以外生事件注入。观测包必须包含 `incident_id`、状态版本和时间戳；默认 freshness window 为 `30 s`，单次观测保持 `2 s`。
 
 ### 2.5 拓扑与地图产品
+
+当前 USD 根层已恢复为 `World/Sketchfab_model` scale `(1, 1, 1)`，相对于旧语义世界统一放大 `6.2466248705×`；语义坐标、拓扑、栅格和距离型任务参数已同步更新。
 
 当前地图产品为 ground 62 nodes / 78 edges、aerial 24 nodes / 36 edges。`manifest.json` 已覆盖所有地图产品 SHA-256；地图产品的 `robot_validated` 仍为 `false`，因为当前只有用户路线可行性验证，尚未生成自动机器人证书。该状态不能被任务设计文件伪造为已认证。
 
@@ -88,8 +90,8 @@ Tier 4 的阶段顺序为：`initialize_team` → `cross_modal_patrol` 与 `inci
 | condition | battery | recover 等待/恢复 | communication | availability |
 |---|---|---|---|---|
 | `nominal_no_battery` | 关闭 | 互斥账本开；不恢复电量 | C0 | 无 |
-| `battery_homogeneous` | ground 统一 120 m，reserve 5 m；空中不启用 | 8 s 后恢复满电 | C0 | 无 |
-| `battery_heterogeneous` | M20 150 m、Go2 130 m、Scout 110 m、Coco 90 m；reserve 5 m；空中不启用 | 8 s 后恢复满电 | C0 | 无 |
+| `battery_homogeneous` | ground 统一 749.595 m，reserve 31.233 m；空中不启用 | 8 s 后恢复满电 | C0 | 无 |
+| `battery_heterogeneous` | M20 936.994 m、Go2 812.061 m、Scout 687.129 m、Coco 562.196 m；reserve 31.233 m；空中不启用 | 8 s 后恢复满电 | C0 | 无 |
 | `communication_stress` | 关闭 | 互斥账本开；不恢复电量 | C0/C1/C2/C3，固定队列与容量溢出规则 | 无 |
 | `availability_loss` | 按注册的电量条件 | 资源互斥与恢复开启 | C0 | 隐藏 capability change；导航、空中观测或通信功能之一失效，30 s 恢复窗口 |
 

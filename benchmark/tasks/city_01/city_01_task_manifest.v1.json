@@ -6,11 +6,12 @@
   "scene_key": "service_city_01",
   "semantic_map": {
     "root": "usd/scene/Service and operations/city_01/semantic_map/current",
-    "revision": "b7d43c2a1ffd4109a22853a30bd6f6ad",
-    "manifest_sha256": "650cadff6a66dc21e2f5a45fd577c8db3133c5fe9ea2ca6f9cf8e94b29172e0c",
+    "revision": "059dc09570e6429da534f0d7935494cd",
+    "manifest_sha256": "678124a95509d063cccaa2724b63d536653bdb3b992f8bee30a8a5dc516bcebb",
     "semantic_binding_digest": "d2d52468b4d3a3a2940951acc1f51b3eaf813d2e4c398de1856604bc3d076a0e",
     "route_validation_status": "user_validated_external",
-    "robot_validated_field_note": "map product flag remains false until automated robot certificate exists"
+    "robot_validated_field_note": "map product flag remains false until automated robot certificate exists",
+    "scene_scale_factor": 6.246624870499659
   },
   "robot_roster": [
     {
@@ -241,7 +242,7 @@
   ],
   "coverage_rule": {
     "type": "xy_projection",
-    "radius_m": 20.0,
+    "radius_m": 124.932497,
     "valid_domains": [
       "ground",
       "aerial"
@@ -294,7 +295,7 @@
       "domain": "ground",
       "node_id": "node:0057",
       "capacity": 1,
-      "service_radius_m": 1.5,
+      "service_radius_m": 9.369937,
       "occupancy_wait_s": 8.0,
       "recharge_policy": "condition_enabled_full"
     },
@@ -305,7 +306,7 @@
       "domain": "ground",
       "node_id": "node:0058",
       "capacity": 1,
-      "service_radius_m": 1.5,
+      "service_radius_m": 9.369937,
       "occupancy_wait_s": 8.0,
       "recharge_policy": "condition_enabled_full"
     },
@@ -316,7 +317,7 @@
       "domain": "ground",
       "node_id": "node:0059",
       "capacity": 1,
-      "service_radius_m": 1.5,
+      "service_radius_m": 9.369937,
       "occupancy_wait_s": 8.0,
       "recharge_policy": "condition_enabled_full"
     },
@@ -327,7 +328,7 @@
       "domain": "ground",
       "node_id": "node:0060",
       "capacity": 1,
-      "service_radius_m": 1.5,
+      "service_radius_m": 9.369937,
       "occupancy_wait_s": 8.0,
       "recharge_policy": "condition_enabled_full"
     },
@@ -338,7 +339,7 @@
       "domain": "ground",
       "node_id": "node:0061",
       "capacity": 1,
-      "service_radius_m": 1.5,
+      "service_radius_m": 9.369937,
       "occupancy_wait_s": 8.0,
       "recharge_policy": "condition_enabled_full"
     },
@@ -349,7 +350,7 @@
       "domain": "ground",
       "node_id": "node:0062",
       "capacity": 1,
-      "service_radius_m": 1.5,
+      "service_radius_m": 9.369937,
       "occupancy_wait_s": 8.0,
       "recharge_policy": "condition_enabled_full"
     },
@@ -360,7 +361,7 @@
       "domain": "ground",
       "node_id": "node:0063",
       "capacity": 1,
-      "service_radius_m": 1.5,
+      "service_radius_m": 9.369937,
       "occupancy_wait_s": 8.0,
       "recharge_policy": "condition_enabled_full"
     }
@@ -495,12 +496,12 @@
         "enabled": true,
         "unit": "distance_m",
         "budgets_m": {
-          "m20": 120,
-          "go2": 120,
-          "scout": 120,
-          "coco": 120
+          "m20": 749.594984,
+          "go2": 749.594984,
+          "scout": 749.594984,
+          "coco": 749.594984
         },
-        "reserve_m": 5,
+        "reserve_m": 31.233124,
         "aerial_enabled": false
       },
       "recover": {
@@ -518,12 +519,12 @@
         "enabled": true,
         "unit": "distance_m",
         "budgets_m": {
-          "m20": 150,
-          "go2": 130,
-          "scout": 110,
-          "coco": 90
+          "m20": 936.993731,
+          "go2": 812.061233,
+          "scout": 687.128736,
+          "coco": 562.196238
         },
-        "reserve_m": 5,
+        "reserve_m": 31.233124,
         "aerial_enabled": false
       },
       "recover": {
@@ -563,8 +564,15 @@
       "battery": {
         "enabled": true,
         "unit": "distance_m",
-        "reserve_m": 5,
-        "aerial_enabled": false
+        "reserve_m": 31.233124,
+        "aerial_enabled": false,
+        "budgets_m": {
+          "m20": 749.594984,
+          "go2": 749.594984,
+          "scout": 749.594984,
+          "coco": 749.594984
+        },
+        "scene_scale_adjusted": true
       },
       "recover": {
         "resource_mutex_enabled": true,
@@ -891,5 +899,6 @@
     "read_entrypoint": "read_city01_checkpoint",
     "status": "adapter_validated_not_live_bound",
     "runtime_readback_requires": "external ReplayStateRegistryV3 participants and live simulator receipt"
-  }
+  },
+  "scene_scale_factor": 6.246624870499659
 }

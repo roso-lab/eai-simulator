@@ -2,7 +2,7 @@
   "schema": "eai.semantic_footprints",
   "version": 1,
   "scene_id": "service_city_01",
-  "project_revision": "b7d43c2a1ffd4109a22853a30bd6f6ad",
+  "project_revision": "059dc09570e6429da534f0d7935494cd",
   "coordinate_frame": "scene_world",
   "objects": [],
   "semantics": {
@@ -73,7 +73,7 @@
           "semantic_label": "recover",
           "capacity": 1,
           "occupancy_wait_s": 8.0,
-          "service_radius_m": 1.5,
+          "service_radius_m": 9.369937305749,
           "recharge_policy": "condition_enabled_full"
         },
         "shared_semantic_nodes": [

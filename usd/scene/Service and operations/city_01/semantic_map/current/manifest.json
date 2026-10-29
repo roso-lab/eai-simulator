@@ -1,7 +1,7 @@
 {
   "schema": "eai.semantic_map.revision",
   "version": 2,
-  "revision": "b7d43c2a1ffd4109a22853a30bd6f6ad",
+  "revision": "059dc09570e6429da534f0d7935494cd",
   "scene_key": "service_city_01",
   "levels": [
     {
@@ -10,10 +10,10 @@
       "preview": "level-000-semantic-map.png",
       "layer": "level-000-layer.png",
       "extent_xy": [
-        -69.3,
-        13.000000000000004,
-        -84.6,
-        23.500000000000018
+        -432.891103525626,
+        81.206123316496,
+        -528.464464044271,
+        146.795684456742
       ]
     }
   ],
@@ -25,13 +25,16 @@
   "semantic_binding_digest": "d2d52468b4d3a3a2940951acc1f51b3eaf813d2e4c398de1856604bc3d076a0e",
   "files": {
     "level-000-layer.png": "4cedc6a48d60a8a24ef7527a6f7aa6344b26bd408d5309e258c179faa8561932",
-    "level-000-semantic-grid.npz": "0fe0f2e369ece2c4fcfec75352d177bb97f2478526355a1e2d93544f363692dd",
+    "level-000-semantic-grid.npz": "d0e599cb7e3b47d92e206f4e9f132af9b29af236ac98f897b47d66001d7a2384",
     "level-000-semantic-map.png": "810629c03e8387c54478c97165d84a58bda3ceedf50f5f57bcb3bcd12720b034",
-    "semantic-footprints.geojson": "cdaa5602a35ccdd8029821a2a460792a37c58b03907a59371f116fea10cf5829",
-    "semantic-footprints.json": "71cee8d52747a503b08605510161baff74c77d82a21b165105ad0ad3ff3cab3d",
-    "semantic-points.json": "284cd37305c63413e440b8ef60c96171d7d18891fbbfee614e99674a3e1412f8",
-    "topology-aerial.json": "43cf19da568626de2fdf8a16e56ba704bbaaa503352bf82632058460105f1230",
-    "topology.json": "e0675487d44ce508e5225f422368c2e0a39cbb2934a62004b1b52ffd72baaf13"
+    "semantic-footprints.geojson": "68be86a01454798d5884b14625da41cd32e9de28d5c7faa97b38a2352424f29f",
+    "semantic-footprints.json": "5a6bb04d855d8747a22ceef5745a3bb68e1e7e102de53fbb105626113b93b64e",
+    "semantic-points.json": "22f54b371331b0f4b36133a446f0c3763ba1aeca599d270d77a9255e01bb8f89",
+    "topology-aerial.json": "fa2f4a3678a92ea153fed56562fce5c66d424268c0c288b629c8c4a783843cd1",
+    "topology.json": "aa4f6e76f5fcba0874c882de216205f847532ba196202fc047f0b07cfd12cdc4"
   },
-  "robot_validated": false
+  "robot_validated": false,
+  "world_scale_factor": 6.246624870499659,
+  "source_usd_root_scale": 1.0,
+  "scale_reference": "city_01.usda World/Sketchfab_model root scale restored from 0.16008645 to 1.0"
 }

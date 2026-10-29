@@ -80,10 +80,16 @@ class City01ScenarioAdapter:
             graph.bind(area_id, city.node(area["ground_anchor"]["label"], "ground"))
             for anchor in area.get("aerial_anchors", ()):
                 graph.bind(area_id, city.node(anchor["label"], "aerial"))
-        battery = condition.get("battery", {})
+        battery = dict(condition.get("battery", {}))
+        scale = float(manifest.get("scene_scale_factor", 1.0))
         budgets = dict(battery.get("budgets_m", {}))
         if battery.get("enabled") and not budgets:
-            budgets = {item["robot_id"]: 120 for item in manifest["robot_roster"] if item["domain"] == "ground"}
+            # The fallback is expressed in the current enlarged world metres.
+            # Registered conditions carry explicit values; this branch only
+            # protects a legacy availability-loss row with omitted budgets.
+            budgets = {item["robot_id"]: 120.0 * scale for item in manifest["robot_roster"] if item["domain"] == "ground"}
+        if battery.get("enabled") and "budgets_m" not in battery and selected_condition == "availability_loss":
+            battery["budgets_m"] = {item["robot_id"]: 120.0 * scale for item in manifest["robot_roster"] if item["domain"] == "ground"}
         robots = tuple(RobotSpec(item["robot_id"], item["domain"], city.node(item["initial_point"], item["domain"]),
                                  speed_mps=1.0 if item["domain"] == "ground" else 4.0,
                                  capabilities=(item["role"],),

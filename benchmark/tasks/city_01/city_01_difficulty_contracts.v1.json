@@ -2,7 +2,7 @@
   "schema": "eai.city_01.difficulty_contracts.v1",
   "task_family": "city_01_patrol_emergency_v1",
   "paper_commit": "0ffd470fecdf5b4bdad82dbd9c23c439198b43d3",
-  "semantic_map_revision": "b7d43c2a1ffd4109a22853a30bd6f6ad",
+  "semantic_map_revision": "059dc09570e6429da534f0d7935494cd",
   "semantic_binding_digest": "d2d52468b4d3a3a2940951acc1f51b3eaf813d2e4c398de1856604bc3d076a0e",
   "contracts": [
     {
@@ -3823,5 +3823,6 @@
         "assessment_digest": "b1f106756b2e72c425cf9b560d5d8ae3b0a0565ed9c0c0f7b054b1255ee7f621"
       }
     }
-  ]
+  ],
+  "scene_scale_factor": 6.246624870499659
 }
