@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from task.logical_objects import LogicalObjectRuntime, ControllerObservation, SkillSessionResult
+from task.runtime.logical_objects import LogicalObjectRuntime, ControllerObservation, SkillSessionResult
 
 
 def make_runtime(*, scene_id="room_06", minimum=1, objects=None, robots=("r1", "r2", "r3")):
@@ -151,7 +151,7 @@ def test_checkpoint_roundtrip_in_isolated_ledger_restores_only_logical_state():
 
 
 def test_external_digest_cannot_authorize_future_joint_observation():
-    from task.logical_objects import digest
+    from task.runtime.logical_objects import digest
     runtime, _ = make_runtime(minimum=2)
     execute(runtime, robots=("r1", "r2"))
     snapshot = runtime.capture_state()
@@ -167,34 +167,33 @@ def test_pick_place_default_uses_logical_runtime_and_never_native_adapter():
     from task.executors.pick_place import PickPlaceExecutor
     runtime, host = make_runtime()
     executor = PickPlaceExecutor(advance=lambda: None, simulation_time=lambda: 0.0, logical_runtime=runtime)
-    req = SkillRequest("pick-1", "eai.manipulation.pick_place", "r1", parameters={"operation": "pick", "object_ref": "object_01", "semantic_point": "source"})
+    req = SkillRequest("pick-1", "eai.manipulation.pick_place", "r1", parameters={"operation": "pick", "object_ref": "object_01"})
     assert executor.execute(req) is True
     assert runtime.sample_holds()["r1"] == "object_01"
     assert PickPlaceExecutor(advance=lambda: None, simulation_time=lambda: 0).execute(req) is False
 
 
-def test_public_provider_and_executor_preserve_algorithm_selected_joint_members():
+def test_public_provider_and_executor_use_single_robot_fixed_action_contract():
     from algorithm.skills.contracts import SkillRequest
     from algorithm.skills.pick_place import PickPlaceProvider
     from algorithm.skills.simulator_schema import validate_simulator_skill_request
     from task.executors.pick_place import PickPlaceExecutor
-    runtime, host = make_runtime(minimum=2)
+    runtime, host = make_runtime(minimum=1)
     executor = PickPlaceExecutor(advance=lambda: None, simulation_time=lambda: host.tick,
                                  logical_runtime=runtime)
     provider = PickPlaceProvider()
-    for req_id, operation, point in (("joint-pick", "pick", "source"), ("joint-deliver", "deliver", "target")):
+    for req_id, operation in (("fixed-pick", "pick"), ("fixed-place", "place")):
         request = SkillRequest(req_id, provider.skill_id, "r2", parameters={
             "operation": operation, "object_ref": "object_01",
-            "semantic_point": point, "robot_ids": ["r2", "r3"],
         })
         validate_simulator_skill_request(request)
         plan = provider.plan(request)
         assert plan.status == "planned"
-        assert plan.commands[0].payload["robot_ids"] == ["r2", "r3"]
+        assert set(plan.commands[0].payload) == {"operation", "object_ref", "timeout_s"}
         assert executor.execute(request) is True
         host.tick += 1
     assert runtime.object_state("object_01")["state"] == "delivered"
-    assert all(cmd["robot_ids"] == ["r2", "r3"] for cmd in host.calls)
+    assert all(cmd["robot_ids"] == ["r2"] for cmd in host.calls)
 
 
 @pytest.mark.parametrize("extra", [

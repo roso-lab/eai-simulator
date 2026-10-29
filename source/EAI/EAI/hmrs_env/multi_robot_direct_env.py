@@ -710,7 +710,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             if callable(run_post_apply):
                 run_post_apply(self)
 
-        g1_runtime = getattr(self, "_g1_manipulation_runtime", None)
+        g1_runtime = getattr(self, "_g1_pick_place_runtime", None)
         if g1_runtime is not None:
             g1_runtime.run_post_apply(self)
 
@@ -742,7 +742,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         self._active_manipulation_handles = {
             key: handle for key, handle in active.items() if key[0] not in reset_rows
         }
-        g1_runtime = getattr(self, "_g1_manipulation_runtime", None)
+        g1_runtime = getattr(self, "_g1_pick_place_runtime", None)
         if g1_runtime is not None:
             g1_runtime.reset(env_ids)
         super()._reset_idx(env_ids)
@@ -810,7 +810,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             hook(self, env_ids)
 
     def close(self):
-        for name in ('_g1_manipulation_runtime', '_idealized_manipulation_runtime'):
+        for name in ('_g1_pick_place_runtime', '_idealized_manipulation_runtime'):
             runtime = getattr(self, name, None)
             if runtime is not None:
                 runtime.close()

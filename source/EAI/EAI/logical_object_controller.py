@@ -9,7 +9,7 @@ from copy import deepcopy
 import math
 from collections.abc import Mapping
 
-from task.logical_objects import ControllerObservation, digest, tick
+from task.runtime.logical_objects import ControllerObservation, digest, tick
 
 
 def _vector(value, length):

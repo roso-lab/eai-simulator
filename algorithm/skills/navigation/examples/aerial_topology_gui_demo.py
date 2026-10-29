@@ -79,7 +79,7 @@ def run(args):
         import omni.usd
         from omni.kit.viewport.utility import get_active_viewport, capture_viewport_to_file
         from pxr import Gf, Usd, UsdGeom
-        from task.executors.aerial_pick_place import read_aerial_pose
+        from EAI.physics.aerial_pose_reader import read_aerial_pose
 
         agent = session.base_env.possible_agents[0]
         actions = {agent: torch.zeros((1, 3), dtype=torch.float32, device=session.device)}

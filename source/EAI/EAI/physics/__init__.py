@@ -20,6 +20,7 @@ from .robot_collision import (
     robot_collision_filter_pairs,
     robot_entity_roots,
 )
+from .aerial_pose_reader import LivePhysxPoseReader, flush_physx_transforms, read_aerial_pose
 
 __all__ = [
     "AerialSensorModel",
@@ -34,4 +35,7 @@ __all__ = [
     "install_robot_robot_collision_filter",
     "robot_collision_filter_pairs",
     "robot_entity_roots",
+    "LivePhysxPoseReader",
+    "flush_physx_transforms",
+    "read_aerial_pose",
 ]

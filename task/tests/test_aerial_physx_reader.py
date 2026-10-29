@@ -1,10 +1,7 @@
 from types import SimpleNamespace
-from contextlib import nullcontext
-import sys
-
 import pytest
 
-from task.executors import aerial_pick_place as aerial
+from EAI.physics import aerial_pose_reader as aerial
 
 
 def test_live_reader_releases_native_backends_on_timeline_stop(monkeypatch):
@@ -45,39 +42,6 @@ def test_native_close_failure_still_releases_every_backend():
     assert all(x._backend is None for x in (first, second, first_view, second_view))
 
 
-def test_owned_joint_is_disabled_and_flushed_before_deletion(monkeypatch):
-    events = []
-    prim = SimpleNamespace(GetAttribute=lambda name: SimpleNamespace(
-        IsValid=lambda: True, Set=lambda enabled: events.append(("enabled", enabled))))
-    stage = SimpleNamespace(
-        GetPrimAtPath=lambda path: prim if not any(e == "remove" for e in events) else None,
-        RemovePrim=lambda path: events.append("remove") or True)
-    monkeypatch.setitem(sys.modules, "pxr", SimpleNamespace(
-        Usd=SimpleNamespace(EditContext=lambda *args: nullcontext())))
-    bridge = aerial.PhysxAerialTransportBridge.__new__(aerial.PhysxAerialTransportBridge)
-    bridge.stage, bridge._edit_target = stage, "session"
-    bridge._owned, bridge._flush = {"/joint"}, lambda: events.append("flush")
-    bridge._remove("/joint")
-    assert events == [("enabled", False), "flush", "remove", "flush"]
-    assert not bridge._owned
-
-
-def test_native_deletion_flush_failure_keeps_owned_path_for_cleanup(monkeypatch):
-    exists, flushes = [True], []
-    stage = SimpleNamespace(
-        GetPrimAtPath=lambda path: SimpleNamespace(GetAttribute=lambda name: None) if exists[0] else None,
-        RemovePrim=lambda path: exists.__setitem__(0, False) or True)
-    monkeypatch.setitem(sys.modules, "pxr", SimpleNamespace(
-        Usd=SimpleNamespace(EditContext=lambda *args: nullcontext())))
-    bridge = aerial.PhysxAerialTransportBridge.__new__(aerial.PhysxAerialTransportBridge)
-    bridge.stage, bridge._edit_target, bridge._owned = stage, "session", {"/joint"}
-    def flush():
-        flushes.append(True)
-        if len(flushes) == 2:
-            raise RuntimeError("native deletion pending")
-    bridge._flush = flush
-    with pytest.raises(RuntimeError, match="pending"):
-        bridge._remove("/joint")
-    assert not exists[0] and "/joint" in bridge._owned
-    bridge._remove("/joint")
-    assert not bridge._owned
+def test_pick_place_transport_bridge_is_removed_from_aerial_io():
+    assert not hasattr(aerial, "PhysxAerialTransportBridge")
+    assert "FixedJoint" not in aerial.__doc__

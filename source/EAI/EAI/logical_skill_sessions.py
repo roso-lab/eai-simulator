@@ -8,7 +8,7 @@ at the pickup point. This owner does not navigate or advance physics.
 from copy import deepcopy
 from dataclasses import asdict
 
-from task.logical_objects import ACQUIRE, RELEASE, ControllerObservation, SkillSessionResult, digest, tick
+from task.runtime.logical_objects import ACQUIRE, RELEASE, ControllerObservation, SkillSessionResult, digest, tick
 from .logical_object_controller import _vector
 
 

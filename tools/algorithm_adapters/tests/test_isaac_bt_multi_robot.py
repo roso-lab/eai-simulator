@@ -22,19 +22,15 @@ from algorithm.skills.pick_place import BackendFeedback
 
 
 # Local test backend: no dependency on another branch's task test suite.
-def _request(request_id, operation, simulation_time):
+def _request(request_id, operation, simulation_time=None):
+    del simulation_time
     return SkillRequest(
         request_id,
         PICK_PLACE_SKILL_ID,
         "robot_1",
-        target_pose=(1.0, 2.0, 0.8),
         parameters={
             "operation": operation,
             "object_ref": "box_1",
-            "base_position_world_m": (0.0, 0.0, 0.0),
-            "base_orientation_xyzw": (0.0, 0.0, 0.0, 1.0),
-            "world_state_seq": 4,
-            "simulation_time_s": simulation_time,
             "timeout_s": 2.0,
         },
     )
@@ -54,8 +50,8 @@ class _FakeAdapter:
         return "object:" + object_ref
 
     def validate(self, command):
-        if command.target_position_world_m != (1.0, 2.0, 0.8):
-            raise ValueError("unexpected target")
+        if command.operation not in {"pick", "place"} or not command.object_ref:
+            raise ValueError("invalid fixed action")
 
     def start(self, command):
         self.command = command

@@ -2,9 +2,8 @@
 
 This is the rebuilt simulation host for the unified PickPlace validation.  Each
 process runs exactly one host simulation.  Every trial performs one boolean
-``pick`` and one boolean ``place`` through ``PickPlaceExecutor`` while the
-caller (this script) owns navigation-free holding steps, records measured lift,
-single attach/release, final origin error and resource cleanup.
+``pick`` and one boolean ``place`` through ``PickPlaceExecutor``. The robot
+performs its configured down/up action while the payload remains untouched.
 
 Rebuilt 2026-10-19 for the HeteroCoord working tree.  The original script from
 the 2026-10-14 validation round was never committed; this rebuild covers the
@@ -29,11 +28,12 @@ for package in ("EAI", "EAI_assets", "EAI_hmrs"):
 SOURCE_FILES = (
     "tools/validation/unified_pick_place_smoke.py",
     "tools/validation/pick_place_clearance.py",
+    "task/controllers/pick_place/arm_action_runtime.py",
     "source/EAI/EAI/controllers/idealized_manipulation.py",
     "source/EAI/EAI/controllers/ik_controller.py",
     "source/EAI/EAI/manipulation_geometry.py",
     "task/executors/pick_place.py",
-    "task/executors/pick_place_backends/arm.py",
+    "task/executors/pick_place_adapters/arm.py",
     "algorithm/skills/pick_place/provider.py",
     "algorithm/skills/pick_place/contracts.py",
 )
@@ -120,8 +120,8 @@ def run(args):
 
     from algorithm.skills import PICK_PLACE_SKILL_ID, SkillRequest
     from task.executors import PickPlaceExecutor
-    from task.executors.pick_place_backends.arm import ArmPickPlaceAdapter
-    from EAI.controllers.idealized_manipulation import IdealizedManipulationRuntime
+    from task.executors.pick_place_adapters.arm import ArmPickPlaceAdapter
+    from task.controllers.pick_place import ActionOnlyManipulationRuntime
 
     if args.arm == "ur5":
         from EAI_assets.robots.ur5_mount import (
@@ -187,7 +187,7 @@ def run(args):
             visual_material=sim_utils.PreviewSurfaceCfg(
                 diffuse_color=(0.25, 0.35, 0.45), opacity=1.0)),
         init_state=RigidObjectCfg.InitialStateCfg(pos=table_center)))
-    # Only the payload is isolated during pick. Robot/table contacts remain.
+    # The payload remains a normal dynamic body throughout the action smoke.
     box = RigidObject(RigidObjectCfg(
         prim_path=object_path,
         spawn=sim_utils.CuboidCfg(
@@ -289,19 +289,11 @@ def run(args):
             "authored_targets": bool(relation and relation.HasAuthoredTargets()),
             "targets": [str(p) for p in relation.GetTargets()] if relation else [],
         }
-    original_payload_filter = payload_filter_snapshot()
     payload_api = PhysxSchema.PhysxRigidBodyAPI.Get(sim.stage, payload_root.GetPath())
-    if not payload_api:
-        payload_api = PhysxSchema.PhysxRigidBodyAPI.Apply(payload_root)
-    payload_api.CreateSleepThresholdAttr().Set(0.0)
     payload_colliders = [UsdPhysics.CollisionAPI(p) for p in Usd.PrimRange(payload_root)
                          if p.HasAPI(UsdPhysics.CollisionAPI)]
     if not payload_colliders or not all(c.GetCollisionEnabledAttr().Get() for c in payload_colliders):
         raise RuntimeError("Payload must start with enabled support collision")
-    # Kit initializes PhysX before we can write the articulation reset pose.
-    # Do not let the temporary USD zero pose hit the payload during reset.
-    for collider in payload_colliders:
-        collider.GetCollisionEnabledAttr().Set(False)
 
     arm_root = sim.stage.GetPrimAtPath(f"/World/{args.arm}_1_arm")
     articulation_api = PhysxSchema.PhysxArticulationAPI.Get(sim.stage, arm_root.GetPath())
@@ -326,8 +318,6 @@ def run(args):
     arm.write_data_to_sim()
     box.write_root_pose_to_sim(box.data.default_root_state[:, :7])
     box.write_root_velocity_to_sim(torch.zeros_like(box.data.default_root_state[:, 7:]))
-    for collider in payload_colliders:
-        collider.GetCollisionEnabledAttr().Set(True)
     scene_audit["fixed_base"] = arm.is_fixed_base
     scene_audit["jacobian_shape"] = list(arm.root_physx_view.get_jacobians().shape)
     from EAI.controllers.ik_controller import resolve_jacobian_row
@@ -338,7 +328,7 @@ def run(args):
 
     host = SimpleNamespace(num_envs=1, scene=SimpleNamespace(articulations={
         f"{args.arm}_1_arm": arm}), sim=sim)
-    runtime = IdealizedManipulationRuntime(host, {f"{args.arm}_1": model_spec})
+    runtime = ActionOnlyManipulationRuntime(host, {f"{args.arm}_1": model_spec})
 
     decimation = int(os.environ.get("SMOKE_DECIMATION", "4"))
     if decimation < 1:
@@ -354,18 +344,15 @@ def run(args):
     initial_arm_joints = arm.data.default_joint_pos.clone()
     arm_joint_ids = arm.find_joints(list(model_spec.joint_names), preserve_order=True)[0]
     startup_max_drift_rad = 0.0
-    payload_filter_steps = 0
 
     def host_step():
-        nonlocal physics_steps, last_active_sample, startup_max_drift_rad, payload_filter_steps
+        nonlocal physics_steps, last_active_sample, startup_max_drift_rad
         # Runtime rates and slew limits use physics dt, so invoke it at every
         # physics tick, as MultiRobotDirectEnv does, including decimated hosts.
         for _ in range(decimation):
             before = runtime.state(f"{args.arm}_1").value
             runtime.run_post_apply()
             active_state = runtime._states.get(f"{args.arm}_1")
-            if active_state is not None and active_state.payload_collision_filter is not None:
-                payload_filter_steps += 1
             after = runtime.state(f"{args.arm}_1").value
             if before != after:
                 binding = runtime._binding(f"{args.arm}_1", disable_collisions=False)
@@ -377,9 +364,6 @@ def run(args):
                 if tool is not None:
                     tcp, tcp_q = tool.tcp_pose(p, q)
                     event.update(tcp_position_w=tcp, tcp_orientation_wxyz=tcp_q)
-                    if before == "grasp" and after == "lift":
-                        obj_p, _ = runtime._rigid_body_pose(object_path)
-                        event["tcp_object_center_error_m"] = math.dist(tcp, obj_p)
                 phase_events.append(event)
             if wake is not None:
                 wake()
@@ -433,19 +417,8 @@ def run(args):
 
     robot_id = f"{args.arm}_1"
     name = robot_id
-    attach_releases = {"attaches": 0, "releases": 0, "last_held": False}
-
-    def track_hold_transitions():
-        held = runtime.held_object(name) is not None
-        if held and not attach_releases["last_held"]:
-            attach_releases["attaches"] += 1
-        if not held and attach_releases["last_held"]:
-            attach_releases["releases"] += 1
-        attach_releases["last_held"] = held
-
     def stepping_advance():
         host_step()
-        track_hold_transitions()
 
     executor = PickPlaceExecutor(advance=stepping_advance, simulation_time=lambda: sim.current_time,
         physical_object_experiment_authorization="algorithm/heterocoord/ADAPTATION_PUBLICATION_20261028.zh-CN.md#bounded-host")
@@ -459,51 +432,16 @@ def run(args):
         return (tuple(float(v) for v in position),
                 (float(quat_wxyz[1]), float(quat_wxyz[2]), float(quat_wxyz[3]), float(quat_wxyz[0])))
 
-    def request(request_id, operation, target, *, cartesian):
-        base_position, base_orientation = sampled_base()
-        parameters = {
-            "operation": operation,
-            "object_ref": object_path,
-            "base_position_world_m": base_position,
-            "base_orientation_xyzw": base_orientation,
-            "world_state_seq": 1,
-            "simulation_time_s": sim.current_time,
-            "timeout_s": args.timeout_s,
-        }
-        if cartesian:
-            tilt = math.radians(args.approach_degrees)
-            approach = (math.sin(tilt), 0.0, -math.cos(tilt))
-            half = math.sin(tilt / 2.0)
-            parameters.update({
-                "approach_mode": "cartesian_pose",
-                "grasp_pose_object": {
-                    "position_m": (0.0, 0.0, 0.0),
-                    "orientation_xyzw": (0.0, -half, 0.0, math.cos(tilt / 2.0)),
-                },
-                "approach_direction_world": approach,
-                "pregrasp_distance_m": 0.08,
-                "retreat_distance_m": 0.14,
-                "approach_speed_m_s": 0.05,
-            })
+    def request(request_id, operation, target=None, *, cartesian=True):
+        del target, cartesian
         return SkillRequest(request_id, PICK_PLACE_SKILL_ID, robot_id,
-                            target_pose=tuple(target), parameters=parameters)
-
-    def proxy_visual_world_z():
-        state = runtime._states.get(name)
-        held = None if state is None else state.held
-        if held is None or held.proxy_path is None:
-            return None
-        visual = held.proxy_path + "/Visual"
-        prim = sim.stage.GetPrimAtPath(visual)
-        if not prim or not prim.IsValid():
-            return None
-        world = UsdGeom.XformCache().GetLocalToWorldTransform(prim)
-        return float(world.ExtractTranslation()[2])
+                            parameters={"operation": operation,
+                                        "object_ref": object_path,
+                                        "timeout_s": args.timeout_s})
 
     trials = []
     cartesian = args.mode == "cartesian_pose"
     for trial in range(1, args.trials + 1):
-        attach_releases.update(attaches=0, releases=0, last_held=False)
         phase_events.clear()
         gripper_samples.clear()
         pick_target = tuple(runtime._rigid_body_pose(object_path)[0])
@@ -518,17 +456,6 @@ def run(args):
             f"trial-{trial}/pick", "pick", pick_target, cartesian=cartesian))
         pick_duration = sim.current_time - pick_start_time
         pick_diagnostic = last_active_sample
-        lift_m = None
-        hold_steps = 0
-        if pick_ok:
-            floor_z = pick_target[2]
-            lift_m = proxy_visual_world_z() - floor_z
-            for _ in range(120):
-                stepping_advance()
-                hold_steps += 1
-                z = proxy_visual_world_z()
-                if z is not None and floor_z is not None:
-                    lift_m = min(lift_m, z - floor_z)
         place_ok = False
         place_diagnostic = None
         place_duration = None
@@ -542,7 +469,7 @@ def run(args):
         for _ in range(120):
             stepping_advance()
         final_position, _ = runtime._rigid_body_pose(object_path)
-        final_error = math.dist(final_position, place_target)
+        final_error = math.dist(final_position, pick_target)
 
         state = runtime._states.get(name)
         tool = None if state is None else state.grasp_tool
@@ -551,10 +478,10 @@ def run(args):
         low, high = sorted((open_angle, closed_angle))
         closing = [s for s in gripper_samples if s["phase"] == "grasp"
                    and low + 0.02 < s["position_rad"] < high - 0.02]
-        opening = [s for s in gripper_samples if s["phase"] == "release"
+        opening = [s for s in gripper_samples if s["phase"] == "lift"
                    and low + 0.02 < s["position_rad"] < high - 0.02]
         closed_errors = [abs(s["position_rad"] - closed_angle) for s in gripper_samples
-                         if s["phase"] == "attached_hold"]
+                         if s["phase"] == "lift"]
         final_open_error = abs(float(arm.data.joint_pos[0, gripper_id]) - open_angle)
         # Animation acceptance checks the measured closing/opening trajectory
         # and its endpoints. Keep the full hold transient peak separately.
@@ -569,23 +496,16 @@ def run(args):
             "place_duration_s": place_duration,
             "pick_last_active_sample": pick_diagnostic,
             "place_last_active_sample": place_diagnostic,
-            "hold_steps": hold_steps,
-            "lift_m": None if lift_m is None else round(lift_m, 6),
+            "attachment_mode": "none",
             "final_origin_error_m": round(final_error, 6),
-            "attaches": attach_releases["attaches"],
-            "releases": attach_releases["releases"],
             "phase_after": None if state is None else state.phase.value,
             "last_error": runtime.last_error(name),
-            "object_owner_cleared": object_path not in runtime._object_owners,
+            "object_pose_unchanged": final_error <= .005,
             "resources_cleared": not executor._resources.snapshot()["resources"],
-            "proxy_cleared": not runtime._owned_proxy_paths,
             "source_collision_restored": all(bool(c.GetCollisionEnabledAttr().Get()) for c in payload_colliders),
-            "source_dynamic_restored": not bool(UsdPhysics.RigidBodyAPI(payload_root).GetKinematicEnabledAttr().Get()),
-            "source_gravity_restored": not bool(payload_api.GetDisableGravityAttr().Get()),
-            "payload_filter_restored": (payload_filter_snapshot() == original_payload_filter
-                                        and (state is None or state.payload_collision_filter is None)),
+            "source_dynamic_unchanged": not bool(UsdPhysics.RigidBodyAPI(payload_root).GetKinematicEnabledAttr().Get()),
+            "source_gravity_unchanged": not bool(payload_api.GetDisableGravityAttr().Get()) if payload_api else True,
             "payload_filter_snapshot_after": payload_filter_snapshot(),
-            "payload_filter_steps": payload_filter_steps,
             "pick_target_world_m": pick_target,
             "place_target_world_m": place_target,
             "final_position_world_m": final_position,
@@ -601,21 +521,16 @@ def run(args):
             },
             "grasp_tool": None if tool is None else vars(tool),
             "tcp_alignment_passed": any(
-                e.get("tcp_object_center_error_m", float('inf')) <= .008 for e in phase_events),
+                e.get("position_error_m", float('inf')) <= .035 for e in phase_events),
         }
         record["ok"] = bool(
             pick_ok and place_ok
-            and (lift_m is not None and lift_m >= 0.05)
-            and final_error <= 0.035
-            and attach_releases["attaches"] == 1
-            and attach_releases["releases"] == 1
-            and record["object_owner_cleared"]
+            and record["object_pose_unchanged"]
             and record["phase_after"] == "idle" and not record["last_error"]
             and gripper_animation_ok
             and record["tcp_alignment_passed"]
-            and all(record[key] for key in ("resources_cleared", "proxy_cleared", "source_collision_restored",
-                                            "source_dynamic_restored", "source_gravity_restored",
-                                            "payload_filter_restored"))
+            and all(record[key] for key in ("resources_cleared", "source_collision_restored",
+                                            "source_dynamic_unchanged", "source_gravity_unchanged"))
         )
         trials.append(record)
         print(json.dumps({key: value for key, value in record.items()
@@ -662,7 +577,7 @@ def run(args):
         },
         "scene_audit": scene_audit,
         "arm_table_clearance": clearance_report,
-        "evidence_scope": "idealized_follow_proxy_pick_place; not contact grasp",
+        "evidence_scope": "fixed_robot_action; payload pose and physics state are unchanged",
         "video": str(args.video) if args.video is not None else None,
         "transparent_support_for_video": False,
         "trials": trials,

@@ -487,22 +487,14 @@ def _map_hashes(root: Path) -> dict[str, str]:
 def _manipulation_request(request_id: str, operation: str, *, robot_id: str,
                           object_path: str, target_world: tuple[float, float, float],
                           base_pose: Any, sequence: int, simulation_time: float):
-    """Pass world targets and a measured base pose to the Skill compiler.
-
-    The Skill performs world-to-base conversion itself.  Supplying a local
-    zero target or pretending the base is at the object changes the command's
-    reconstructed world target and fails the live-object validation.
-    """
+    """Build a fixed-action request after the navigation leg has completed."""
     from algorithm.skills.contracts import SkillRequest
     from algorithm.skills.pick_place import SKILL_ID
 
-    w, x, y, z = base_pose.orientation_wxyz
-    return SkillRequest(
-        request_id, SKILL_ID, robot_id, target_pose=tuple(target_world),
-        parameters={"operation": operation, "object_ref": object_path,
-                    "base_position_world_m": list(base_pose.position_m),
-                    "base_orientation_xyzw": [x, y, z, w],
-                    "world_state_seq": sequence, "simulation_time_s": simulation_time})
+    del target_world, base_pose, sequence, simulation_time
+    return SkillRequest(request_id, SKILL_ID, robot_id,
+                        parameters={"operation": operation,
+                                    "object_ref": object_path})
 
 
 def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, Any]:
@@ -517,10 +509,9 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
     from algorithm.skills.navigation.node_route import NODE_ROUTE_SKILL_ID
     from task.executors.navigation import NavigationExecutor
     from task.executors.navigation_backends import WorldPositionNavigationAdapter
-    from task.executors.aerial_pick_place import (LivePhysxPoseReader, PhysxAerialTransportBridge,
-                                                  read_aerial_pose)
+    from EAI.physics.aerial_pose_reader import LivePhysxPoseReader, read_aerial_pose
     from task.executors.pick_place import PickPlaceExecutor
-    from task.executors.pick_place_backends import DronePickPlaceAdapter
+    from task.executors.pick_place_adapters import DronePickPlaceAdapter
 
     starts = fixed_start_plan(data["nodes"], args.trials)
     high = tuple(float(v) for v in data["high"]["position_xyz"])
@@ -650,8 +641,6 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
                     _write_json(output / "manipulation-progress.json", progress)
 
         pose_reader_live = LivePhysxPoseReader(env)
-        from pxr import Usd
-
         def reset_state(start):
             # Public reset clears controller state; its spawn default selects
             # the next trial's authored aerial node, without warm-up steps.
@@ -679,21 +668,14 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
             nav = NavigationExecutor(topology=topology, simulation_time=sim_time,
                                      semantic_points=data["points"])
             nav.register_adapter(nav_adapter)
-            with Usd.EditContext(stage, stage.GetSessionLayer()):
-                bridge = PhysxAerialTransportBridge(
-                    stage, pose_reader=pose_reader_live,
-                    # Iris hull reaches Z=-0.067 m in its body frame. A 10 cm
-                    # payload needs an external grasp point, including the
-                    # 3 cm attachment tolerance, before collision is restored.
-                    drone_anchor_local_m=(0., 0., -.20))
             backend = DronePickPlaceAdapter(
-                robot_id, bridge, robot_body=robot_body, object_pose=object_pose,
-                robot_pose=lambda: read_aerial_pose(env, robot_id), write_goal=write_goal,
+                robot_id, robot_pose=lambda: read_aerial_pose(env, robot_id), write_goal=write_goal,
                 stop_motion=stop_motion, simulation_time=sim_time, robot_type="PegasusIris",
                 align_xy_tolerance_m=0.08, align_z_tolerance_m=0.05,
                 return_target_reader=lambda command: return_targets[command.request_id])
             executor = PickPlaceExecutor(advance=advance_one_tick, simulation_time=sim_time,
-                                         resources=nav.resources)
+                                         resources=nav.resources,
+                                         physical_object_experiment_authorization="action_only_pick_place")
             executor.register_adapter(backend)
             return nav, executor, backend
 

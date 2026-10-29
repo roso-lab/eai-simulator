@@ -506,7 +506,7 @@ class LogicalPayloadManager:
     @staticmethod
     def _default_flush() -> None:
         try:
-            from task.executors.aerial_pick_place import flush_physx_transforms
+            from EAI.physics.aerial_pose_reader import flush_physx_transforms
             flush_physx_transforms()
         except ImportError:
             # Dependency-light --check imports never call this path.
@@ -1354,23 +1354,15 @@ def _drone_request(request_id: str, operation: str, *, robot_id: str,
                    object_path: str, target_world: tuple[float, float, float],
                    base_pose: Any, sequence: int, simulation_time: float,
                    timeout_s: float = 300.0):
-    """Aerial pick/place request, identical to the reference transport demo.
-
-    The generous timeout absorbs the gradual slow-down of the Pegasus
-    controller across teleport resets (its internal state is not cleared
-    between trials in this demo).
-    """
+    """Build the fixed-action request after navigation has reached the point."""
     from algorithm.skills.contracts import SkillRequest
     from algorithm.skills.pick_place import SKILL_ID
 
-    w, x, y, z = base_pose.orientation_wxyz
-    return SkillRequest(
-        request_id, SKILL_ID, robot_id, target_pose=tuple(target_world),
-        parameters={"operation": operation, "object_ref": object_path,
-                    "base_position_world_m": list(base_pose.position_m),
-                    "base_orientation_xyzw": [x, y, z, w],
-                    "timeout_s": timeout_s,
-                    "world_state_seq": sequence, "simulation_time_s": simulation_time})
+    del target_world, base_pose, sequence, simulation_time
+    return SkillRequest(request_id, SKILL_ID, robot_id,
+                        parameters={"operation": operation,
+                                    "object_ref": object_path,
+                                    "timeout_s": timeout_s})
 
 
 def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, Any]:
@@ -1392,7 +1384,7 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
     from task.executors.navigation import NavigationExecutor
     from task.executors.navigation_backends import (PlanarVelocityNavigationAdapter,
                                                     WorldPositionNavigationAdapter)
-    from task.executors.aerial_pick_place import flush_physx_transforms, read_aerial_pose
+    from EAI.physics.aerial_pose_reader import flush_physx_transforms, read_aerial_pose
     from task.executors.pick_place import PickPlaceExecutor
     from task.resources import ResourceManager
 

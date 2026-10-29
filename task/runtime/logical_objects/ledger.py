@@ -7,20 +7,11 @@ No USD, geometry, attachment, contact or rigid-body state belongs here.
 
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
-from dataclasses import dataclass
-import hashlib
-import json
 import math
 from typing import Any
-
-MODEL = "heterocoord.logical-task-objects.v1"
-CHECKPOINT = "heterocoord.logical-task-objects-checkpoint.v1"
+from .contracts import CHECKPOINT, MODEL, ControllerObservation, SkillSessionResult, digest
 ACQUIRE = {"pick", "load", "receive"}
 RELEASE = {"place", "deliver", "store"}
-
-
-def digest(value):
-    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()).hexdigest()
 
 
 def text(value, name):
@@ -33,28 +24,6 @@ def tick(value):
     if type(value) is not int or value < 0:
         raise ValueError("logical object clock must be a nonnegative integer tick")
     return value
-
-
-@dataclass(frozen=True)
-class ControllerObservation:
-    robot_id: str
-    semantic_point: str
-    tick: int
-    arrived: bool
-    evidence_digest: str
-
-
-@dataclass(frozen=True)
-class SkillSessionResult:
-    session_id: str
-    request_id: str
-    robot_ids: tuple[str, ...]
-    object_id: str
-    operation: str
-    semantic_point: str
-    tick: int
-    status: str
-    evidence_digest: str
 
 
 def _evidence(value):
@@ -72,7 +41,7 @@ class LogicalObjectRuntime:
     host-defined per-holder load share, never an algorithm-provided payload.
     """
 
-    name = "task.logical_objects"
+    name = "task.runtime.logical_objects"
     version = 1
     priority = 80
 

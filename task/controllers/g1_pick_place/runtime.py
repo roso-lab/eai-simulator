@@ -10,7 +10,7 @@ from typing import Mapping
 import json, math, hashlib
 import numpy as np
 from pxr import Usd, UsdGeom, UsdPhysics
-from .geometry import ObstacleBox, xyz, world_matrix, set_world_matrix, object_local_size
+from .geometry import ObstacleBox, xyz, world_matrix, object_local_size
 from .kinematics import KinematicRobot
 from .planner import TransferPlanner
 
@@ -133,7 +133,6 @@ class G1PickPlaceSkill:
         self.robot = KinematicRobot(stage, robot_path)
         self.status, self.phase = 'idle', 'idle'
         self.transfer = None
-        self.attached = False
         self.events = []
         self.error = None
         self._elapsed = 0.
@@ -158,7 +157,7 @@ class G1PickPlaceSkill:
         return self.start(pick_position, pick_position, object_ref=object_ref, _local_pick=True)
 
     def start(self, pick_position, place_position, *, object_ref=None, _local_pick=False):
-        if self.status in ('running','holding') or self.attached:
+        if self.status in ('running','holding'):
             raise G1SkillError('busy', 'finish, resume, or cancel the current operation first')
         pick, place = xyz(pick_position, 'pick_position'), xyz(place_position, 'place_position')
         self._require_kinematic()
@@ -218,15 +217,12 @@ class G1PickPlaceSkill:
         self.pick, self.place, self._root = obj[:3,3].copy(), place.copy(), root
         self._expected_object = obj.copy()
         self._elapsed = 0.;self.events = [];self.error = None
-        self.status, self.phase, self.attached = 'running', 'prepare', False
+        self.status, self.phase = 'running', 'prepare'
         return self.receipt()
 
     def _check_state(self):
         if not np.allclose(world_matrix(self.robot.root), self._root, atol=1e-7, rtol=0):
             raise G1SkillError('state_changed', 'fixed robot root moved; stop and replan')
-        actual = world_matrix(self.stage.GetPrimAtPath(self.object_path))
-        if not np.allclose(actual, self._expected_object, atol=1e-6, rtol=0):
-            raise G1SkillError('state_changed', 'bound object moved externally')
         cache = UsdGeom.XformCache()
         expected = self.robot.forward()
         for path, matrix in expected.items():
@@ -242,26 +238,10 @@ class G1PickPlaceSkill:
         try:
             self._check_state()
             if self._elapsed + dt > self.config.timeout_s:
-                raise G1SkillError('execution_failure', 'operation timed out; attachment preserved')
+                raise G1SkillError('execution_failure', 'fixed action timed out')
             self._elapsed += dt
             r = self.transfer.step(dt, self.pick, self.place)
-            self.phase = r['phase'];frame = np.asarray(r['grip_world_transform'])
-            prim = self.stage.GetPrimAtPath(self.object_path)
-            if r['request_attach']:
-                point = (self._expected_object @ np.r_[self.transfer.object_point,1])[:3]
-                if np.linalg.norm(point-frame[:3,3]) > .006:
-                    raise G1SkillError('execution_failure', 'fingers did not reach the registered object grip')
-                self._relative = np.linalg.inv(frame) @ self._expected_object
-                self.transfer.acknowledge_attachment(True);self.attached = True
-                self.events.append({'event':'attached','seconds':self._elapsed,'object_ref':self.object_ref})
-            if self.attached:
-                self._expected_object = frame @ self._relative
-                set_world_matrix(prim, self._expected_object)
-            if r['request_release']:
-                if np.linalg.norm(self._expected_object[:3,3]-self.place) > .008:
-                    raise G1SkillError('execution_failure', 'object not at place position; attachment preserved')
-                self.transfer.acknowledge_attachment(False);self.attached = False
-                self.events.append({'event':'released','seconds':self._elapsed,'object_ref':self.object_ref})
+            self.phase = r['phase']
             if self.phase == 'done':
                 self.status = 'completed'
         except Exception as error:
@@ -271,7 +251,7 @@ class G1PickPlaceSkill:
         return self.receipt()
 
     def stop(self):
-        """Freeze the operation; any held object stays attached. No detach/reset."""
+        """Freeze the robot action for host reconciliation."""
         if self.status == 'running':self.status = 'holding'
         return self.receipt()
 
@@ -282,15 +262,13 @@ class G1PickPlaceSkill:
         return self.receipt()
 
     def cancel(self):
-        if self.attached:
-            raise G1SkillError('holding_object', 'cannot cancel/drop a held object; resume to place it')
         self.status = 'cancelled';return self.receipt()
 
     def receipt(self):
         return {'status':self.status,'phase':self.phase,'elapsed_s':self._elapsed,
-                'attached':self.attached,'object_ref':getattr(self,'object_ref',None),
+                'object_ref':getattr(self,'object_ref',None),
                 'events':list(self.events),'error':self.error,'physical_success':None,
-                'mode':'fixed_base_kinematic_ideal_attachment',
+                'mode':'fixed_action_no_payload',
                 'obstacle_check':('configured boxes / robot arm visual vertices only' if self.obstacles else 'not configured; endpoint-only raised path')}
 
 

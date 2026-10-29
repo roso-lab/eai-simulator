@@ -8,7 +8,7 @@
 
 新 manifest 默认使用 `heterocoord.logical-task-object-bindings.v1`。旧 `task_generated` 的 definition_ref/digest 仍可作为逻辑定义来源，不表示要生成物体。旧 prim 绑定可读取历史档案，但新构建仅在宿主明确传入独立物理实验授权引用时接受，算法不能自行选择该路径。
 
-被测系统只输出决策和技能调用，不获得可写账本，也不能提交 held_by、完成标志、质量/载荷覆盖值。`task.logical_objects.LogicalObjectRuntime` 由 benchmark 宿主创建；所有场景复用同一实现，不内置场景白名单。`from_case_manifest()` 从已验证 manifest 读取对象和部署池身份，拒绝调用者替换 robot_ids。
+被测系统只输出决策和技能调用，不获得可写账本，也不能提交 held_by、完成标志、质量/载荷覆盖值。`task.runtime.logical_objects.LogicalObjectRuntime` 由 benchmark 宿主创建；所有场景复用同一实现，不内置场景白名单。`from_case_manifest()` 从已验证 manifest 读取对象和部署池身份，拒绝调用者替换 robot_ids。
 
 ## 状态转换
 

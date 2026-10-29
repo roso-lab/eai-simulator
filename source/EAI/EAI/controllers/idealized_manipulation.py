@@ -3,8 +3,9 @@
 The benchmark runtime deliberately keeps manipulation simple: the end effector
 moves in the manipulator articulation root's rotating plane. The shoulder
 turns directly; reduced damped-least-squares IK controls reach, height and the
-downward tool orientation. Pick and place use a visual follow proxy; the source rigid body is
-isolated while it is carried and restored exactly once on release.
+downward tool orientation. The action-only PickPlace entry drives robot
+trajectories without reading or writing payload bodies. Legacy attachment
+helpers remain available only for older callers outside that entry.
 """
 
 from __future__ import annotations
@@ -342,6 +343,7 @@ class RobotManipulationState:
     gripper_goal_rad: float | None = None
     grasp_tool: Any = None
     payload_collision_filter: Any = None
+    action_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -766,9 +768,9 @@ class IdealizedManipulationRuntime:
         state = self._states.setdefault(name, RobotManipulationState())
         if not self.enabled:
             return self._reject(state, "idealized manipulation requires num_envs=1")
-        if state.held is None:
+        if state.held is None and not state.action_only:
             return self._reject(state, "place rejected: robot does not hold an object")
-        if state.phase != ManipulationPhase.ATTACHED_HOLD:
+        if state.phase != ManipulationPhase.ATTACHED_HOLD and not (state.phase == ManipulationPhase.IDLE and state.action_only):
             return self._reject(state, "place rejected: robot is not in ATTACHED_HOLD")
         target = normalize_cylindrical_pose(place_pose, name="place_pose")
         recovery = state.recovery_pose if recovery_pose is None else normalize_cylindrical_pose(recovery_pose, name="recovery_pose")
@@ -900,6 +902,61 @@ class IdealizedManipulationRuntime:
             return False
         return True
 
+    def start_action_cartesian(
+        self,
+        robot_name: str,
+        *,
+        operation: str,
+        contact_position_w: Sequence[float],
+        contact_orientation_wxyz: Sequence[float],
+        approach_direction_w: Sequence[float],
+        pregrasp_distance_m: float,
+        retreat_distance_m: float,
+        approach_speed_m_s: float = DEFAULT_CARTESIAN_SPEED_M_S,
+        motion_speed_scale: float = 1.0,
+        arrival_dwell_s: float = DEFAULT_CARTESIAN_ARRIVAL_DWELL_S,
+        tolerance_m: float = DEFAULT_POSITION_TOLERANCE_M,
+        orientation_tolerance_rad: float = DEFAULT_TOOL_ORIENTATION_TOLERANCE_RAD,
+        phase_timeout_steps: int = DEFAULT_PHASE_TIMEOUT_STEPS,
+        env_id: int = 0,
+    ) -> bool:
+        """Run a fixed pick/place reach-and-retract trajectory without a payload."""
+        if operation not in {"pick", "place"}:
+            raise ValueError("action operation must be pick or place")
+        runtime = self._runtime_for_env(env_id)
+        if runtime is not self:
+            return runtime.start_action_cartesian(
+                robot_name, operation=operation,
+                contact_position_w=contact_position_w,
+                contact_orientation_wxyz=contact_orientation_wxyz,
+                approach_direction_w=approach_direction_w,
+                pregrasp_distance_m=pregrasp_distance_m,
+                retreat_distance_m=retreat_distance_m,
+                approach_speed_m_s=approach_speed_m_s,
+                motion_speed_scale=motion_speed_scale,
+                arrival_dwell_s=arrival_dwell_s,
+                tolerance_m=tolerance_m,
+                orientation_tolerance_rad=orientation_tolerance_rad,
+                phase_timeout_steps=phase_timeout_steps,
+            )
+        plan = self._validate_cartesian_geometry(
+            contact_position_w, contact_orientation_wxyz, approach_direction_w,
+            pregrasp_distance_m, retreat_distance_m, approach_speed_m_s,
+            orientation_tolerance_rad, motion_speed_scale, arrival_dwell_s,
+        )
+        name = str(robot_name).strip()
+        state = self._states.setdefault(name, RobotManipulationState())
+        started = self._begin_cartesian(
+            operation, name, plan, object_body_path=None,
+            tolerance_m=tolerance_m, phase_timeout_steps=phase_timeout_steps,
+        )
+        if not started:
+            return False
+        state.action_only = True
+        self._set_cartesian_phase(state, ManipulationPhase.PREGRASP,
+                                  plan.pregrasp_position_w, plan.contact_orientation_wxyz)
+        return True
+
     def _prepare_folded_cartesian_pick(self, robot_name: str, state: RobotManipulationState) -> None:
         """Unfold Z1 in its measured shoulder plane before full-pose IK.
 
@@ -988,8 +1045,9 @@ class IdealizedManipulationRuntime:
             _, ee_orientation = self._end_effector_pose(binding)
         except Exception as exc:
             return self._reject(state, f"place rejected: {exc}")
+        relative = ((0., 0., 0.) if state.held is None else state.held.relative_object_position_ee)
         contact_position, contact_orientation = cartesian_place_contact_pose(
-            state.held.relative_object_position_ee, ee_orientation,
+            relative, ee_orientation,
             plan.approach_direction_w, target,
             tool_axis_ee=((0., 0., 1.) if state.grasp_tool is None else
                           _quat_rotate(state.grasp_tool.orientation_ee_wxyz, (0., 0., 1.))),
@@ -1097,7 +1155,10 @@ class IdealizedManipulationRuntime:
         state = self._states.setdefault(robot_name, RobotManipulationState())
         if not self.enabled:
             return self._reject(state, "idealized manipulation requires num_envs=1")
-        can_start_place = operation == "place" and state.phase == ManipulationPhase.ATTACHED_HOLD and state.held is not None
+        can_start_place = operation == "place" and (
+            (state.phase == ManipulationPhase.ATTACHED_HOLD and state.held is not None)
+            or (state.phase == ManipulationPhase.IDLE and state.action_only)
+        )
         if state.phase not in (ManipulationPhase.IDLE, ManipulationPhase.FAILED) and not can_start_place:
             return self._reject(state, "manipulation command rejected: robot is busy")
         tolerance = _finite_float(tolerance_m, "tolerance_m")
@@ -1832,16 +1893,21 @@ class IdealizedManipulationRuntime:
                 )
             elif state.phase == ManipulationPhase.APPROACH:
                 self._set_cartesian_phase(
-                    state, ManipulationPhase.GRASP,
-                    plan.contact_position_w, plan.contact_orientation_wxyz,
+                    state,
+                    ManipulationPhase.LIFT if state.action_only else ManipulationPhase.GRASP,
+                    plan.retreat_position_w if state.action_only else plan.contact_position_w,
+                    plan.contact_orientation_wxyz,
                 )
             elif state.phase == ManipulationPhase.LIFT:
-                state.phase = ManipulationPhase.ATTACHED_HOLD
-                state.cartesian_goal_position_w = plan.retreat_position_w
-                state.cartesian_goal_orientation_wxyz = plan.contact_orientation_wxyz
-                state.phase_steps = 0
-                state.arrival_joint_sample = None
-                state.arrival_tcp_position_w = None
+                if state.action_only:
+                    self._finish_idle(state)
+                else:
+                    state.phase = ManipulationPhase.ATTACHED_HOLD
+                    state.cartesian_goal_position_w = plan.retreat_position_w
+                    state.cartesian_goal_orientation_wxyz = plan.contact_orientation_wxyz
+                    state.phase_steps = 0
+                    state.arrival_joint_sample = None
+                    state.arrival_tcp_position_w = None
             return
         if state.operation == "place":
             if state.phase == ManipulationPhase.PREGRASP:
@@ -1851,8 +1917,10 @@ class IdealizedManipulationRuntime:
                 )
             elif state.phase == ManipulationPhase.APPROACH:
                 self._set_cartesian_phase(
-                    state, ManipulationPhase.RELEASE,
-                    plan.contact_position_w, plan.contact_orientation_wxyz,
+                    state,
+                    ManipulationPhase.LIFT if state.action_only else ManipulationPhase.RELEASE,
+                    plan.retreat_position_w if state.action_only else plan.contact_position_w,
+                    plan.contact_orientation_wxyz,
                 )
             elif state.phase == ManipulationPhase.LIFT:
                 self._finish_idle(state)
@@ -1890,6 +1958,7 @@ class IdealizedManipulationRuntime:
         self._filter_payload_during_retreat(binding, state)
         self._release_follow_attachment(held, binding)
         state.release_started = False
+        state.action_only = False
         if self._object_owners.get(held.object_body_path) == robot_name:
             self._object_owners.pop(held.object_body_path, None)
         state.held = None

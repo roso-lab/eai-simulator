@@ -16,7 +16,7 @@ from typing import Any, Callable
 
 from benchmark.room06_task_instance_v2 import logical_object_definitions
 from benchmark.records_v3 import canonical_digest
-from task.logical_objects import LogicalObjectRuntime
+from task.runtime.logical_objects import LogicalObjectRuntime
 from task.contracts import AlgorithmDecision, EaiTaskPackage
 from benchmark.adapters import DecisionProvider
 

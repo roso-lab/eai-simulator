@@ -1,7 +1,7 @@
 """Exact logical object participant for the existing causal replay registry."""
 from collections.abc import Callable
 
-from task.logical_objects import LogicalObjectRuntime
+from task.runtime.logical_objects import LogicalObjectRuntime
 from .replay_state_v3 import SnapshotParticipantV3
 
 

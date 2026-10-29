@@ -1,4 +1,4 @@
-"""Opt-in native adapters. Importing these does not start Isaac Sim."""
+"""PickPlace robot adapters. Importing these does not start Isaac Sim."""
 from .arm import ArmPickPlaceAdapter
 from .drone import DronePickPlaceAdapter
 from .pepper import PepperPickPlaceAdapter

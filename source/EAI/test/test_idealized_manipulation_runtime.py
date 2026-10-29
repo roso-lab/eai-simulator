@@ -242,7 +242,7 @@ def _advance_pick_to_hold(runtime):
 def test_unified_arm_boolean_place_after_external_base_motion(monkeypatch):
     from algorithm.skills import PICK_PLACE_SKILL_ID, SkillRequest
     from task.executors import PickPlaceExecutor
-    from task.executors.pick_place_backends import ArmPickPlaceAdapter
+    from task.executors.pick_place_adapters import ArmPickPlaceAdapter
     env, runtime = _runtime(monkeypatch)
     # Real grasp offset is intentionally nonzero. The place input still
     # describes the object origin, not the wrist.
@@ -251,27 +251,24 @@ def test_unified_arm_boolean_place_after_external_base_motion(monkeypatch):
     def tick():
         runtime.run_post_apply()
         clock[0] += .5
-    executor = PickPlaceExecutor(advance=tick, simulation_time=lambda: clock[0])
+    executor = PickPlaceExecutor(advance=tick, simulation_time=lambda: clock[0],
+                                physical_object_experiment_authorization="action_only_pick_place")
     executor.register_adapter(backend)
     def req(key, operation, target):
-        q = tuple(env.arm.data.root_quat_w[0])
-        return SkillRequest(key, PICK_PLACE_SKILL_ID, "robot", target_pose=target, parameters={
-            "operation": operation, "object_ref": "/World/Object", "world_state_seq": 0,
-            "simulation_time_s": clock[0], "base_position_world_m": tuple(env.arm.data.root_pos_w[0]),
-            "base_orientation_xyzw": (*q[1:], q[0]), "timeout_s": 100.})
+        del target
+        return SkillRequest(key, PICK_PLACE_SKILL_ID, "robot", parameters={
+            "operation": operation, "object_ref": "logical_box", "timeout_s": 100.})
     assert executor.execute(req("pick", "pick", env.object_position)) is True
-    assert env.object_isolated and runtime.held_object("robot") is not None
+    assert not env.object_isolated and runtime.held_object("robot") is None
     env.arm.data.root_pos_w[0] = (1., .2, 0.)
     env.arm.data.root_quat_w[0] = (math.sqrt(.5), 0., 0., math.sqrt(.5))
     tick()
-    held_position = env.proxy_position
-    assert held_position[0] == pytest.approx(1.)
     assert executor.execute(req("place", "place", (1., 1., .2))) is True
-    assert env.object_position == pytest.approx((1., 1., .2), abs=1e-5)
-    assert env.object_pose_writes == 1
+    assert env.object_position == pytest.approx((.8, 0., .2), abs=1e-5)
+    assert env.object_pose_writes == 0
     assert not env.object_isolated
     tick()
-    assert env.object_pose_writes == 1
+    assert env.object_pose_writes == 0
 
 
 def test_opt_in_arm_failure_retains_follow_proxy(monkeypatch):
@@ -293,17 +290,19 @@ def test_opt_in_arm_failure_retains_follow_proxy(monkeypatch):
     ((.2, -.2, .1), (.8, .2, .3, .1)),
 ])
 def test_local_backend_uses_full_arm_mount_pose(monkeypatch, position, orientation):
-    from task.executors.pick_place_backends import ArmPickPlaceAdapter
-    from task.tests.test_pick_place import request
+    from task.executors.pick_place_adapters import ArmPickPlaceAdapter
+    from algorithm.skills import PICK_PLACE_SKILL_ID, SkillRequest
     from algorithm.skills.pick_place import compile_request
-    from EAI.manipulation_geometry import cylindrical_to_world_position
     env, runtime = _runtime(monkeypatch)
     env.arm.data.root_pos_w[0] = position
     env.arm.data.root_quat_w[0] = orientation
-    backend = ArmPickPlaceAdapter("robot", runtime, grasp_offset_object_m=(0., 0., .06))
-    target, _ = backend._target(compile_request(request(target=env.object_position)))
-    actual = cylindrical_to_world_position(target, position, orientation, 0.)
-    assert actual == pytest.approx((.8, 0., .26))
+    backend = ArmPickPlaceAdapter("robot", runtime)
+    command = compile_request(SkillRequest(
+        "fixed", PICK_PLACE_SKILL_ID, "robot",
+        parameters={"operation": "pick", "object_ref": "logical_box"}))
+    contact, _, pregrasp, retreat, approach = backend._cartesian_targets(command)
+    assert contact[2] < pregrasp[2] < retreat[2]
+    assert approach == pytest.approx((0., 0., -1.))
 
 
 def test_opt_in_arm_restore_failure_retains_pending_ownership(monkeypatch):
@@ -353,28 +352,29 @@ def test_opt_in_partial_release_is_not_repeated(monkeypatch):
 
 
 def test_unified_arm_released_object_drift_returns_false_without_releasing_twice(monkeypatch):
+    from algorithm.skills import PICK_PLACE_SKILL_ID, SkillRequest
     from task.executors import PickPlaceExecutor
-    from task.executors.pick_place_backends import ArmPickPlaceAdapter
-    from task.tests.test_pick_place import request
+    from task.executors.pick_place_adapters import ArmPickPlaceAdapter
     env, runtime = _runtime(monkeypatch)
     backend = ArmPickPlaceAdapter("robot", runtime)
     clock = [0.]
     def tick():
         runtime.run_post_apply()
         clock[0] += .5
-        if (backend._command.operation == "place"
-                and runtime.state("robot") == manipulation.ManipulationPhase.IDLE):
-            env.object_position = (9., 0., .2)
-    executor = PickPlaceExecutor(advance=tick, simulation_time=lambda: clock[0])
+    executor = PickPlaceExecutor(advance=tick, simulation_time=lambda: clock[0],
+                                physical_object_experiment_authorization="action_only_pick_place")
     executor.register_adapter(backend)
     assert backend.feedback().grasp_state == "empty"
-    assert executor.execute(request(target=env.object_position)) is True
-    assert executor.execute(request("place", "place", target=(.6, 0., .2), time=clock[0])) is False
+    def request(request_id, operation):
+        return SkillRequest(request_id, PICK_PLACE_SKILL_ID, "robot",
+                            parameters={"operation": operation, "object_ref": "logical_box", "timeout_s": 100.})
+    assert executor.execute(request("pick", "pick")) is True
+    assert executor.execute(request("place", "place")) is True
     assert runtime.held_object("robot") is None
-    assert env.object_pose_writes == 1
+    assert env.object_pose_writes == 0
     assert not executor._resources.snapshot()["resources"]
     runtime.run_post_apply()
-    assert env.object_pose_writes == 1
+    assert env.object_pose_writes == 0
 
 
 def test_pose_validation_and_yaw_wrap():
@@ -418,7 +418,7 @@ def test_model_specific_gripper_and_approach_configuration():
     z1 = manipulation.planar_ik_spec_for_model(
         SimpleNamespace(model="z1", joint_names=(), ee_body_names=(), gripper_joint_name="jointGripper")
     )
-    assert ur5.gripper_open_position_rad is None
+    assert ur5.gripper_open_position_rad == pytest.approx(0.0)
     assert ur5.gripper_collision_body_names == ()
     assert z1.gripper_open_position_rad == pytest.approx(-0.8)
     assert z1.gripper_closed_position_rad == pytest.approx(0.0)

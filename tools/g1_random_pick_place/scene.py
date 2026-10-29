@@ -4,8 +4,8 @@ import json
 import math
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
-from task.executors.g1_manipulation.runtime import G1PickPlaceSkill, GraspProfile, ObjectBinding, G1SkillError
-from task.executors.g1_manipulation.geometry import world_matrix, set_world_matrix, object_local_size
+from task.controllers.g1_pick_place.runtime import G1PickPlaceSkill, GraspProfile, ObjectBinding, G1SkillError
+from task.controllers.g1_pick_place.geometry import world_matrix, set_world_matrix, object_local_size
 
 ROOT = Path(__file__).resolve().parents[2]
 ASSET = ROOT / 'usd/robot/g1/g1_29dof_with_inspire_rev_1_0.usd'
@@ -104,6 +104,7 @@ class RandomTrial:
             else:
                 pick, place = np.array(specification['pick_position']), np.array(specification['place_position'])
             pose(obj, pick)
+            self.initial_object_position = np.asarray(pick, dtype=float)
             try:
                 # Exactly the two public coordinate inputs, no obstacle/support locations.
                 self.skill.start(pick.tolist(), place.tolist())
@@ -140,10 +141,6 @@ class RandomTrial:
         q = self.skill.robot.angles
         self.peak_speed = max(self.peak_speed, max(abs(q[n] - self.previous[n]) / dt for n in q))
         self.previous = dict(q)
-        if self.skill.attached:
-            obj = world_matrix(self.stage.GetPrimAtPath(self.skill.object_path))
-            point = (obj @ np.r_[self.skill.transfer.object_point, 1])[:3]
-            self.grip_error = max(self.grip_error, float(np.linalg.norm(point - self.skill.transfer._grip()[:3, 3])))
         if self.skill.phase != self.last_phase:
             self.events.append({'seconds': self.frames * dt, 'phase': self.skill.phase})
             self.last_phase = self.skill.phase
@@ -152,14 +149,14 @@ class RandomTrial:
     def report(self):
         position = world_matrix(self.stage.GetPrimAtPath(self.skill.object_path))[:3, 3]
         result = {**self.specification, 'status': self.skill.status, 'events': self.events,
-            'attachment_events': self.skill.events, 'max_grip_error_m': self.grip_error,
-            'place_error_m': float(np.linalg.norm(position - self.skill.place)),
+            'attachment_mode': 'none', 'max_grip_error_m': None,
+            'object_position_before': self.initial_object_position.tolist(),
+            'object_position_after': position.tolist(),
+            'object_pose_changed': not np.allclose(position, self.initial_object_position),
             'final_position': position.tolist(), 'peak_joint_speed_rad_s': self.peak_speed}
         if self.skill.status == 'completed':
-            assert result['place_error_m'] < .003
-            assert self.grip_error < .006
             assert self.peak_speed <= self.skill.config.joint_speed_rad_s + 1e-6
-            assert [e['event'] for e in self.skill.events] == ['attached', 'released']
+            assert not result['object_pose_changed']
         return result
 
 
@@ -174,7 +171,7 @@ def audit(output, seed=20261014, fps=24):
         results.append(trial.report())
         print(json.dumps(results[-1], ensure_ascii=False), flush=True)
     report = {'seed': seed, 'fps': fps, 'completed': all(r['status'] == 'completed' for r in results),
-        'mode': 'kinematic USD motion with ideal rigid attachment', 'physical_grasp_verified': False,
+        'mode': 'kinematic fixed action with no payload attachment', 'physical_grasp_verified': False,
         'sampling_workspace_base_m': {'pick': [[.24,.32],[-.50,-.41],[.43,.48]],
                                       'place': [[.24,.34],[-.10,-.02],[.43,.48]]},
         'unknown_obstacle_avoidance_claimed': False, 'trials': results}

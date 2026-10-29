@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 pytest.importorskip('pxr')
 import torch
-from task.executors.g1_live import G1LiveHandle, G1LiveRuntime
+from task.executors.pick_place_adapters.g1_live import G1LiveHandle, G1LiveRuntime
 
 
 def handle():

@@ -11,10 +11,10 @@ from typing import Any
 SKILL_REGISTRY: tuple[dict[str, Any], ...] = (
     {
         "skill_id": "eai.manipulation.pick_place",
-        "provider_id": "eai.pick_place", "provider_version": "1.0.0",
+        "provider_id": "eai.pick_place", "provider_version": "2.0.0",
         "kind": "manipulation", "role": "local_pick_or_place",
         "module": "algorithm.skills.pick_place", "schema_version": "simulator.skill.v1",
-        "input_contract": "SkillRequest(operation, object_ref, chassis world pose, object/placement world XYZ)",
+        "input_contract": "SkillRequest(operation, object_ref, timeout_s); navigation is caller-owned",
         "output_contract": "bool after physical completion; caller owns navigation",
         "executor_owner": "task.executors.pick_place.PickPlaceExecutor",
         "backends": ("ArmPickPlaceAdapter", "DronePickPlaceAdapter", "PepperPickPlaceAdapter", "G1PickPlaceAdapter"),

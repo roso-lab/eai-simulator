@@ -13,7 +13,6 @@ class TransferPlanner:
         self.object_point = np.array(profile.object_point)
         self.closed = dict(profile.closed_joints)
         self.phase = 'prepare'
-        self.attached = False
         self.elapsed = 0.
         self._paths = None
         self.clearance = ArmClearance(robot, obstacles)
@@ -51,7 +50,8 @@ class TransferPlanner:
             self._paths['prepare'] = [saved, dict(self.robot.angles)]
             self._cartesian_paths(ready, [('approach', raised), ('grasp', pickup), ('lift', raised)])
             self._compile_paths(saved)
-            self._next = {'prepare':'approach', 'approach':'grasp', 'lift':'holding'}
+            self._next = {'prepare':'approach', 'approach':'grasp',
+                          'grasp':'lift', 'lift':'holding'}
         finally:
             self.robot.angles, self.robot.last_receipt = saved, receipt
 
@@ -72,9 +72,10 @@ class TransferPlanner:
             self._paths['release'] = [self._paths['lower'][-1]] * 2
             self._paths['retract'] = [dict(self.robot.angles), dict(home)]
             self._compile_paths(saved, home=home, closing=False)
-            self._next = {'transfer':'lower', 'lower':'release', 'withdraw':'return_ready',
+            self._next = {'transfer':'lower', 'lower':'release', 'release':'withdraw',
+                          'withdraw':'return_ready',
                           'return_ready':'retract', 'retract':'done'}
-            self.phase, self.elapsed, self.attached = 'transfer', 0., True
+            self.phase, self.elapsed = 'transfer', 0.
         finally:
             self.robot.angles, self.robot.last_receipt = saved, receipt
 
@@ -88,11 +89,6 @@ class TransferPlanner:
                 points.append(self._solve(previous*(1-u) + target*u))
             self._paths[phase], self._targets[phase] = points, target
             previous = target.copy()
-
-    def acknowledge_attachment(self,attached):
-        self.attached=bool(attached)
-        if attached and self.phase=='grasp':self._advance('lift')
-        elif not attached and self.phase=='release':self._advance('withdraw')
 
     def _advance(self,phase):
         self.phase=phase;self.elapsed=self._phase_time=0.
@@ -183,7 +179,8 @@ class TransferPlanner:
         if not math.isfinite(dt) or dt<=0:raise ValueError('dt must be finite and positive')
         if self._paths is None:self.prepare(pickup_world,place_world)
         if self.phase in ('done', 'holding'):
-            return {**self.robot.last_receipt,'phase':self.phase,'next_phase':self.phase,'request_attach':False,'request_release':False}
+            return {**self.robot.last_receipt, 'phase': self.phase,
+                    'next_phase': self.phase, 'action_complete': True}
         phase=self.phase;self.elapsed+=dt;duration=self._durations[phase];self._duration=duration
         motion=min(self.elapsed/duration,1.);u=motion**3*(10+motion*(-15+6*motion))
         qs=self._paths[phase];arc=self._arc[phase];distance=u*arc[-1]
@@ -200,14 +197,16 @@ class TransferPlanner:
         self.robot.set_joint_positions(command)
         grip=self._grip();axis=float(math.acos(np.clip(-grip[2,2],-1,1)))
         target=self._targets.get(phase,grip[:3,3]);residual=float(np.linalg.norm(grip[:3,3]-target))
-        attach=phase=='grasp' and self.elapsed>=duration+self._close_duration and residual<.006 and axis<.035
-        release=phase=='release' and self.elapsed>=duration
-        if self.elapsed>=duration and phase in self._next:self._advance(self._next[phase])
+        # Finger closure and release are timed action phases.  Their completion
+        # never depends on a payload observation or attachment callback.
+        phase_done = self.elapsed >= (duration + self._close_duration if phase == 'grasp' else duration)
+        if phase_done and phase in self._next:
+            self._advance(self._next[phase])
         body=self.robot.hand_body('right');hand=self.robot.body_world(body)
-        receipt={'phase':phase,'next_phase':self.phase,'request_attach':attach,'request_release':release,
+        receipt={'phase':phase,'next_phase':self.phase,'action_complete':phase_done,
             'blocked':False,'palm_world_transform':hand.tolist(),'grip_world_transform':grip.tolist(),
             'hand_world':grip[:3,3].tolist(),'hand_rotation_world':grip[:3,:3].tolist(),
-            'hand_body':body,'attachment_frame':'calibrated_finger_pocket',
+            'hand_body':body,'grip_calibration_frame':'calibrated_finger_pocket',
             'grip_offset_hand_m':self.pocket.tolist(),'grip_point_object_m':self.object_point.tolist(),
             'finger_closure_fraction':closure,'residual_m':residual,'orientation_residual_rad':axis,
             'joint_angles_rad':dict(self.robot.angles),'min_obstacle_clearance_m':self.min_clearance if math.isfinite(self.min_clearance) else None,

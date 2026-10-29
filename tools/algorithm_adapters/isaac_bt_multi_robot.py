@@ -27,7 +27,7 @@ from task.runner import TaskRunner
 
 ROSTER = ("ur5_1", "ur5_2")
 MOVES = ("move_left", "move_right")
-SEMANTICS = "idealized_follow_proxy_pick_place; not contact grasp"
+SEMANTICS = "fixed_robot_action; no_payload_attachment"
 DT = .005
 BASES = {"ur5_1": (0., -1.25, .45), "ur5_2": (0., 1.25, .45)}
 OBJECTS = {"move_left": "/World/ObjectLeft", "move_right": "/World/ObjectRight"}
@@ -35,7 +35,8 @@ STARTS = {task: (.45, y, .475) for task, y in zip(MOVES, (-1.25, 1.25))}
 TARGETS = {task: (.425, y + .01, .475) for task, y in zip(MOVES, (-1.25, 1.25))}
 SOURCE_FILES = (
     "tools/algorithm_adapters/isaac_bt_multi_robot.py",
-    "task/runner.py", "task/executors/pick_place.py", "task/executors/pick_place_backends/arm.py",
+    "task/runner.py", "task/executors/pick_place.py", "task/executors/pick_place_adapters/arm.py",
+    "task/controllers/pick_place/arm_action_runtime.py",
     "source/EAI/EAI/controllers/idealized_manipulation.py", "source/EAI/EAI/controllers/ik_controller.py",
     "source/EAI/EAI/manipulation_geometry.py", "algorithm/skills/pick_place/provider.py",
     "algorithm/skills/pick_place/contracts.py", "tools/validation/pick_place_clearance.py",
@@ -204,7 +205,7 @@ class IsaacTwoUR5Host:
         from isaaclab.assets import Articulation, ArticulationCfg, RigidObject, RigidObjectCfg
         from isaaclab.actuators import ImplicitActuatorCfg
         from pxr import Usd, UsdPhysics, PhysxSchema, UsdGeom
-        from EAI.controllers.idealized_manipulation import IdealizedManipulationRuntime
+        from task.controllers.pick_place import ActionOnlyManipulationRuntime
         from EAI_assets.robots.ur5_mount import UR5_JOINT_NAMES, UR5_JOINT_EFFORT_LIMITS, UR5_STANDALONE_USD_PATH
         from EAI_assets.robots.ur5_robotiq import attach_robotiq_85, default_robotiq_85_usd
         from tools.validation.pick_place_clearance import ArmTableClearance
@@ -256,7 +257,6 @@ class IsaacTwoUR5Host:
                 raise RuntimeError("missing or disabled arm environment collision geometry")
             self.arms[rid] = arm
             self.scene_audit["robot_prim_paths"][rid] = {"path": cfg.prim_path, "enabled_colliders": len(colliders)}
-            self.hold_counts[rid] = {"attaches": 0, "releases": 0, "last_held": False}
         for task, position in STARTS.items():
             center, size = (.515, position[1], .425), (.57, .7, .05)
             table = RigidObject(RigidObjectCfg(prim_path=f"/World/{task}_table", spawn=sim_utils.CuboidCfg(
@@ -269,14 +269,11 @@ class IsaacTwoUR5Host:
                 rigid_props=sim_utils.RigidBodyPropertiesCfg(disable_gravity=False), collision_props=sim_utils.CollisionPropertiesCfg(), physics_material=material),
                 init_state=RigidObjectCfg.InitialStateCfg(pos=(position[0], position[1], position[2] + .005))))
             prim = self.sim.stage.GetPrimAtPath(OBJECTS[task])
-            api = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
-            api.CreateSleepThresholdAttr().Set(0.)
+            api = PhysxSchema.PhysxRigidBodyAPI(prim)
             colliders = [UsdPhysics.CollisionAPI(p) for p in Usd.PrimRange(prim) if p.HasAPI(UsdPhysics.CollisionAPI)]
             if not colliders or not all(c.GetCollisionEnabledAttr().Get() for c in colliders):
                 raise RuntimeError("payload support collisions missing")
             self.payloads[task] = (prim, api, colliders, self.filter_snapshot(prim))
-            for collider in colliders:
-                collider.GetCollisionEnabledAttr().Set(False)
         self.sim.reset()
         for rid, arm in self.arms.items():
             arm.write_joint_state_to_sim(arm.data.default_joint_pos, torch.zeros_like(arm.data.default_joint_pos))
@@ -290,10 +287,8 @@ class IsaacTwoUR5Host:
         for task, box in self.boxes.items():
             box.write_root_pose_to_sim(box.data.default_root_state[:, :7])
             box.write_root_velocity_to_sim(torch.zeros_like(box.data.default_root_state[:, 7:]))
-            for collider in self.payloads[task][2]:
-                collider.GetCollisionEnabledAttr().Set(True)
         env = SimpleNamespace(num_envs=1, scene=SimpleNamespace(articulations={f"{rid}_arm": arm for rid, arm in self.arms.items()}), sim=self.sim)
-        self.runtime = IdealizedManipulationRuntime(env, {rid: model for rid in ROSTER})
+        self.runtime = ActionOnlyManipulationRuntime(env, {rid: model for rid in ROSTER})
         self.clearances = {f"{rid}/{task}": ArmTableClearance(self.sim.stage, arm, center, size)
             for rid, arm in self.arms.items() for task, (_, center, size) in self.tables.items()}
         self.trace = (self.output / "shared_ticks.jsonl").open("w")
@@ -310,22 +305,6 @@ class IsaacTwoUR5Host:
         return {"api_names": [str(x) for x in prim.GetAppliedSchemas() if "FilteredPairs" in str(x)],
             "authored_targets": bool(relation and relation.HasAuthoredTargets()),
             "targets": [str(x) for x in relation.GetTargets()] if relation else []}
-
-    def payload_clean(self, task):
-        prim, api, colliders, original = self.payloads[task]
-        return bool(all(c.GetCollisionEnabledAttr().Get() for c in colliders)
-            and not self.UsdPhysics.RigidBodyAPI(prim).GetKinematicEnabledAttr().Get()
-            and not api.GetDisableGravityAttr().Get()
-            and self.filter_snapshot(prim) == original and OBJECTS[task] not in self.runtime._object_owners)
-
-    def proxy_pose(self, rid):
-        held = self.runtime.held_object(rid)
-        if held is None or held.proxy_path is None:
-            return None
-        prim = self.sim.stage.GetPrimAtPath(held.proxy_path + "/Visual")
-        if not prim or not prim.IsValid():
-            return None
-        return list(map(float, self.UsdGeom.XformCache().GetLocalToWorldTransform(prim).ExtractTranslation()))
 
     def step(self, active_tasks):
         self.runtime.run_post_apply()
@@ -345,17 +324,9 @@ class IsaacTwoUR5Host:
         for rid, arm in self.arms.items():
             binding = self.runtime._binding(rid, disable_collisions=False)
             position, orientation = self.runtime._end_effector_pose(binding)
-            held = self.runtime.held_object(rid)
-            counts = self.hold_counts[rid]
-            if held is not None and not counts["last_held"]:
-                counts["attaches"] += 1
-            if held is None and counts["last_held"]:
-                counts["releases"] += 1
-            counts["last_held"] = held is not None
             sample["robots"][rid] = {"joint_position_rad": arm.data.joint_pos[0, self.joint_ids[rid]].tolist(),
                 "ee_position_world_m": list(position), "ee_orientation_wxyz": list(orientation),
-                "phase": self.runtime.state(rid).value, "proxy_visual_position_world_m": self.proxy_pose(rid),
-                "held_object": None if held is None else held.object_body_path}
+                "phase": self.runtime.state(rid).value, "attachment_mode": "none"}
         for task in MOVES:
             sample["objects"][task] = {"source_position_world_m": list(self.runtime._rigid_body_pose(OBJECTS[task])[0]),
                 "source_linear_velocity_m_s": self.boxes[task].data.root_lin_vel_w[0].tolist()}
@@ -368,51 +339,36 @@ class IsaacTwoUR5Host:
 
     def request(self, assignment, operation):
         from algorithm.skills import PICK_PLACE_SKILL_ID, SkillRequest
-        arm = self.arms[assignment.robot_id]
-        q = arm.data.root_quat_w[0].tolist()
-        tilt = math.radians(15.)
-        target = self.runtime._rigid_body_pose(OBJECTS[assignment.task_id])[0] if operation == "pick" else TARGETS[assignment.task_id]
         return SkillRequest(assignment.task_id + "/" + operation, PICK_PLACE_SKILL_ID, assignment.robot_id,
-            target_pose=tuple(target), parameters={"operation": operation, "object_ref": OBJECTS[assignment.task_id],
-                "base_position_world_m": arm.data.root_pos_w[0].tolist(), "base_orientation_xyzw": (q[1], q[2], q[3], q[0]),
-                "world_state_seq": self.tick, "simulation_time_s": self.sim.current_time, "timeout_s": self.timeout_s,
-                "approach_mode": "cartesian_pose", "grasp_pose_object": {"position_m": (0., 0., 0.),
-                    "orientation_xyzw": (0., -math.sin(tilt / 2), 0., math.cos(tilt / 2))},
-                "approach_direction_world": (math.sin(tilt), 0., -math.cos(tilt)),
-                "pregrasp_distance_m": .08, "retreat_distance_m": .14, "approach_speed_m_s": .05})
+            parameters={"operation": operation, "object_ref": OBJECTS[assignment.task_id],
+                        "timeout_s": self.timeout_s})
 
     def move(self, assignment, advance, resources):
         from task.executors import PickPlaceExecutor
-        from task.executors.pick_place_backends.arm import ArmPickPlaceAdapter
+        from task.executors.pick_place_adapters.arm import ArmPickPlaceAdapter
         rid, task = assignment.robot_id, assignment.task_id
         executor = PickPlaceExecutor(advance=advance, simulation_time=lambda: self.sim.current_time, resources=resources,
             physical_object_experiment_authorization="algorithm/heterocoord/ADAPTATION_PUBLICATION_20261028.zh-CN.md#bounded-host")
         executor.register_adapter(ArmPickPlaceAdapter(rid, self.runtime, position_tolerance_m=.035))
         start_tick = self.tick
-        initial_z = self.runtime._rigid_body_pose(OBJECTS[task])[0][2]
+        initial_object = tuple(self.runtime._rigid_body_pose(OBJECTS[task])[0])
         picked = executor.execute(self.request(assignment, "pick"))
-        lift_samples = []
         if picked:
             for _ in range(120):
                 advance()
-                pose = self.proxy_pose(rid)
-                lift_samples.append(None if pose is None else pose[2] - initial_z)
         placed = executor.execute(self.request(assignment, "place")) if picked else False
         for _ in range(200):
             advance()
         final = self.runtime._rigid_body_pose(OBJECTS[task])[0]
         state = self.runtime._states.get(rid)
-        clean = self.payload_clean(task) and state is not None and state.pending_isolation is None and state.payload_collision_filter is None
-        lift = min(lift_samples) if lift_samples and all(v is not None for v in lift_samples) else None
-        counts = self.hold_counts[rid]
+        unchanged = math.dist(final, initial_object) <= .005
         receipt = {"task_id": task, "robot_id": rid, "pick": bool(picked), "place": bool(placed),
-            "start_tick": start_tick, "end_tick": self.tick, "minimum_hold_lift_m": lift,
-            "final_position_world_m": list(final), "target_position_world_m": list(TARGETS[task]),
-            "final_error_m": math.dist(final, TARGETS[task]), "source_restored_and_owner_cleared": clean,
+            "start_tick": start_tick, "end_tick": self.tick,
+            "object_position_before_world_m": list(initial_object),
+            "object_position_after_world_m": list(final), "object_pose_unchanged": unchanged,
             "phase_after": self.runtime.state(rid).value, "last_error": self.runtime.last_error(rid),
-            "attachment_semantics": SEMANTICS, "attaches": counts["attaches"], "releases": counts["releases"]}
-        receipt["passed"] = bool(picked and placed and lift is not None and lift >= .05 and receipt["final_error_m"] <= .035
-            and clean and counts["attaches"] == counts["releases"] == 1 and receipt["phase_after"] == "idle" and not receipt["last_error"])
+            "attachment_mode": "none"}
+        receipt["passed"] = bool(picked and placed and unchanged and receipt["phase_after"] == "idle" and not receipt["last_error"])
         return receipt
 
     def inspect(self, assignment):
@@ -421,19 +377,19 @@ class IsaacTwoUR5Host:
         start = self.tick
         positions = {task: [] for task in MOVES}
         max_speed = {task: 0. for task in MOVES}
-        released = True
+        unchanged = True
         for _ in range(200):
             self.step(("inspect_join",))
             for task in MOVES:
                 positions[task].append(tuple(self.runtime._rigid_body_pose(OBJECTS[task])[0]))
                 max_speed[task] = max(max_speed[task], math.sqrt(sum(float(v)**2 for v in self.boxes[task].data.root_lin_vel_w[0])))
-                released = released and self.payload_clean(task)
-        errors = {task: max(math.dist(p, TARGETS[task]) for p in positions[task]) for task in MOVES}
+                unchanged = unchanged and self.receipts[task]["object_pose_unchanged"]
+        errors = {task: max(math.dist(p, positions[task][0]) for p in positions[task]) for task in MOVES}
         drift = {task: max(math.dist(p, positions[task][0]) for p in positions[task]) for task in MOVES}
-        passed = released and not self.runtime._owned_proxy_paths and all(errors[t] <= .035 and drift[t] <= .005 and max_speed[t] <= .02 for t in MOVES)
+        passed = unchanged and all(drift[t] <= .005 and max_speed[t] <= .02 for t in MOVES)
         return {"task_id": "inspect_join", "robot_id": assignment.robot_id, "passed": bool(passed),
-            "start_tick": start, "end_tick": self.tick, "measured_ticks": 200, "max_target_error_m": errors,
-            "max_drift_m": drift, "max_linear_speed_m_s": max_speed, "released_and_dynamic": bool(released),
+            "start_tick": start, "end_tick": self.tick, "measured_ticks": 200, "max_object_drift_m": errors,
+            "max_drift_m": drift, "max_linear_speed_m_s": max_speed, "object_pose_unchanged": bool(unchanged),
             "evidence_scope": "simulator_ground_truth_query_executed_for_native_assigned_robot; not onboard vision"}
 
     def execute_batch(self, assignments, tasks, *, scene):
@@ -448,10 +404,10 @@ class IsaacTwoUR5Host:
             resources = ResourceManager()
             jobs = {a.task_id: (lambda advance, a=a: self.move(a, advance, resources)) for a in assignments}
             records = cooperative_batch(jobs, self.step, max_ticks=math.ceil((2 * self.timeout_s + 10) / DT))
-            clear = not resources.snapshot()["resources"] and not self.runtime._owned_proxy_paths
+            clear = not resources.snapshot()["resources"]
             clearance_ok = all(c.report()["passed"] for c in self.clearances.values())
             for record in records.values():
-                record["shared_resources_and_proxies_cleared"] = clear
+                record["shared_resources_cleared"] = clear
                 record["all_robot_table_clearance_passed"] = clearance_ok
                 record["passed"] = bool(record["passed"] and clear and clearance_ok)
             self.receipts.update(records)

@@ -2,8 +2,9 @@
 
 The executor never creates a simulator, chooses a route, or advances a second
 clock. Backend feedback and leases are private execution details. Pick/place
-uses one idealized collaboration semantic: semantic-point arrival plus
-transport admission defines task success; lifecycle flags remain diagnostics.
+uses adapter-measured fixed-action completion plus transport admission;
+lifecycle flags remain diagnostics. Logical-object semantic points are resolved
+inside the optional host runtime and never come from the request.
 """
 from __future__ import annotations
 
@@ -21,11 +22,58 @@ from ..resources import ResourceManager
 _LOG = logging.getLogger(__name__)
 
 
+class HoldingRegistry:
+    """Host-shared logical robot/object ownership ledger."""
+
+    def __init__(self):
+        self._robot_to_object = {}
+        self._object_to_robot = {}
+        self._status = {}
+
+    def snapshot(self):
+        return {
+            "robot_to_object": dict(self._robot_to_object),
+            "object_to_robot": dict(self._object_to_robot),
+            "status": dict(self._status),
+        }
+
+    def holding_object(self, robot_id):
+        return self._robot_to_object.get(robot_id)
+
+    def holder_of(self, object_ref):
+        return self._object_to_robot.get(object_ref)
+
+    def claim(self, robot_id, object_ref):
+        existing = self._robot_to_object.get(robot_id)
+        if existing is not None and existing != object_ref:
+            raise ValueError("robot is already holding another logical object")
+        owner = self._object_to_robot.get(object_ref)
+        if owner is not None and owner != robot_id:
+            raise ValueError("logical object is already held by another robot")
+        self._robot_to_object[robot_id] = object_ref
+        self._object_to_robot[object_ref] = robot_id
+        self._status[robot_id] = "holding"
+
+    def release(self, robot_id, object_ref):
+        if self._robot_to_object.get(robot_id) != object_ref:
+            raise ValueError("holding registry does not match place request")
+        self._robot_to_object.pop(robot_id, None)
+        self._object_to_robot.pop(object_ref, None)
+        self._status[robot_id] = "empty"
+
+    def uncertain(self, robot_id, object_ref):
+        self._status[robot_id] = "uncertain"
+        if object_ref:
+            self._robot_to_object.setdefault(robot_id, object_ref)
+            self._object_to_robot.setdefault(object_ref, robot_id)
+
+
 class PickPlaceExecutor:
     def __init__(self, *, advance, simulation_time, resources=None,
                  snapshot_validator=None, max_snapshot_age_s=.5,
                  max_steps=100_000, stop_steps=120, transport_admission=None,
-                 logical_runtime=None, physical_object_experiment_authorization=None):
+                 logical_runtime=None, physical_object_experiment_authorization=None,
+                 holding_registry=None):
         if not callable(advance) or not callable(simulation_time):
             raise ValueError("advance and simulation_time must be host callbacks")
         if type(max_steps) is not int or max_steps <= 0 or type(stop_steps) is not int or stop_steps <= 0:
@@ -38,6 +86,7 @@ class PickPlaceExecutor:
         self._max_age, self._max_steps, self._stop_steps = max_snapshot_age_s, max_steps, stop_steps
         self._transport_admission = transport_admission
         self._logical_runtime = logical_runtime
+        self._holding = holding_registry if holding_registry is not None else HoldingRegistry()
         if physical_object_experiment_authorization is not None and (
             not isinstance(physical_object_experiment_authorization, str) or not physical_object_experiment_authorization.strip()
         ):
@@ -48,6 +97,15 @@ class PickPlaceExecutor:
         self._lock, self._cancel = Lock(), Event()
         self._owner = "pick_place:" + uuid4().hex
         self._thread = get_ident()
+
+    def holding_snapshot(self):
+        return self._holding.snapshot()
+
+    def holding_object(self, robot_id):
+        return self._holding.holding_object(robot_id)
+
+    def holder_of(self, object_ref):
+        return self._holding.holder_of(object_ref)
 
     def _admit_transport(self, command):
         """Apply the mandatory load gate before any lease or attachment.
@@ -123,27 +181,6 @@ class PickPlaceExecutor:
             _LOG.exception("pick/place safe stop failed: %s", command.request_id)
         return BackendFeedback(command.request_id, "failed", "unknown", reason=reason)
 
-    @staticmethod
-    def _idealized_feedback(command):
-        """Return the benchmark-level result for an idealized transport.
-
-        Native arm controllers may still expose geometry/IK diagnostics, but
-        those checks are deliberately outside the task result.  The semantic
-        contract is satisfied once navigation reached the authored point and
-        transport admission passed; the executor therefore records a logical
-        attachment/release without invoking a physical manipulation backend.
-        """
-        if command.operation == "pick":
-            return BackendFeedback(
-                command.request_id, "completed", "holding",
-                object_ref=command.object_ref, ready=True,
-                stopped=True, clean=True,
-            )
-        return BackendFeedback(
-            command.request_id, "completed", "empty",
-            ready=True, stopped=True, clean=True,
-        )
-
     def execute(self, request, *, cancelled=None) -> bool:
         """Finish one pick or place and return exactly bool, including failures.
 
@@ -178,18 +215,18 @@ class PickPlaceExecutor:
             trial = replace(machine)
             trial.begin(state_command)
             now = self._clock()
-            age = now - command.simulation_time_s
-            if age < -1e-6 or age > self._max_age:
-                raise ValueError("caller pose snapshot is stale or from the future")
-            if self._snapshot_validator is not None:
-                if self._snapshot_validator(command) is not True:
-                    raise ValueError("host rejected the semantic-map/pose snapshot")
-            # Pick/place is an idealized semantic action.  Legacy geometry,
-            # IK, tool-axis and reachability admission are outside this
-            # collaboration contract, so no backend validation hook is called.
+            # Validation belongs to the robot adapter and must be side-effect
+            # free.  Action-only adapters use it for controller/target checks;
+            # the executor still owns the public state machine and leases.
+            validate = getattr(backend, "validate", None)
+            if callable(validate):
+                validate(command)
             motion = self._resources.acquire(self._owner + ":motion:" + command.robot_id,
                                              ("robot:" + command.robot_id,))
             if command.operation == "pick":
+                if (self._holding.holding_object(command.robot_id) is not None
+                        or self._holding.holder_of(command.object_ref) is not None):
+                    raise ValueError("robot or logical object is already held")
                 try:
                     self._object_leases[command.robot_id] = self._resources.acquire(
                         self._owner + ":object:" + command.robot_id, (key,))
@@ -198,51 +235,40 @@ class PickPlaceExecutor:
                     motion = None
                     raise
             else:
-                self._resources.validate_lease(self._object_leases[command.robot_id], required_resources=(key,))
+                if self._holding.holding_object(command.robot_id) != command.object_ref:
+                    raise ValueError("place requires this robot's current logical holding")
+                lease = self._object_leases.get(command.robot_id)
+                if lease is None:
+                    raise ValueError("place has no active object lease")
+                self._resources.validate_lease(lease, required_resources=(key,))
             machine.begin(state_command)
             began = True  # start can mutate before raising
-            if getattr(backend, "idealized_semantics", False):
-                # A concrete adapter may expose an explicit diagnostic hook
-                # for opt-in physical probing.  It is never part of the
-                # benchmark result and is allowed to fail without changing
-                # the semantic operation.
-                diagnostic = getattr(backend, "diagnostic_start", None)
-                if callable(diagnostic):
-                    try:
-                        diagnostic(command)
-                    except Exception as exc:
-                        _LOG.info("idealized pick/place diagnostic failed: %s", exc)
-                feedback = self._idealized_feedback(command)
-                result = True
+            if command.operation == "pick":
+                self._holding.claim(command.robot_id, command.object_ref)
+            backend.start(command)
+            previous = now
+            for _ in range(self._max_steps):
+                feedback = self._check_feedback(backend.feedback(), command)
+                if self._cancel.is_set() or (cancelled is not None and cancelled()):
+                    feedback = self._stop(backend, command, "cancelled")
+                    break
+                current = self._clock()
+                if current < previous or current - now >= command.timeout_s:
+                    feedback = self._stop(backend, command, "simulation timeout or clock reset")
+                    break
+                previous = current
+                if feedback.status == "completed":
+                    desired = "holding" if command.operation == "pick" else "empty"
+                    result = feedback.grasp_state == desired
+                    if not result:
+                        feedback = self._stop(backend, command, "invalid completion feedback")
+                    break
+                if feedback.status in {"failed", "stopped"}:
+                    feedback = self._stop(backend, command, feedback.reason or "backend failed")
+                    break
+                self._step(backend)
             else:
-                backend.start(command)
-                previous = now
-                for _ in range(self._max_steps):
-                    feedback = self._check_feedback(backend.feedback(), command)
-                    if self._cancel.is_set() or (cancelled is not None and cancelled()):
-                        feedback = self._stop(backend, command, "cancelled")
-                        break
-                    current = self._clock()
-                    if current < previous or current - now >= command.timeout_s:
-                        feedback = self._stop(backend, command, "simulation timeout or clock reset")
-                        break
-                    previous = current
-                    if feedback.status == "completed":
-                        desired = "holding" if command.operation == "pick" else "empty"
-                        # The benchmark's manipulation controller is idealized:
-                        # reaching the semantic point and passing admission is
-                        # the task-level success condition.  ``ready/stopped``
-                        # and ``clean`` remain private lifecycle diagnostics.
-                        result = feedback.grasp_state == desired
-                        if not result:
-                            feedback = self._stop(backend, command, "invalid completion feedback")
-                        break
-                    if feedback.status in {"failed", "stopped"}:
-                        feedback = self._stop(backend, command, feedback.reason or "backend failed")
-                        break
-                    self._step(backend)
-                else:
-                    feedback = self._stop(backend, command, "host step limit exceeded")
+                feedback = self._stop(backend, command, "host step limit exceeded")
         except Exception as exc:
             _LOG.warning("pick/place returned False: %s", exc, exc_info=True)
             if began:
@@ -262,6 +288,12 @@ class PickPlaceExecutor:
                     if ((final.grasp_state == "empty" and final.clean and final.stopped)
                             or (result and command.operation == "place")):
                         self._resources.release(self._object_leases.pop(command.robot_id))
+                    if result and command.operation == "pick":
+                        self._holding.claim(command.robot_id, command.object_ref)
+                    elif result and command.operation == "place":
+                        self._holding.release(command.robot_id, command.object_ref)
+                    elif not result:
+                        self._holding.uncertain(command.robot_id, command.object_ref)
                     if motion is not None:
                         if final.stopped:
                             self._resources.release(motion)
@@ -283,7 +315,7 @@ class PickPlaceExecutor:
         return bool(result)
 
     def _execute_logical(self, request, *, cancelled=None):
-        from task.logical_objects import LogicalObjectRuntime
+        from task.runtime.logical_objects import LogicalObjectRuntime
         from algorithm.skills.simulator_schema import PICK_PLACE_SKILL_ID, validate_simulator_skill_request
         if not isinstance(self._logical_runtime, LogicalObjectRuntime):
             _LOG.warning("benchmark logical object runtime is unavailable; physical fallback is disabled")
@@ -297,12 +329,27 @@ class PickPlaceExecutor:
             if request.skill_id != PICK_PLACE_SKILL_ID:
                 raise ValueError("request is not a logical object skill")
             params = request.parameters
+            definition = self._logical_runtime.definitions.get(params["object_ref"])
+            if definition is None:
+                raise ValueError("unknown logical object ID")
+            if definition["metadata"].get("minimum_holders", 1) != 1:
+                raise ValueError("PickPlace supports one robot; use the cooperative transport interface")
+            semantic_point = (definition["initial_semantic_point"]
+                              if params["operation"] == "pick"
+                              else definition["target_semantic_point"])
             result = self._logical_runtime.execute(
                 request_id=request.request_id, operation=params["operation"],
-                object_id=params["object_ref"], robot_ids=params.get("robot_ids", [request.robot_id]),
-                semantic_point=params["semantic_point"],
+                object_id=params["object_ref"], robot_ids=[request.robot_id],
+                semantic_point=semantic_point,
             )
-            return result["status"] == "completed"
+            completed = result["status"] == "completed"
+            if completed and params["operation"] == "pick":
+                self._holding.claim(request.robot_id, params["object_ref"])
+            elif completed and params["operation"] == "place":
+                self._holding.release(request.robot_id, params["object_ref"])
+            elif not completed:
+                self._holding.uncertain(request.robot_id, params["object_ref"])
+            return completed
         except (ValueError, KeyError, TypeError) as exc:
             _LOG.warning("logical pick/place rejected: %s", exc)
             return False
@@ -310,4 +357,4 @@ class PickPlaceExecutor:
             self._lock.release()
 
 
-__all__ = ["PickPlaceExecutor"]
+__all__ = ["HoldingRegistry", "PickPlaceExecutor"]

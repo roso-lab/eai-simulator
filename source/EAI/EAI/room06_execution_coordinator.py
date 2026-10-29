@@ -2,7 +2,7 @@
 from copy import deepcopy
 from dataclasses import replace
 
-from task.logical_objects import LogicalObjectRuntime
+from task.runtime.logical_objects import LogicalObjectRuntime
 from .room06_navigation_bridge import Room06NavigationBridge
 
 

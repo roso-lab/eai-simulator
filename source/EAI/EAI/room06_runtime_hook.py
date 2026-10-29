@@ -270,7 +270,7 @@ class Room06RuntimeHookCollector:
         self._last_tick = tick
 
     def _logical_runtime(self):
-        from task.logical_objects import LogicalObjectRuntime
+        from task.runtime.logical_objects import LogicalObjectRuntime
         runtime = getattr(self._base_env, "logical_object_runtime", None)
         if not isinstance(runtime, LogicalObjectRuntime):
             raise Room06RuntimeHookError("benchmark logical object ledger is unavailable")

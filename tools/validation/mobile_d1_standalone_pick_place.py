@@ -8,7 +8,7 @@ Skill call chain exercised (no bespoke motion code in this file):
 
     PickPlaceExecutor.execute(request)                     (task/executors/pick_place.py)
       -> compile_request -> PickPlaceCommand               (algorithm/skills/pick_place)
-      -> ArmPickPlaceAdapter.validate/start                (task/executors/pick_place_backends/arm.py)
+      -> ArmPickPlaceAdapter.validate/start                (task/executors/pick_place_adapters/arm.py)
         -> IdealizedManipulationRuntime.start_pick_cartesian / start_place_cartesian
       -> per-step advance(): runtime.run_post_apply + arm.write_data_to_sim + sim.step
 
@@ -103,7 +103,7 @@ def run(args: argparse.Namespace) -> int:
 
     from EAI_assets.robots.d1 import D1_CFG
     from EAI.controllers.ik_controller import hold_gripper_position
-    from EAI.controllers.idealized_manipulation import IdealizedManipulationRuntime
+    from task.controllers.pick_place import ActionOnlyManipulationRuntime
     from EAI.hmrs_ros.d1_omnigraph import D1_MODEL_SPEC
 
     dt = 1.0 / 120.0
@@ -287,10 +287,10 @@ def run(args: argparse.Namespace) -> int:
         return _finish(False, environment, hold)
 
     from task.executors.pick_place import PickPlaceExecutor
-    from task.executors.pick_place_backends.arm import ArmPickPlaceAdapter
+    from task.executors.pick_place_adapters.arm import ArmPickPlaceAdapter
     from EAI.controllers.ik_controller import apply_end_effector_pose
 
-    runtime = IdealizedManipulationRuntime(environment, {ROBOT_NAME: D1_MODEL_SPEC})
+    runtime = ActionOnlyManipulationRuntime(environment, {ROBOT_NAME: D1_MODEL_SPEC})
     environment.runtime = runtime
     adapter = ArmPickPlaceAdapter(
         ROBOT_NAME, runtime,
@@ -300,36 +300,24 @@ def run(args: argparse.Namespace) -> int:
     )
     executor = PickPlaceExecutor(
         advance=lambda: physics_step(run_runtime=True),
-        simulation_time=lambda: clock["t"])
+        simulation_time=lambda: clock["t"],
+        physical_object_experiment_authorization="action_only_pick_place")
     executor.register_adapter(adapter)
     binding = runtime._binding(ROBOT_NAME, disable_collisions=False)
     print(f"[info] runtime bound: model={binding.model_spec.model} "
           f"joints={list(binding.model_spec.joint_names)} "
           f"ee_body={list(binding.model_spec.ee_body_names)}", flush=True)
 
-    def skill_request(request_id: str, operation: str, target_world) -> dict:
+    def skill_request(request_id: str, operation: str, target_world=None) -> dict:
+        del target_world
         return {
             "request_id": request_id,
             "skill_id": PICK_PLACE_SKILL_ID,
             "robot_id": ROBOT_NAME,
-            "target_pose": [float(v) for v in target_world],
             "parameters": {
                 "operation": operation,
                 "object_ref": CUBE_PATH,
-                "base_position_world_m": [0.0, 0.0, 0.0],
-                "base_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-                "world_state_seq": 1,
-                "simulation_time_s": clock["t"],
                 "timeout_s": args.timeout_s,
-                "approach_mode": "cartesian_pose",
-                "grasp_pose_object": {
-                    "position_m": [0.0, 0.0, args.grasp_lift_m],
-                    "orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-                },
-                "approach_direction_world": [0.0, 0.0, -1.0],
-                "pregrasp_distance_m": args.pregrasp_m,
-                "retreat_distance_m": args.retreat_m,
-                "approach_speed_m_s": args.approach_speed_m_s,
             },
         }
 

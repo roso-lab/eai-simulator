@@ -43,7 +43,7 @@ def main():
         from PIL import Image, ImageDraw, ImageFont
         from pxr import Gf, UsdGeom, UsdLux
         from tools.g1_random_pick_place.scene import RandomTrial
-        from task.executors.g1_manipulation.geometry import set_world_matrix
+        from task.controllers.g1_pick_place.geometry import set_world_matrix
 
         omni.timeline.get_timeline_interface().pause()
         stage = omni.usd.get_context().get_stage()
@@ -68,8 +68,8 @@ def main():
         product = rep.create.render_product(camera, (1920,1080))
         rgb = rep.AnnotatorRegistry.get_annotator('rgb'); rgb.attach(product)
         cam = next(p for p in stage.Traverse() if p.IsA(UsdGeom.Camera) and str(p.GetPath()).startswith('/Replicator'))
-        captions = {'prepare':'准备抓取', 'approach':'抬手接近', 'grasp':'对准并闭合手指',
-            'lift':'提起物体', 'transfer':'移动到放置点', 'lower':'下降放置',
+        captions = {'prepare':'准备动作', 'approach':'抬手接近', 'grasp':'对准并闭合手指',
+            'lift':'向上动作', 'transfer':'移动到动作点', 'lower':'下降动作',
             'release':'张开手指', 'withdraw':'向上退离',
             'return_ready':'回到准备位', 'retract':'收回手臂', 'done':'抓放完成'}
         manifest = args.output / 'audit.json'
@@ -80,10 +80,10 @@ def main():
         video = imageio.get_writer(str(args.output / 'demo.mp4'), fps=args.fps,
                                    codec='libx264', quality=8, macro_block_size=1)
         report = {'seed':args.seed, 'fps':args.fps, 'resolution':[1920,1080], 'trials':[],
-            'images':[], 'mode':'kinematic USD motion with ideal rigid attachment',
+            'images':[], 'mode':'kinematic fixed action with no payload attachment',
             'physical_grasp_verified':False, 'completed':False, 'source_sha256':{}}
-        for source in (Path(__file__), Path(__file__).with_name('scene.py'), ROOT / 'task/executors/g1_manipulation/runtime.py',
-                       *(ROOT / 'task/executors/g1_manipulation').glob('*.py')):
+        for source in (Path(__file__), Path(__file__).with_name('scene.py'), ROOT / 'task/controllers/g1_pick_place/runtime.py',
+                       *(ROOT / 'task/controllers/g1_pick_place').glob('*.py')):
             report['source_sha256'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
         total_frames = 0
         try:
@@ -111,7 +111,7 @@ def main():
                     draw.text((28,7), f'G1 随机位置抓放  |  {index+1}/3  {trial.label}  |  {captions.get(phase,phase)}', font=font, fill='white')
                     pick, place = trial.specification['pick_position'], trial.specification['place_position']
                     draw.text((28,49), f'世界坐标  抓取 ({pick[0]:.3f}, {pick[1]:.3f}, {pick[2]:.3f}) → 放置 ({place[0]:.3f}, {place[1]:.3f}, {place[2]:.3f}) m', font=small, fill=(180,215,235))
-                    draw.text((28,81), f'固定站位 · seed {args.seed} · skill 输入仅两个坐标 · 运动学演示 / 理想刚性附着', font=small, fill=(180,190,200))
+                    draw.text((28,81), f'固定站位 · seed {args.seed} · 仅执行机器人动作 / 物体保持原位', font=small, fill=(180,190,200))
                     video.append_data(np.asarray(pic)); total_frames += 1
                     if changed:
                         print(json.dumps({'trial':index+1,'seconds':frame/args.fps,'phase':phase},ensure_ascii=False), flush=True)

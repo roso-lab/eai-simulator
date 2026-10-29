@@ -1,8 +1,8 @@
 """Calibrated G1 trajectories driven through live articulation targets.
 
 Planning and USD pose playback happen only on an anonymous shadow stage.
-The shared simulator owns every physics step. Ideal attachment follows the
-measured palm, and never claims contact-force grasp success.
+The shared simulator owns every physics step. The handle writes robot targets
+and never reads or synchronizes a payload.
 """
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from pathlib import Path
 import numpy as np
 from pxr import Gf, Usd, UsdPhysics
 
-from .g1_manipulation.runtime import G1PickPlaceSkill, GraspProfile, ObjectBinding
-from .g1_manipulation.geometry import world_matrix, set_world_matrix
+from task.controllers.g1_pick_place.runtime import G1PickPlaceSkill, GraspProfile, ObjectBinding
+from task.controllers.g1_pick_place.geometry import world_matrix, set_world_matrix
 from .skills import ExecutionReceipt
 from task.contracts import DependencyOutcome
 from algorithm.common_coordination.contract import FailureCode
@@ -68,15 +68,11 @@ class G1LiveHandle:
             raise ValueError('stationary grasp envelope must stay below 25 cm')
         self.cancel_reason, self.error, self.receipt = None, None, None
         self.stable_ticks, self.settle_ticks, self.elapsed = 0, settle_ticks, 0.
-        self.attached = False
         self._target = None
         robot_path = environment_path(robot_path, view.env_id)
         bindings = {}
         for ref, binding in objects.items():
             path = environment_path(binding.prim_path, view.env_id)
-            obj = view.scene.rigid_objects[ref]
-            if obj.cfg.prim_path != path:
-                raise ValueError('G1 object USD and live rigid-object bindings disagree')
             profile = GraspProfile.builtin(binding.profile) if isinstance(binding.profile, str) else binding.profile
             if profile.robot_asset_sha256:
                 layers = {spec.layer.realPath for spec in stage.GetPrimAtPath(robot_path).GetPrimStack() if spec.layer.realPath}
@@ -111,9 +107,8 @@ class G1LiveHandle:
             self.joint_ids[name] = int(ids[0])
             measured[name] = float(self.robot.data.joint_pos[0, ids[0]])
         kinematic.set_joint_positions(measured)
-        for ref, binding in bindings.items():
-            obj = view.scene.rigid_objects[ref]
-            set_world_matrix(shadow.GetPrimAtPath(binding.prim_path), pose_matrix(obj.data.root_pos_w[0], obj.data.root_quat_w[0]))
+        # Action-only PickPlace never reads or synchronizes payload poses. The
+        # shadow stage is used solely for robot kinematics and calibration.
         if not defer_start:
             raise ValueError("G1LiveHandle is started by G1PickPlaceAdapter")
 
@@ -149,13 +144,6 @@ class G1LiveHandle:
             torch.tensor([[self._target[n] for n in names]], device=self.view.device),
             joint_ids=[self.joint_ids[n] for n in names])
 
-    def _follow(self):
-        if self.attached:
-            matrix = self._body_pose(self.hand_id) @ self.relative
-            self.object.write_root_pose_to_sim(matrix_pose(matrix, self.view.device))
-            import torch
-            self.object.write_root_velocity_to_sim(torch.zeros_like(self.object.data.root_vel_w))
-
     def advance(self, dt):
         if self.receipt is not None:
             return
@@ -170,7 +158,6 @@ class G1LiveHandle:
         if self.error is not None:
             if self._target is not None:
                 self._write_target()
-            self._follow()
             return
         try:
             self.elapsed += dt
@@ -189,44 +176,22 @@ class G1LiveHandle:
                     raise RuntimeError('nonfinite G1 joint observation')
                 if error > .06:
                     self._write_target()
-                    self._follow()
                     return
             result = self.skill.transfer.step(dt, self.skill.pick, self.skill.place)
             self._target = {n: result['joint_angles_rad'][n] for n in self.skill.transfer.names + list(self.skill.transfer.closed)}
             self._write_target()
-            palm = self._body_pose(self.hand_id)
-            point = (palm @ np.r_[self.skill.transfer.pocket, 1])[:3]
-            object_matrix = pose_matrix(self.object.data.root_pos_w[0], self.object.data.root_quat_w[0])
-            if result['request_attach']:
-                object_point = (object_matrix @ np.r_[self.skill.transfer.object_point, 1])[:3]
-                fingers_reached = all(abs(float(self.robot.data.joint_pos[0, self.joint_ids[n]])-v) < .06 for n, v in self.skill.transfer.closed.items())
-                if np.linalg.norm(point-object_point) < .008 and palm[2, 2] < -.995 and fingers_reached:
-                    self.relative = np.linalg.inv(palm) @ object_matrix
-                    self.attached = True
-                    self.skill.transfer.acknowledge_attachment(True)
-            self._follow()
-            if result['request_release'] and self.attached:
-                placed = (palm @ self.relative)[:3, 3]
-                if np.linalg.norm(placed-self.skill.place) < .015:
-                    self.attached = False
-                    self.skill.transfer.acknowledge_attachment(False)
         except Exception as exc:
             self.error = str(exc)
-            self._follow()
 
     def after_step(self):
-        self._follow()
         if self.error is not None:
             raise RuntimeError(self.error)
         if self.receipt is not None:
             return self.receipt
         import torch
-        stopped = (self.skill.transfer.phase == 'done' and not self.attached
+        stopped = (self.skill.transfer.phase == 'done'
                    and bool(torch.isfinite(self.robot.data.joint_vel).all())
-                   and bool((self.robot.data.joint_vel.abs() < .1).all())
-                   and bool(torch.isfinite(self.object.data.root_vel_w).all())
-                   and bool((self.object.data.root_vel_w[:, :3].norm(dim=-1) < .05).all())
-                   and bool((self.object.data.root_vel_w[:, 3:].norm(dim=-1) < .1).all()))
+                   and bool((self.robot.data.joint_vel.abs() < .1).all()))
         self.stable_ticks = self.stable_ticks + 1 if stopped else 0
         if self.stable_ticks >= self.settle_ticks:
             cancelled = self.cancel_reason is not None
@@ -240,9 +205,9 @@ class G1LiveHandle:
 class G1LiveRuntime:
     def __init__(self, env):
         self.env, self.handles = env, {}
-        if getattr(env, '_g1_manipulation_runtime', None) is not None:
+        if getattr(env, '_g1_pick_place_runtime', None) is not None:
             raise ValueError('one G1 runtime may own a shared environment')
-        env._g1_manipulation_runtime = self
+        env._g1_pick_place_runtime = self
 
     def add(self, env_id, robot_name, handle):
         key = (env_id, robot_name)
@@ -265,8 +230,6 @@ class G1LiveRuntime:
             if env_id in ids and handle.receipt is None:
                 handle.error = 'environment reset invalidated the G1 task; reconcile task leases'
                 # The environment reset owns object state restoration. Do not
-                # rewrite an old attachment into the newly reset clone.
-                handle.attached = False
                 handle._target = None
             if env_id in ids:
                 # Old handles remain invalid for callers, but a restored row
@@ -275,5 +238,5 @@ class G1LiveRuntime:
 
     def close(self):
         self.reset()
-        if getattr(self.env, '_g1_manipulation_runtime', None) is self:
-            self.env._g1_manipulation_runtime = None
+        if getattr(self.env, '_g1_pick_place_runtime', None) is self:
+            self.env._g1_pick_place_runtime = None

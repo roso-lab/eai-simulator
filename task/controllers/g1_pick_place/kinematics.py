@@ -1,7 +1,7 @@
 """USD joint-frame FK and constrained kinematic grasp playback.
 
 Angles are radians and positions are world metres. This module authors visual
-link poses only; the caller owns object attachment, physics and simulation time.
+link poses only; the caller owns logical object state, physics and simulation time.
 """
 from __future__ import annotations
 

@@ -7,7 +7,7 @@ from EAI.room06_runtime_hook import CallbackRoom06RuntimeHookSource
 from benchmark.records_v3 import canonical_digest
 from benchmark.room06_task_instance_v2 import logical_object_definitions
 from benchmark.room06_task_runtime_v1 import normalize_room06_task_setup
-from task.logical_objects import LogicalObjectRuntime
+from task.runtime.logical_objects import LogicalObjectRuntime
 
 
 class Room06RuntimeSourceError(RuntimeError):
