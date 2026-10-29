@@ -5,5 +5,370 @@
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
   "up_axis": "Z",
-  "points": []
+  "points": [
+    {
+      "id": "semantic:3ff0e7b2eec74ce29d06497641f29491",
+      "label": "litter_tray",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0071"
+        }
+      ]
+    },
+    {
+      "id": "semantic:23aae1932505495aaa4516462c7dc278",
+      "label": "pet_food_bowl",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0025"
+        }
+      ]
+    },
+    {
+      "id": "semantic:0efff041b3604e9e82d3f472473ed42a",
+      "label": "meeting_table",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0054"
+        }
+      ]
+    },
+    {
+      "id": "semantic:105004739ae84a868ca71d34a48dbe03",
+      "label": "printer",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0084"
+        }
+      ]
+    },
+    {
+      "id": "semantic:1f18ed9fc5134385bd30b6dcc38214be",
+      "label": "computer_desk",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0066"
+        }
+      ]
+    },
+    {
+      "id": "semantic:a7424f4a1a484aacb3d33650c20ca8e8",
+      "label": "dining_table",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0020"
+        }
+      ]
+    },
+    {
+      "id": "semantic:cd3ff9a2fbed43f68f1026352aa13c58",
+      "label": "refrigerator",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0073"
+        }
+      ]
+    },
+    {
+      "id": "semantic:7e2beb9795244be9853459fada6d5459",
+      "label": "kitchen",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0018"
+        }
+      ]
+    },
+    {
+      "id": "semantic:136f31c4ecb04eecbb6ec0a6e72cc138",
+      "label": "toilet",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0070"
+        }
+      ]
+    },
+    {
+      "id": "semantic:dc4366d0737941f7afb8c8f06fa9dde7",
+      "label": "house-gate-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0016"
+        }
+      ]
+    },
+    {
+      "id": "semantic:9e96c147487d443d85e890716ad9f403",
+      "label": "house-gate-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0017"
+        }
+      ]
+    },
+    {
+      "id": "semantic:4b1ff1b6b6ef41e6bb9385551f05454a",
+      "label": "kids_room-study_desk",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0046"
+        }
+      ]
+    },
+    {
+      "id": "semantic:945ab27299d64ebfb11282f83655286c",
+      "label": "master_bedroom",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0040"
+        }
+      ]
+    },
+    {
+      "id": "semantic:f9847cf92ff245acb044a897dbdc8969",
+      "label": "master_bedroom-toilet",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0048"
+        }
+      ]
+    },
+    {
+      "id": "semantic:73bb84a6f3d84bcd9535bbc10fac45fa",
+      "label": "screening_room-desk",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0063"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b8225be911f64fa3a096e83dffcea5ea",
+      "label": "snack_rack",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0065"
+        }
+      ]
+    },
+    {
+      "id": "semantic:ed093de1b86f4f5f888365cd8124299f",
+      "label": "screening_room-door-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0061"
+        }
+      ]
+    },
+    {
+      "id": "semantic:404a7c058ea44d8eb1eda9778d278c78",
+      "label": "screening_room-door-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0059"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b65f45c4f72948efabb55d7a9663b244",
+      "label": "toilet-door-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0052"
+        }
+      ]
+    },
+    {
+      "id": "semantic:c455e692d6004d46a6072e9079d44c0a",
+      "label": "toilet-door-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0049"
+        }
+      ]
+    },
+    {
+      "id": "semantic:d6f404f5a0ae4c8fb80f0018d6c727a6",
+      "label": "master_bedroom-door-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0037"
+        }
+      ]
+    },
+    {
+      "id": "semantic:74900647665e4196b285e519a770b50c",
+      "label": "master_bedroom-door-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0032"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b929bdefe7a64dad8856ff2c49cf8aaa",
+      "label": "kids_room-door-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0044"
+        }
+      ]
+    },
+    {
+      "id": "semantic:a6c89e78d1eb4d7f97fb8ce1cb2d4789",
+      "label": "kids_room-door-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0043"
+        }
+      ]
+    },
+    {
+      "id": "semantic:09fbe2a8e0254d49a6a22a3b962d1929",
+      "label": "kids_room",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0086"
+        }
+      ]
+    },
+    {
+      "id": "semantic:aa2057a787a34f4b8c7774eeef733cd5",
+      "label": "charging_station",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0055"
+        }
+      ]
+    }
+  ]
 }
