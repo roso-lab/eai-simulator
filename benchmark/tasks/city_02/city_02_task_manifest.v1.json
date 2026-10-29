@@ -213,8 +213,10 @@
         "rule": "aerial-only"
       }
     ],
-    "success_requires_all_patrol_points": true,
-    "area_metric_rule": "region complete when any listed ground/aerial patrol point is completed; point completion remains mandatory"
+    "success_requires_all_regions": true,
+    "success_requires_all_patrol_points": false,
+    "point_completion_required_from_tier": 2,
+    "area_metric_rule": "region complete when any listed ground/aerial candidate observation is completed; point completion is required only from difficulty tier 2"
   },
   "events": {
     "manhole": {
@@ -253,7 +255,7 @@
       "difficulty_tier": 1,
       "task_id": "city02_patrol",
       "default_condition": "nominal",
-      "scope": "all ground inspection points + all aerial build points + XY area metric",
+      "scope": "all XY coverage regions; inspection/build points are candidate observations",
       "relation_signature": [
         "P1",
         "P2-coverage"

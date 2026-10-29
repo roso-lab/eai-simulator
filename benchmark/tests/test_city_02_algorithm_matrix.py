@@ -23,13 +23,29 @@ def test_city02_both_contract_adapters_complete_all_tiers():
             assert result["success"] is True
             assert result["task_completion_rate"] == 1.0
             metrics = adapter.diagnostic_metrics(result)
-            assert metrics["patrol_ground_fraction"] == 1.0
-            assert metrics["patrol_aerial_fraction"] == 1.0
             assert metrics["xy_area_coverage_fraction"] == 1.0
+            if tier == 1:
+                assert all(task_id.startswith("coverage_") for task_id in runtime.tasks.required_task_ids)
+                assert not any(task_id.startswith("ground_patrol_") for task_id in runtime.tasks.required_task_ids)
+                assert metrics["patrol_ground_fraction"] == 0.0
+                assert metrics["patrol_aerial_fraction"] == 0.0
+            else:
+                assert metrics["patrol_ground_fraction"] == 1.0
+                assert metrics["patrol_aerial_fraction"] == 1.0
             if tier >= 2:
                 assert metrics["object_place_success"]["warning_sign"] is True
             if tier >= 3:
                 assert metrics["object_place_success"]["box"] is True
+
+
+def test_city02_t1_is_region_coverage_without_point_by_point_obligations():
+    episode = City02ScenarioAdapter().build_episode(tier=1)
+    assert len(episode.tasks) == 12
+    assert {task.kind for task in episode.tasks} == {"coverage"}
+    runtime = DiagnosticRuntime(episode, algorithm=EmosCity02Algorithm())
+    result = runtime.run()
+    assert result["success"] is True
+    assert result["task_completion_rate"] == 1.0
 
 
 def test_city02_non_capable_discoverer_holds_until_capable_responder_places_object():

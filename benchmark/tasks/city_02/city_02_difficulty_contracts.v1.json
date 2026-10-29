@@ -3,7 +3,7 @@
   "scenario_id": "city_02",
   "clock_dt_s": 0.02,
   "tiers": [
-    {"tier": 1, "task_id": "city02_patrol", "required_tasks": ["ground_patrol_1..9", "aerial_patrol_1..12"], "events": [], "communication_conditions": ["C0", "C1", "C2", "C3"]},
+    {"tier": 1, "task_id": "city02_patrol", "required_tasks": ["coverage_area_01..area_12"], "candidate_observations": ["Inspection point_1..9", "build_01..build_12"], "events": [], "communication_conditions": ["C0", "C1", "C2", "C3"]},
     {"tier": 2, "task_id": "city02_patrol_manhole", "required_tasks": ["ground_patrol_1..9", "aerial_patrol_1..12", "manhole_event", "warning_pick", "warning_place"], "events": ["manhole_opened"], "communication_conditions": ["C0", "C1", "C2", "C3"]},
     {"tier": 3, "task_id": "city02_compound", "required_tasks": ["ground_patrol_1..9", "aerial_patrol_1..12", "manhole_event", "warning_pick", "warning_place", "box_event", "box_pick", "box_place"], "events": ["manhole_opened", "box_found"], "communication_conditions": ["C0", "C1", "C2", "C3"]},
     {"tier": 4, "task_id": "city02_stress", "required_tasks": ["ground_patrol_1..9", "aerial_patrol_1..12", "manhole_event", "warning_pick", "warning_place", "box_event", "box_pick", "box_place"], "events": ["manhole_opened", "box_found"], "communication_conditions": ["C0", "C1", "C2", "C3"], "stress_axes": ["near_simultaneous_trigger", "C3_retry", "bounded_discoverer_hold"]}

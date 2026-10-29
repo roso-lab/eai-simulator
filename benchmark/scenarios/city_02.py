@@ -82,8 +82,13 @@ class City02ScenarioAdapter:
         return row
 
     @staticmethod
-    def _patrol_tasks() -> list[TaskSpec]:
+    def _patrol_tasks(tier: int, regions: tuple[Mapping[str, Any], ...]) -> list[TaskSpec]:
         tasks: list[TaskSpec] = []
+        if tier == 1:
+            return [TaskSpec(
+                f"coverage_{region['area_id']}", "coverage", (region["area_id"],),
+                report_required=True,
+            ) for region in regions]
         for index in range(1, 10):
             # The two possible Inspection point_9 bindings are resolved by the
             # runtime to the nearest reachable binding for the assigned robot.
@@ -123,15 +128,23 @@ class City02ScenarioAdapter:
         manifest = self.manifest()
         condition = self._condition(condition_id, tier)
         graph = self.semantic_graph()
+        regions = tuple(manifest["coverage"]["regions"])
+        for region in regions:
+            anchors = list(region.get("ground_labels", ())) + list(region.get("aerial_labels", ()))
+            for anchor in anchors:
+                for node in graph.resolve(anchor):
+                    graph.bind(region["area_id"], node)
         robots = tuple(RobotSpec(
             row["robot_id"], row["domain"], graph.resolve(row["initial_point"], row["domain"])[0],
             speed_mps=float(row["speed_mps"]), capabilities=tuple(row["capabilities"]),
         ) for row in manifest["robot_roster"])
-        tasks = self._patrol_tasks() + self._event_and_manipulation_tasks(tier)
+        tasks = self._patrol_tasks(tier, regions) + self._event_and_manipulation_tasks(tier)
         task_ids = {task.task_id for task in tasks}
         # Holds only make sense when the corresponding responder branch is
         # present in the selected difficulty tier.
         for index, task in enumerate(tasks):
+            if tier == 1:
+                continue
             if task.task_id == "ground_patrol_9" and "warning_place" not in task_ids:
                 tasks[index] = replace(task, hold_on_completion=False, hold_release_task=None)
             elif task.task_id == "ground_patrol_1" and "box_place" not in task_ids:
@@ -190,9 +203,10 @@ class City02ScenarioAdapter:
         ground = {f"Inspection point_{i}" for i in range(1, 10)}
         aerial = {f"build_{i:02d}" for i in range(1, 13)}
         covered_areas = 0
+        completed_area_ids = {target for target in completed_targets if isinstance(target, str) and target.startswith("area_")}
         for region in manifest["coverage"]["regions"]:
             members = set(region.get("ground_labels", ())) | set(region.get("aerial_labels", ()))
-            if members & completed_targets:
+            if region["area_id"] in completed_area_ids or members & completed_targets:
                 covered_areas += 1
         def first(kind: str, predicate=lambda row: True):
             rows = [row for row in events if row.get("kind") == kind and predicate(row)]

@@ -167,6 +167,16 @@ class TaskSpec:
     object_id: str | None = None
     object_action: str | None = None
     hold_release_task: str | None = None
+    required_for_success: bool = True
+    # Public announcement controls.  Hidden tasks remain in the evaluator's
+    # ledger but are not exposed to an algorithm until their release
+    # predicates are satisfied.  ``public_group``/``public_rank`` serialize
+    # announcements within a stage, preventing future task counts from being
+    # disclosed all at once.
+    public: bool = True
+    announce_after: tuple[str, ...] = ()
+    public_group: str | None = None
+    public_rank: int | None = None
 
 
 @dataclass(frozen=True)
@@ -265,6 +275,13 @@ class TaskLedger:
         return (self.status[task_id] == "pending"
                 and all(self.status.get(item) == "completed" for item in task.prerequisites)
                 and sum(self.status.get(item) == "completed" for item in task.activation_tasks) >= task.activation_count)
+
+    @property
+    def required_task_ids(self) -> tuple[str, ...]:
+        return tuple(sorted(task_id for task_id, spec in self.specs.items() if spec.required_for_success))
+
+    def required_complete(self) -> bool:
+        return all(self.status[task_id] == "completed" for task_id in self.required_task_ids)
 
     def snapshot(self) -> dict[str, Any]:
         return {"status": dict(self.status), "remaining": deepcopy(self.remaining), "assigned": dict(self.assigned), "completed_tick": dict(self.completed_tick), "failed": dict(self.failed), "group_members": {k: sorted(v) for k, v in self.group_members.items()}, "continuation_members": dict(self.continuation_members)}
@@ -464,6 +481,10 @@ class DiagnosticRuntime:
         self.notification_submitted = 0
         self.notification_delivered = 0
         self.object_state: dict[str, dict[str, Any]] = {}
+        # Public task announcements are separate from the evaluator ledger.
+        # This prevents hidden future obligations from entering an algorithm's
+        # observation while retaining a complete internal oracle state.
+        self._announced_tasks: set[str] = set()
         for item in episode.objects:
             object_id = str(item.get("object_id", ""))
             if not object_id:
@@ -499,7 +520,7 @@ class DiagnosticRuntime:
             ("world", self._world_snapshot, self._world_restore),
             ("clock", lambda: {"tick": self.clock_tick}, lambda s: setattr(self, "clock_tick", int(s["tick"]))),
             ("controller", lambda: {"robots": self._robot_snapshot()}, lambda s: self._robot_restore(s["robots"])),
-            ("skill", lambda: {"reallocation_count": self.reallocation_count, "message_counter": self._message_counter, "replay_equivalent": self._replay_equivalent, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "report_wait_ticks": self.report_wait_ticks, "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "object_state": deepcopy(self.object_state)}, self._skill_restore),
+            ("skill", lambda: {"reallocation_count": self.reallocation_count, "message_counter": self._message_counter, "replay_equivalent": self._replay_equivalent, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "report_wait_ticks": self.report_wait_ticks, "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "object_state": deepcopy(self.object_state), "announced_tasks": sorted(self._announced_tasks)}, self._skill_restore),
             ("task", self.tasks.snapshot, self.tasks.restore),
             ("algorithm", self.algorithm.snapshot, self.algorithm.restore),
             ("transport", lambda: self.communication.snapshot(), self._transport_restore),
@@ -527,6 +548,7 @@ class DiagnosticRuntime:
         self.notification_submitted = int(state.get("notification_submitted", 0))
         self.notification_delivered = int(state.get("notification_delivered", 0))
         self.object_state = deepcopy(state.get("object_state", self.object_state))
+        self._announced_tasks = set(state.get("announced_tasks", ()))
 
     def _world_snapshot(self) -> dict[str, Any]:
         return {"terminal": self.terminal, "success": self.success, "failure_reason": self.failure_reason}
@@ -546,18 +568,31 @@ class DiagnosticRuntime:
     def _observation(self) -> dict[str, Any]:
         pending = []
         for task_id in sorted(self.tasks.specs):
+            task = self.tasks.specs[task_id]
+            if not self._task_public(task_id):
+                continue
             if not self.tasks.eligible(task_id):
                 continue
-            task = self.tasks.specs[task_id]
             if task.kind == "event":
                 continue
+            if task_id not in self._announced_tasks:
+                self._announced_tasks.add(task_id)
+                self.events.append({"tick": self.clock_tick, "kind": "task_announced", "task_id": task_id,
+                                    "stage": task.public_group or task.kind})
             for target in self.tasks.remaining[task_id]:
                 target_nodes = self.episode.graph.resolve(target, task.required_domain)
                 target_position = self.episode.graph.nodes[target_nodes[0]].position
+                target_domains = {self.episode.graph.nodes[node_id].domain for node_id in target_nodes}
                 eligible = []
                 continuation_robot = self.tasks.continuation_members.get(task.continuation_group or "") if task.continuation_group else None
                 for state in self.robot_states.values():
                     if task.required_domain and state.spec.domain != task.required_domain:
+                        continue
+                    # A semantic target may be bound only in one domain (for
+                    # example an aerial-only coverage area).  Keep allocation
+                    # heterogeneous, but never advertise such a goal to a
+                    # robot that cannot resolve a route to it.
+                    if task.kind == "coverage" and state.spec.domain not in target_domains:
                         continue
                     if task.required_capabilities and not set(task.required_capabilities).issubset(state.spec.capabilities):
                         continue
@@ -567,6 +602,23 @@ class DiagnosticRuntime:
                         continue
                     eligible.append(state.spec.robot_id)
                 pending.append({"task_id": task_id, "target": target, "goal_key": f"{task_id}:{target}", "required_domain": task.required_domain, "target_position": tuple(target_position), "kind": task.kind, "distinct_group": task.distinct_group, "required_capabilities": tuple(task.required_capabilities), "continuation_group": task.continuation_group, "object_id": task.object_id, "object_action": task.object_action, "eligible_robots": sorted(eligible)})
+        # Hidden obligations are represented as repeatable action opportunities.
+        # The evaluator retains their exact count and IDs, while the algorithm
+        # only learns that another service/response action is currently
+        # available.  This prevents future quota leakage and still permits
+        # several robots to contend for one capacity-one resource.
+        if self._has_hidden_action("recover") and self._has_idle_domain("ground"):
+            pending.append({"task_id": "resource", "target": "recover", "goal_key": "resource:recover",
+                            "required_domain": "ground", "target_position": self._resource_position("recover"),
+                            "kind": "resource_action", "distinct_group": None,
+                            "required_capabilities": (), "continuation_group": None,
+                            "object_id": None, "object_action": None})
+        if self._has_hidden_action("response") and self._has_idle_domain("ground"):
+            pending.append({"task_id": "response", "target": "accident", "goal_key": "response:accident",
+                            "required_domain": "ground", "target_position": self._target_position("accident", "ground"),
+                            "kind": "response_action", "distinct_group": None,
+                            "required_capabilities": (), "continuation_group": None,
+                            "object_id": None, "object_action": None})
         available = {}
         for state in self.robot_states.values():
             if state.status != "idle":
@@ -579,8 +631,63 @@ class DiagnosticRuntime:
                         distance = min(self.episode.graph.shortest(state.node_id, node)[0] for node in targets)
                     except ValueError:
                         continue
-            available[state.spec.robot_id] = {"robot_id": state.spec.robot_id, "domain": state.spec.domain, "distance": distance, "position": tuple(self.episode.graph.nodes[state.node_id].position), "capabilities": tuple(state.spec.capabilities)}
-        return {"tick": self.clock_tick, "pending_goals": pending, "available_robots": available, "tasks": self.tasks.snapshot()}
+            available[state.spec.robot_id] = {"robot_id": state.spec.robot_id, "domain": state.spec.domain, "distance": distance, "position": tuple(self.episode.graph.nodes[state.node_id].position), "capabilities": tuple(state.spec.capabilities),
+                                              "battery_remaining_m": state.battery,
+                                              "battery_reserve_m": state.spec.battery_reserve_m}
+        resources = []
+        for resource_id, spec in sorted(self.resources.specs.items()):
+            node = self.episode.graph.nodes[spec.node_id]
+            resources.append({"resource_id": resource_id, "position": tuple(node.position),
+                              "capacity": spec.capacity,
+                              "occupied": len(self.resources.active[resource_id]),
+                              "queued": len(self.resources.queues[resource_id])})
+        return {"tick": self.clock_tick, "pending_goals": pending, "available_robots": available,
+                "resources": resources,
+                "announcement_log": sorted(self._announced_tasks)}
+
+    def _target_position(self, target: str, domain: str | None = None) -> tuple[float, float, float]:
+        nodes = self.episode.graph.resolve(target, domain)
+        return tuple(self.episode.graph.nodes[nodes[0]].position)
+
+    def _resource_position(self, label: str) -> tuple[float, float, float]:
+        resources = [r for r in self.resources.specs.values()
+                     if label in self.episode.graph.nodes[r.node_id].semantics
+                     or label in self.episode.graph.bindings and r.node_id in self.episode.graph.bindings[label]]
+        if resources:
+            return tuple(self.episode.graph.nodes[sorted(resources, key=lambda r: r.resource_id)[0].node_id].position)
+        return self._target_position(label, "ground")
+
+    def _has_hidden_action(self, kind: str) -> bool:
+        candidates = [task for task in self.tasks.specs.values()
+                      if task.kind == kind and not task.public and self._task_released(task)
+                      and self.tasks.eligible(task.task_id)]
+        return bool(candidates)
+
+    def _has_idle_domain(self, domain: str) -> bool:
+        return any(state.status == "idle" and state.spec.domain == domain
+                   for state in self.robot_states.values())
+
+    def _task_public(self, task_id: str) -> bool:
+        """Return whether a task is currently announced to the algorithm.
+
+        ``announce_after`` gates stage transitions.  A ``public_group`` with
+        ranks reveals only the next member, which keeps serialized resource
+        service obligations from disclosing their future count.  Unranked
+        groups are announced together once their gate is complete.
+        """
+        task = self.tasks.specs[task_id]
+        if not task.public or not self._task_released(task):
+            return False
+        if task.public_group and task.public_rank is not None:
+            completed = sum(1 for other in self.tasks.specs.values()
+                            if other.public_group == task.public_group
+                            and other.public_rank is not None
+                            and self.tasks.status.get(other.task_id) == "completed")
+            return task.public_rank <= completed + 1
+        return True
+
+    def _task_released(self, task: TaskSpec) -> bool:
+        return all(self.tasks.status.get(item) == "completed" for item in task.announce_after)
 
     def _update_event_triggers(self) -> None:
         """Close evaluator-owned triggers without assigning them to robots."""
@@ -675,6 +782,24 @@ class DiagnosticRuntime:
             if ":" not in goal_key:
                 continue
             task_id, target = goal_key.split(":", 1)
+            # Resolve an abstract public action to one hidden evaluator task.
+            # The algorithm never receives the concrete future ID or quota.
+            if task_id == "resource" and target == "recover":
+                candidates = [task for task in self.tasks.specs.values()
+                              if task.kind == "recover" and not task.public
+                              and self.tasks.eligible(task.task_id)]
+                if not candidates:
+                    continue
+                task_id = sorted(candidates, key=lambda t: t.task_id)[0].task_id
+                target = "recover"
+            elif task_id == "response" and target == "accident":
+                candidates = [task for task in self.tasks.specs.values()
+                              if task.kind == "response" and not task.public
+                              and self.tasks.eligible(task.task_id)]
+                if not candidates:
+                    continue
+                task_id = sorted(candidates, key=lambda t: t.task_id)[0].task_id
+                target = "accident"
             if task_id not in self.tasks.specs or target not in self.tasks.remaining[task_id] or not self.tasks.eligible(task_id):
                 continue
             robot = self.robot_states[robot_id]; task = self.tasks.specs[task_id]
@@ -693,7 +818,19 @@ class DiagnosticRuntime:
                 candidates = self.episode.graph.resolve(target, task.required_domain or robot.spec.domain)
                 candidates = [node for node in candidates if self.episode.graph.nodes[node].domain == robot.spec.domain]
             except ValueError:
-                self._fail(f"unreachable_target:{task_id}:{target}")
+                # A shared semantic task can be bound in another domain (for
+                # example an aerial-only coverage region).  Treat an
+                # incompatible assignment as a rejected proposal so another
+                # eligible robot can claim it; reserve terminal failure for a
+                # genuinely unknown semantic target.
+                try:
+                    self.episode.graph.resolve(target)
+                except ValueError:
+                    self._fail(f"unreachable_target:{task_id}:{target}")
+                    continue
+                self.events.append({"tick": self.clock_tick, "kind": "invalid_assignment",
+                                    "robot_id": robot_id, "task_id": task_id,
+                                    "reason": "no_eligible_robot_domain"})
                 continue
             if not candidates:
                 self.events.append({"tick": self.clock_tick, "kind": "invalid_assignment",
@@ -864,7 +1001,7 @@ class DiagnosticRuntime:
                     if self.terminal:
                         return
         self.clock_tick += 1
-        if all(status == "completed" for status in self.tasks.status.values()):
+        if self.tasks.required_complete():
             self.terminal = True; self.success = True
             self.events.append({"tick": self.clock_tick, "kind": "episode_succeeded"})
         elif self.clock_tick >= self.episode.horizon_ticks:
@@ -934,7 +1071,8 @@ class DiagnosticRuntime:
         return str(self.replay(checkpoint, ticks=ticks)["replay_digest"])
 
     def metrics(self) -> dict[str, Any]:
-        completed = sum(value == "completed" for value in self.tasks.status.values())
+        required_ids = self.tasks.required_task_ids
+        completed = sum(self.tasks.status[item] == "completed" for item in required_ids)
         coverage_tasks = [task_id for task_id, spec in self.tasks.specs.items() if spec.kind in {"coverage", "inspection"}]
         coverage_done = sum(self.tasks.status[item] == "completed" for item in coverage_tasks)
         comm = self.communication.metrics()
@@ -944,7 +1082,7 @@ class DiagnosticRuntime:
         # a live protocol state and therefore counts robots still blocked in
         # report_wait, rather than subtracting historical transport totals.
         notification_pending = sum(state.status == "report_wait" for state in self.robot_states.values())
-        return {"schema_version": self.schema_version, "success": self.success, "failure_reason": self.failure_reason, "tick": self.clock_tick, "makespan_s": self.clock_tick * CONTROL_DT_S, "task_completion_rate": completed / len(self.tasks.specs) if self.tasks.specs else 1.0, "coverage_fraction": coverage_done / len(coverage_tasks) if coverage_tasks else 1.0, "completed_task_ids": sorted(task_id for task_id, status in self.tasks.status.items() if status == "completed"), "task_status": dict(sorted(self.tasks.status.items())), "completed_ticks": dict(sorted(self.tasks.completed_tick.items())), "resource_wait_ticks": self.resources.wait_ticks, "resource_contention_requests": self.resources.contention_requests, "recover_services": self.resources.total_services, "battery_remaining_m": batteries, "min_battery_remaining_m": min(batteries.values()) if batteries else None, "communication_bits": comm["transmitted_bits"], "communication_delay_ticks": comm["delay_ticks_total"], "communication_loss_bits": comm["loss_bits"], "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "notification_pending": notification_pending, "report_wait_ticks": self.report_wait_ticks, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "reallocation_count": self.reallocation_count, "replay_digest": replay_digest, "replay_equivalent": self._replay_equivalent, "paper_score_eligible": False, "D1_eligible": bool(self.success), "D2_eligible": False, "D3_eligible": bool(self.success and self.resources.contention_requests >= 0), "D4_eligible": False, "D5_eligible": False, "D6_eligible": False, "eligibility_reasons": {"D2": "paired C0-C3 retention directory required", "D4": "registered availability-loss branch required", "D5": "certified cross-scenario family required", "D6": "independent calibration reference required"}, "events": deepcopy(self.events), "assignment": dict(self.tasks.assigned)}
+        return {"schema_version": self.schema_version, "success": self.success, "failure_reason": self.failure_reason, "tick": self.clock_tick, "makespan_s": self.clock_tick * CONTROL_DT_S, "task_completion_rate": completed / len(required_ids) if required_ids else 1.0, "coverage_fraction": coverage_done / len(coverage_tasks) if coverage_tasks else 1.0, "completed_task_ids": sorted(task_id for task_id, status in self.tasks.status.items() if status == "completed"), "task_status": dict(sorted(self.tasks.status.items())), "completed_ticks": dict(sorted(self.tasks.completed_tick.items())), "resource_wait_ticks": self.resources.wait_ticks, "resource_contention_requests": self.resources.contention_requests, "recover_services": self.resources.total_services, "battery_remaining_m": batteries, "min_battery_remaining_m": min(batteries.values()) if batteries else None, "communication_bits": comm["transmitted_bits"], "communication_delay_ticks": comm["delay_ticks_total"], "communication_loss_bits": comm["loss_bits"], "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "notification_pending": notification_pending, "report_wait_ticks": self.report_wait_ticks, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "reallocation_count": self.reallocation_count, "replay_digest": replay_digest, "replay_equivalent": self._replay_equivalent, "paper_score_eligible": False, "D1_eligible": bool(self.success), "D2_eligible": False, "D3_eligible": bool(self.success and self.resources.contention_requests >= 0), "D4_eligible": False, "D5_eligible": False, "D6_eligible": False, "eligibility_reasons": {"D2": "paired C0-C3 retention directory required", "D4": "registered availability-loss branch required", "D5": "certified cross-scenario family required", "D6": "independent calibration reference required"}, "events": deepcopy(self.events), "assignment": dict(self.tasks.assigned)}
 
 
 __all__ = ["CONTROL_DT_S", "SemanticNode", "SemanticEdge", "SemanticGraph", "RobotSpec", "TaskSpec", "ResourceSpec", "EpisodeSpec", "AlgorithmAdapter", "GreedyGoalAlgorithm", "TaskLedger", "ResourceLedger", "CommunicationModel", "DiagnosticRuntime"]

@@ -134,12 +134,35 @@ class TeamWeaverCity02Algorithm:
         if not goals or not robot_ids:
             return {}
         goals = goals[:len(robot_ids)]
+        # T1 is deliberately a coverage-only contract.  Its twelve region
+        # goals are a set-cover allocation problem, so invoking the generic
+        # TeamWeaver allocator on every 0.02 s tick adds a large, irrelevant
+        # solver overhead.  Use the same deterministic eligible matching
+        # seam as the runtime while retaining the TeamWeaver adapter for
+        # event/manipulation tiers.
+        if all(goal.get("kind") == "coverage" for goal in goals):
+            available = set(robot_ids)
+            result: dict[str, str] = {}
+            for goal in goals:
+                choices = sorted(available & set(goal.get("eligible_robots", ())))
+                if not choices:
+                    continue
+                robot_id = choices[0]
+                result[robot_id] = str(goal["goal_key"])
+                available.remove(robot_id)
+            return result
         package = _package(observation, goals, robot_ids)
         adapter = TeamWeaverDecisionAdapter(robot_ids=tuple(robot_ids), allocator=DynamicFactoryAllocator(prefer_miqp=False))
         adapter.initialize({}, {"robot_positions": {r: tuple(observation["available_robots"][r].get("position", (0, 0, 0))) for r in robot_ids}})
         decision = adapter(package, _robot_states(observation, robot_ids))
         self.calls += 1
-        return {item.robot_id: item.task_id for item in decision.assignments}
+        by_key = {str(goal["goal_key"]): goal for goal in goals}
+        # The allocator is intentionally generic and may return a geometric
+        # match that ignores scenario-side domain/capability eligibility.
+        # Keep only assignments explicitly advertised by the runtime so a
+        # rejected proposal cannot starve an aerial-only coverage region.
+        return {item.robot_id: item.task_id for item in decision.assignments
+                if item.robot_id in by_key.get(str(item.task_id), {}).get("eligible_robots", ())}
 
     def snapshot(self) -> Mapping[str, Any]:
         return {"calls": self.calls, "provenance": dict(self.provenance)}
