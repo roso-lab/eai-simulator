@@ -1,0 +1,367 @@
+{
+  "schema": "heterocoord.city02.task_manifest.v1",
+  "version": 1,
+  "scene_key": "service_city_02",
+  "scenario_id": "city_02",
+  "task_family": "异构城市巡检、井盖警示与箱体清运",
+  "task_contract_version": "city02.final.v1",
+  "semantic_map": {
+    "root": "usd/scene/Service and operations/city_02/semantic_map/current",
+    "revision": "13b416cd6a01495db03f3d3580fca568",
+    "semantic_binding_digest": "637f5bbdf4e2d26012e10d8fad464ea45eca9018ded7488557d0f9530a563121",
+    "robot_validated": false
+  },
+  "spawn_contract": {
+    "ground": {
+      "start_1": "node:0083",
+      "start_2": "node:0084",
+      "start_3": "node:0085",
+      "start_4": "node:0086"
+    },
+    "aerial": {
+      "build_01": "node:0007"
+    },
+    "source": "semantic-points.json; starts added from previously unbound topology nodes"
+  },
+  "robot_roster": [
+    {
+      "robot_id": "m20",
+      "model": "M20",
+      "domain": "ground",
+      "initial_point": "start_1",
+      "speed_mps": 1.0,
+      "capabilities": [
+        "navigation",
+        "ground_observation"
+      ]
+    },
+    {
+      "robot_id": "carter_d1",
+      "model": "Carter+D1",
+      "domain": "ground",
+      "initial_point": "start_2",
+      "speed_mps": 1.0,
+      "capabilities": [
+        "navigation",
+        "ground_observation",
+        "manipulator",
+        "warning_sign_transport",
+        "box_transport"
+      ]
+    },
+    {
+      "robot_id": "b2_z1",
+      "model": "B2+Z1",
+      "domain": "ground",
+      "initial_point": "start_3",
+      "speed_mps": 1.0,
+      "capabilities": [
+        "navigation",
+        "ground_observation",
+        "manipulator",
+        "warning_sign_transport",
+        "box_transport"
+      ]
+    },
+    {
+      "robot_id": "lite3",
+      "model": "lite3",
+      "domain": "ground",
+      "initial_point": "start_4",
+      "speed_mps": 1.0,
+      "capabilities": [
+        "navigation",
+        "ground_observation"
+      ]
+    },
+    {
+      "robot_id": "pegasus_1",
+      "model": "Pegasus",
+      "domain": "aerial",
+      "initial_point": "build_01",
+      "speed_mps": 4.0,
+      "capabilities": [
+        "navigation",
+        "aerial_observation"
+      ]
+    }
+  ],
+  "normalization": {
+    "build1": "build_01",
+    "inspection_label_pattern": "Inspection point_1..9",
+    "case_sensitive": true
+  },
+  "coverage": {
+    "xy_radius_m": 40.0,
+    "regions": [
+      {
+        "area_id": "area_01",
+        "ground_labels": [
+          "Inspection point_1"
+        ],
+        "aerial_labels": [
+          "build_10"
+        ],
+        "rule": "xy<=40m; box trigger anchor"
+      },
+      {
+        "area_id": "area_02",
+        "ground_labels": [
+          "Inspection point_2"
+        ],
+        "aerial_labels": [
+          "build_11"
+        ],
+        "rule": "xy=31.3m"
+      },
+      {
+        "area_id": "area_03",
+        "ground_labels": [
+          "Inspection point_3"
+        ],
+        "aerial_labels": [
+          "build_03"
+        ],
+        "rule": "xy=26.0m"
+      },
+      {
+        "area_id": "area_04",
+        "ground_labels": [
+          "Inspection point_4",
+          "Inspection point_6"
+        ],
+        "aerial_labels": [
+          "build_05"
+        ],
+        "rule": "shared aerial anchor; both xy<=28m"
+      },
+      {
+        "area_id": "area_05",
+        "ground_labels": [
+          "Inspection point_5"
+        ],
+        "aerial_labels": [
+          "build_06",
+          "build_07"
+        ],
+        "rule": "both xy<=28m"
+      },
+      {
+        "area_id": "area_06",
+        "ground_labels": [
+          "Inspection point_7"
+        ],
+        "aerial_labels": [
+          "build_12"
+        ],
+        "rule": "xy=24.1m"
+      },
+      {
+        "area_id": "area_07",
+        "ground_labels": [
+          "Inspection point_8"
+        ],
+        "aerial_labels": [
+          "build_04"
+        ],
+        "rule": "xy=38.3m"
+      },
+      {
+        "area_id": "area_08",
+        "ground_labels": [
+          "Inspection point_9"
+        ],
+        "aerial_labels": [
+          "build_01"
+        ],
+        "ground_binding": "node:0074",
+        "rule": "Inspection point_9 binding node:0074; xy=21.8m"
+      },
+      {
+        "area_id": "area_09",
+        "ground_labels": [
+          "Inspection point_9"
+        ],
+        "aerial_labels": [
+          "build_07"
+        ],
+        "ground_binding": "node:0069",
+        "rule": "Inspection point_9 binding node:0069; xy=31.5m"
+      },
+      {
+        "area_id": "area_10",
+        "ground_labels": [],
+        "aerial_labels": [
+          "build_02"
+        ],
+        "rule": "aerial-only"
+      },
+      {
+        "area_id": "area_11",
+        "ground_labels": [],
+        "aerial_labels": [
+          "build_08"
+        ],
+        "rule": "aerial-only"
+      },
+      {
+        "area_id": "area_12",
+        "ground_labels": [],
+        "aerial_labels": [
+          "build_09"
+        ],
+        "rule": "aerial-only"
+      }
+    ],
+    "success_requires_all_patrol_points": true,
+    "area_metric_rule": "region complete when any listed ground/aerial patrol point is completed; point completion remains mandatory"
+  },
+  "events": {
+    "manhole": {
+      "event_id": "manhole_opened",
+      "trigger": "ground_patrol_9",
+      "trigger_mode": "first_completion",
+      "discovery_label": "Inspection point_9",
+      "response": [
+        "warning_sign:pick",
+        "warning_sign:place"
+      ],
+      "required_capability": "manipulator",
+      "non_capable_policy": "discoverer_hold_and_notify"
+    },
+    "box": {
+      "event_id": "box_found",
+      "trigger": [
+        "ground_patrol_1",
+        "aerial_patrol_10"
+      ],
+      "trigger_mode": "OR_first_completion_idempotent",
+      "discovery_labels": [
+        "Inspection point_1",
+        "build_10"
+      ],
+      "response": [
+        "box:pick",
+        "box:place"
+      ],
+      "required_capability": "manipulator",
+      "non_capable_policy": "discoverer_hold_and_notify"
+    }
+  },
+  "difficulty_tiers": [
+    {
+      "difficulty_tier": 1,
+      "task_id": "city02_patrol",
+      "default_condition": "nominal",
+      "scope": "all ground inspection points + all aerial build points + XY area metric",
+      "relation_signature": [
+        "P1",
+        "P2-coverage"
+      ]
+    },
+    {
+      "difficulty_tier": 2,
+      "task_id": "city02_patrol_manhole",
+      "default_condition": "nominal",
+      "scope": "tier1 + manhole warning handoff/self-service",
+      "relation_signature": [
+        "P1",
+        "P2",
+        "P2-02"
+      ]
+    },
+    {
+      "difficulty_tier": 3,
+      "task_id": "city02_compound",
+      "default_condition": "communication_delay",
+      "scope": "tier2 + OR box trigger and box-to-trash manipulation",
+      "relation_signature": [
+        "P1",
+        "P2",
+        "P2-02",
+        "P4-resource"
+      ]
+    },
+    {
+      "difficulty_tier": 4,
+      "task_id": "city02_stress",
+      "default_condition": "communication_stress",
+      "scope": "tier3 + simultaneous triggers, bounded waits, C3 transport stress",
+      "relation_signature": [
+        "P1",
+        "P2",
+        "P2-02",
+        "P4-resource",
+        "D4-branch-ready"
+      ]
+    }
+  ],
+  "conditions": [
+    {
+      "condition_id": "nominal",
+      "communication": "C0",
+      "description": "无通信延迟/丢包的逻辑基线"
+    },
+    {
+      "condition_id": "communication_delay",
+      "communication": "C1",
+      "description": "固定通知延迟"
+    },
+    {
+      "condition_id": "communication_loss",
+      "communication": "C2",
+      "description": "有丢包和有限带宽"
+    },
+    {
+      "condition_id": "communication_stress",
+      "communication": "C3",
+      "description": "高延迟、低带宽和丢包"
+    }
+  ],
+  "objects": [
+    {
+      "object_id": "warning_sign",
+      "source": "Warning sign",
+      "destination": "Manhole cover",
+      "one_shot": true
+    },
+    {
+      "object_id": "box",
+      "source": "box",
+      "destination": "Trash can",
+      "one_shot": true
+    }
+  ],
+  "checkpoints": {
+    "cp_00": "spawn_valid",
+    "cp_01": "patrol_started",
+    "cp_02": "manhole_or_box_discovered",
+    "cp_03": "request_delivered",
+    "cp_04": "capable_responder_arrived",
+    "cp_05": "object_picked",
+    "cp_06": "object_placed",
+    "cp_07": "all_patrol_points_complete",
+    "cp_08": "closeout"
+  },
+  "metrics": [
+    "patrol_coverage_fraction",
+    "xy_area_coverage_fraction",
+    "detection_latency_s",
+    "notification_latency_s",
+    "responder_travel_s",
+    "discoverer_hold_s",
+    "capability_validity",
+    "object_pick_place_success",
+    "duplicate_trigger_suppression",
+    "communication_delay_ticks",
+    "communication_loss_bits",
+    "checkpoint_replay_equivalent",
+    "makespan_s"
+  ],
+  "model_provenance": {
+    "provider": "dongli",
+    "model": "gpt-5.6-luna",
+    "reasoning_effort": "low",
+    "algorithm_scope": "deterministic contract adapters"
+  }
+}

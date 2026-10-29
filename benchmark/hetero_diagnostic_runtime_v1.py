@@ -159,6 +159,14 @@ class TaskSpec:
     activation_tasks: tuple[str, ...] = ()
     activation_count: int = 0
     report_required: bool = False
+    # Optional capability and object-protocol constraints.  These fields keep
+    # the base runtime scene agnostic while allowing scenarios such as city_02
+    # to model capability-gated pick/place and same-robot continuation.
+    required_capabilities: tuple[str, ...] = ()
+    continuation_group: str | None = None
+    object_id: str | None = None
+    object_action: str | None = None
+    hold_release_task: str | None = None
 
 
 @dataclass(frozen=True)
@@ -187,6 +195,9 @@ class EpisodeSpec:
     # episode closes fail-closed after the final failed attempt.
     report_retry_limit: int = 8
     report_retry_interval_ticks: int = 10
+    # Initial object records are optional.  Each record is a mapping with an
+    # ``object_id``, ``source`` and ``destination`` semantic labels.
+    objects: tuple[Mapping[str, Any], ...] = ()
 
 
 class AlgorithmAdapter(Protocol):
@@ -205,6 +216,7 @@ class GreedyGoalAlgorithm:
     """Deterministic nearest-goal baseline suitable for any graph scenario."""
 
     algorithm_id = "greedy_goal_v1"
+    uses_distance = True
 
     def __init__(self) -> None:
         self.assignments: dict[str, str] = {}
@@ -246,6 +258,7 @@ class TaskLedger:
         self.completed_tick: dict[str, int] = {}
         self.failed: dict[str, str] = {}
         self.group_members: dict[str, set[str]] = {}
+        self.continuation_members: dict[str, str] = {}
 
     def eligible(self, task_id: str) -> bool:
         task = self.specs[task_id]
@@ -254,7 +267,7 @@ class TaskLedger:
                 and sum(self.status.get(item) == "completed" for item in task.activation_tasks) >= task.activation_count)
 
     def snapshot(self) -> dict[str, Any]:
-        return {"status": dict(self.status), "remaining": deepcopy(self.remaining), "assigned": dict(self.assigned), "completed_tick": dict(self.completed_tick), "failed": dict(self.failed), "group_members": {k: sorted(v) for k, v in self.group_members.items()}}
+        return {"status": dict(self.status), "remaining": deepcopy(self.remaining), "assigned": dict(self.assigned), "completed_tick": dict(self.completed_tick), "failed": dict(self.failed), "group_members": {k: sorted(v) for k, v in self.group_members.items()}, "continuation_members": dict(self.continuation_members)}
 
     def restore(self, state: Mapping[str, Any]) -> None:
         self.status = dict(state["status"])
@@ -263,6 +276,7 @@ class TaskLedger:
         self.completed_tick = dict(state["completed_tick"])
         self.failed = dict(state["failed"])
         self.group_members = {k: set(v) for k, v in state.get("group_members", {}).items()}
+        self.continuation_members = dict(state.get("continuation_members", {}))
 
 
 class ResourceLedger:
@@ -409,6 +423,7 @@ class _RobotState:
     report_frame_id: str | None = None
     report_attempts: int = 0
     report_next_tick: int | None = None
+    hold_release_task: str | None = None
 
 
 class DiagnosticRuntime:
@@ -448,6 +463,20 @@ class DiagnosticRuntime:
         self.report_wait_ticks = 0
         self.notification_submitted = 0
         self.notification_delivered = 0
+        self.object_state: dict[str, dict[str, Any]] = {}
+        for item in episode.objects:
+            object_id = str(item.get("object_id", ""))
+            if not object_id:
+                raise ValueError("object records require object_id")
+            if object_id in self.object_state:
+                raise ValueError(f"duplicate object_id {object_id!r}")
+            self.object_state[object_id] = {
+                "object_id": object_id,
+                "source": str(item.get("source", "")),
+                "destination": str(item.get("destination", "")),
+                "status": "available",
+                "held_by": None,
+            }
         # This becomes true only after an explicit paired replay comparison;
         # a normal run must never imply that replay was checked.
         self._replay_equivalent = False
@@ -470,7 +499,7 @@ class DiagnosticRuntime:
             ("world", self._world_snapshot, self._world_restore),
             ("clock", lambda: {"tick": self.clock_tick}, lambda s: setattr(self, "clock_tick", int(s["tick"]))),
             ("controller", lambda: {"robots": self._robot_snapshot()}, lambda s: self._robot_restore(s["robots"])),
-            ("skill", lambda: {"reallocation_count": self.reallocation_count, "message_counter": self._message_counter, "replay_equivalent": self._replay_equivalent, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "report_wait_ticks": self.report_wait_ticks, "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered}, self._skill_restore),
+            ("skill", lambda: {"reallocation_count": self.reallocation_count, "message_counter": self._message_counter, "replay_equivalent": self._replay_equivalent, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "report_wait_ticks": self.report_wait_ticks, "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "object_state": deepcopy(self.object_state)}, self._skill_restore),
             ("task", self.tasks.snapshot, self.tasks.restore),
             ("algorithm", self.algorithm.snapshot, self.algorithm.restore),
             ("transport", lambda: self.communication.snapshot(), self._transport_restore),
@@ -497,6 +526,7 @@ class DiagnosticRuntime:
         self.report_wait_ticks = int(state.get("report_wait_ticks", 0))
         self.notification_submitted = int(state.get("notification_submitted", 0))
         self.notification_delivered = int(state.get("notification_delivered", 0))
+        self.object_state = deepcopy(state.get("object_state", self.object_state))
 
     def _world_snapshot(self) -> dict[str, Any]:
         return {"terminal": self.terminal, "success": self.success, "failure_reason": self.failure_reason}
@@ -505,7 +535,7 @@ class DiagnosticRuntime:
         self.terminal = bool(state["terminal"]); self.success = bool(state["success"]); self.failure_reason = str(state["failure_reason"])
 
     def _robot_snapshot(self) -> dict[str, Any]:
-        return {rid: {"node_id": s.node_id, "battery": s.battery, "distance_m": s.distance_m, "route": list(s.route), "route_index": s.route_index, "edge_progress_m": s.edge_progress_m, "task_id": s.task_id, "target_key": s.target_key, "status": s.status, "resource_id": s.resource_id, "report_frame_id": s.report_frame_id, "report_attempts": s.report_attempts, "report_next_tick": s.report_next_tick} for rid, s in sorted(self.robot_states.items())}
+        return {rid: {"node_id": s.node_id, "battery": s.battery, "distance_m": s.distance_m, "route": list(s.route), "route_index": s.route_index, "edge_progress_m": s.edge_progress_m, "task_id": s.task_id, "target_key": s.target_key, "status": s.status, "resource_id": s.resource_id, "report_frame_id": s.report_frame_id, "report_attempts": s.report_attempts, "report_next_tick": s.report_next_tick, "hold_release_task": s.hold_release_task} for rid, s in sorted(self.robot_states.items())}
 
     def _robot_restore(self, state: Mapping[str, Any]) -> None:
         for rid, payload in state.items():
@@ -524,13 +554,25 @@ class DiagnosticRuntime:
             for target in self.tasks.remaining[task_id]:
                 target_nodes = self.episode.graph.resolve(target, task.required_domain)
                 target_position = self.episode.graph.nodes[target_nodes[0]].position
-                pending.append({"task_id": task_id, "target": target, "goal_key": f"{task_id}:{target}", "required_domain": task.required_domain, "target_position": tuple(target_position), "kind": task.kind, "distinct_group": task.distinct_group, "eligible_robots": sorted(set(state.spec.robot_id for state in self.robot_states.values() if not task.distinct_group or state.spec.robot_id not in self.tasks.group_members.get(task.distinct_group, set())))})
+                eligible = []
+                continuation_robot = self.tasks.continuation_members.get(task.continuation_group or "") if task.continuation_group else None
+                for state in self.robot_states.values():
+                    if task.required_domain and state.spec.domain != task.required_domain:
+                        continue
+                    if task.required_capabilities and not set(task.required_capabilities).issubset(state.spec.capabilities):
+                        continue
+                    if task.distinct_group and state.spec.robot_id in self.tasks.group_members.get(task.distinct_group, set()):
+                        continue
+                    if continuation_robot and state.spec.robot_id != continuation_robot:
+                        continue
+                    eligible.append(state.spec.robot_id)
+                pending.append({"task_id": task_id, "target": target, "goal_key": f"{task_id}:{target}", "required_domain": task.required_domain, "target_position": tuple(target_position), "kind": task.kind, "distinct_group": task.distinct_group, "required_capabilities": tuple(task.required_capabilities), "continuation_group": task.continuation_group, "object_id": task.object_id, "object_action": task.object_action, "eligible_robots": sorted(eligible)})
         available = {}
         for state in self.robot_states.values():
             if state.status != "idle":
                 continue
             distance = math.inf
-            if pending:
+            if pending and bool(getattr(self.algorithm, "uses_distance", False)):
                 for goal in pending:
                     try:
                         targets = self.episode.graph.resolve(goal["target"], goal["required_domain"] or state.spec.domain)
@@ -581,21 +623,28 @@ class DiagnosticRuntime:
         task_id, target = robot.task_id, robot.target_key
         if task_id is None or target is None:
             return
+        task = self.tasks.specs[task_id]
         remaining = self.tasks.remaining[task_id]
         if target in remaining:
             remaining.remove(target)
         if not remaining:
             self.tasks.status[task_id] = "completed"
             self.tasks.completed_tick[task_id] = self.clock_tick
-            self.events.append({"tick": self.clock_tick, "kind": "task_completed", "robot_id": robot.spec.robot_id, "task_id": task_id})
+            self.events.append({"tick": self.clock_tick, "kind": "task_completed", "robot_id": robot.spec.robot_id, "task_id": task_id, "target": target})
         robot.task_id = robot.target_key = robot.resource_id = robot.report_frame_id = None
         robot.report_attempts = 0
         robot.report_next_tick = None
         robot.route = []
         robot.route_index = 0
         robot.edge_progress_m = 0.0
-        robot.status = "idle"
+        if self._should_hold(robot, task):
+            robot.hold_release_task = task.hold_release_task
+            robot.status = "hold"
+            self.events.append({"tick": self.clock_tick, "kind": "robot_hold_started", "robot_id": robot.spec.robot_id, "release_task": task.hold_release_task})
+        else:
+            robot.status = "idle"
         self.notification_delivered += 1
+        self._release_holds(task_id)
         if task_id == self.episode.availability_loss_task and robot.spec.domain == "aerial":
             robot.status = "lost"
             self.lost_robots.add(robot.spec.robot_id)
@@ -632,6 +681,14 @@ class DiagnosticRuntime:
             if task.distinct_group and robot_id in self.tasks.group_members.setdefault(task.distinct_group, set()):
                 self.events.append({"tick": self.clock_tick, "kind": "invalid_assignment", "robot_id": robot_id, "task_id": task_id, "reason": "distinct_group_robot_reuse"})
                 continue
+            if task.required_capabilities and not set(task.required_capabilities).issubset(robot.spec.capabilities):
+                self.events.append({"tick": self.clock_tick, "kind": "invalid_assignment", "robot_id": robot_id, "task_id": task_id, "reason": "missing_required_capability"})
+                continue
+            if task.continuation_group:
+                owner = self.tasks.continuation_members.get(task.continuation_group)
+                if owner is not None and owner != robot_id:
+                    self.events.append({"tick": self.clock_tick, "kind": "invalid_assignment", "robot_id": robot_id, "task_id": task_id, "reason": "continuation_owner_mismatch"})
+                    continue
             try:
                 candidates = self.episode.graph.resolve(target, task.required_domain or robot.spec.domain)
                 candidates = [node for node in candidates if self.episode.graph.nodes[node].domain == robot.spec.domain]
@@ -653,6 +710,8 @@ class DiagnosticRuntime:
             robot.edge_progress_m, robot.status = 0.0, "moving"
             self.tasks.status[task_id] = "running"
             self.tasks.assigned[task_id] = robot_id
+            if task.continuation_group:
+                self.tasks.continuation_members.setdefault(task.continuation_group, robot_id)
             if task.distinct_group:
                 self.tasks.group_members.setdefault(task.distinct_group, set()).add(robot_id)
             self.events.append({"tick": self.clock_tick, "kind": "task_assigned", "robot_id": robot_id, "task_id": task_id, "target": target})
@@ -681,6 +740,22 @@ class DiagnosticRuntime:
         if task_id is None or target is None:
             return
         task = self.tasks.specs[task_id]
+        if task.object_id and task.object_action:
+            obj = self.object_state.get(task.object_id)
+            if obj is None:
+                self._fail(f"unknown_object:{task.object_id}"); return
+            if task.object_action == "pick":
+                if obj["status"] != "available" or obj["source"] != target:
+                    self._fail(f"invalid_pick:{task.object_id}:{target}"); return
+                obj["status"], obj["held_by"] = "held", robot.spec.robot_id
+                self.events.append({"tick": self.clock_tick, "kind": "object_picked", "robot_id": robot.spec.robot_id, "object_id": task.object_id, "target": target})
+            elif task.object_action == "place":
+                if obj["status"] != "held" or obj["held_by"] != robot.spec.robot_id or obj["destination"] != target:
+                    self._fail(f"invalid_place:{task.object_id}:{target}"); return
+                obj["status"], obj["held_by"] = "placed", None
+                self.events.append({"tick": self.clock_tick, "kind": "object_placed", "robot_id": robot.spec.robot_id, "object_id": task.object_id, "target": target})
+            else:
+                self._fail(f"unknown_object_action:{task.object_action}"); return
         if task.report_required:
             robot.status = "report_wait"
             self._submit_report(robot)
@@ -690,13 +765,38 @@ class DiagnosticRuntime:
             remaining.remove(target)
         if not remaining:
             self.tasks.status[task_id] = "completed"; self.tasks.completed_tick[task_id] = self.clock_tick
-            self.events.append({"tick": self.clock_tick, "kind": "task_completed", "robot_id": robot.spec.robot_id, "task_id": task_id})
+            self.events.append({"tick": self.clock_tick, "kind": "task_completed", "robot_id": robot.spec.robot_id, "task_id": task_id, "target": target})
         else:
             # A multi-target coverage/inspection task exposes the next
             # obligation only after the current robot has released its goal.
             self.tasks.status[task_id] = "pending"
         robot.task_id = robot.target_key = robot.resource_id = None
-        robot.route = []; robot.route_index = 0; robot.edge_progress_m = 0.0; robot.status = "idle"
+        robot.route = []; robot.route_index = 0; robot.edge_progress_m = 0.0
+        if self._should_hold(robot, task):
+            robot.hold_release_task = task.hold_release_task
+            robot.status = "hold"
+            self.events.append({"tick": self.clock_tick, "kind": "robot_hold_started", "robot_id": robot.spec.robot_id, "release_task": task.hold_release_task})
+        else:
+            robot.status = "idle"
+        self._release_holds(task_id)
+
+    def _release_holds(self, completed_task_id: str) -> None:
+        for held in self.robot_states.values():
+            if held.status == "hold" and held.hold_release_task == completed_task_id:
+                held.status = "idle"
+                held.hold_release_task = None
+                self.events.append({"tick": self.clock_tick, "kind": "robot_hold_released", "robot_id": held.spec.robot_id, "release_task": completed_task_id})
+
+    def _should_hold(self, robot: _RobotState, task: TaskSpec) -> bool:
+        """A discoverer waits only when it cannot perform the response itself."""
+        if not task.hold_on_completion:
+            return False
+        if not task.hold_release_task:
+            return True
+        response = self.tasks.specs.get(task.hold_release_task)
+        if response is None:
+            return True
+        return not set(response.required_capabilities).issubset(robot.spec.capabilities)
 
     def _move(self, robot: _RobotState) -> None:
         if robot.status != "moving":
@@ -749,7 +849,11 @@ class DiagnosticRuntime:
                     if active["robot_id"] == robot.spec.robot_id and active["task_id"] == robot.task_id:
                         robot.status = "servicing"
             self._move(robot)
-        self._assign()
+        # Allocation decisions only change when an idle robot exists.  Avoid
+        # rebuilding task packages and running graph searches on every 20 ms
+        # tick while the fleet is in transit.
+        if any(state.status == "idle" for state in self.robot_states.values()):
+            self._assign()
         delivered = self.communication.advance(self.clock_tick)
         self._process_reports(delivered)
         for robot in self.robot_states.values():
@@ -840,7 +944,7 @@ class DiagnosticRuntime:
         # a live protocol state and therefore counts robots still blocked in
         # report_wait, rather than subtracting historical transport totals.
         notification_pending = sum(state.status == "report_wait" for state in self.robot_states.values())
-        return {"schema_version": self.schema_version, "success": self.success, "failure_reason": self.failure_reason, "tick": self.clock_tick, "makespan_s": self.clock_tick * CONTROL_DT_S, "task_completion_rate": completed / len(self.tasks.specs) if self.tasks.specs else 1.0, "coverage_fraction": coverage_done / len(coverage_tasks) if coverage_tasks else 1.0, "resource_wait_ticks": self.resources.wait_ticks, "resource_contention_requests": self.resources.contention_requests, "recover_services": self.resources.total_services, "battery_remaining_m": batteries, "min_battery_remaining_m": min(batteries.values()) if batteries else None, "communication_bits": comm["transmitted_bits"], "communication_delay_ticks": comm["delay_ticks_total"], "communication_loss_bits": comm["loss_bits"], "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "notification_pending": notification_pending, "report_wait_ticks": self.report_wait_ticks, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "reallocation_count": self.reallocation_count, "replay_digest": replay_digest, "replay_equivalent": self._replay_equivalent, "paper_score_eligible": False, "D1_eligible": bool(self.success), "D2_eligible": False, "D3_eligible": bool(self.success and self.resources.contention_requests >= 0), "D4_eligible": False, "D5_eligible": False, "D6_eligible": False, "eligibility_reasons": {"D2": "paired C0-C3 retention directory required", "D4": "registered availability-loss branch required", "D5": "certified cross-scenario family required", "D6": "independent calibration reference required"}, "events": deepcopy(self.events), "assignment": dict(self.tasks.assigned)}
+        return {"schema_version": self.schema_version, "success": self.success, "failure_reason": self.failure_reason, "tick": self.clock_tick, "makespan_s": self.clock_tick * CONTROL_DT_S, "task_completion_rate": completed / len(self.tasks.specs) if self.tasks.specs else 1.0, "coverage_fraction": coverage_done / len(coverage_tasks) if coverage_tasks else 1.0, "completed_task_ids": sorted(task_id for task_id, status in self.tasks.status.items() if status == "completed"), "task_status": dict(sorted(self.tasks.status.items())), "completed_ticks": dict(sorted(self.tasks.completed_tick.items())), "resource_wait_ticks": self.resources.wait_ticks, "resource_contention_requests": self.resources.contention_requests, "recover_services": self.resources.total_services, "battery_remaining_m": batteries, "min_battery_remaining_m": min(batteries.values()) if batteries else None, "communication_bits": comm["transmitted_bits"], "communication_delay_ticks": comm["delay_ticks_total"], "communication_loss_bits": comm["loss_bits"], "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "notification_pending": notification_pending, "report_wait_ticks": self.report_wait_ticks, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "reallocation_count": self.reallocation_count, "replay_digest": replay_digest, "replay_equivalent": self._replay_equivalent, "paper_score_eligible": False, "D1_eligible": bool(self.success), "D2_eligible": False, "D3_eligible": bool(self.success and self.resources.contention_requests >= 0), "D4_eligible": False, "D5_eligible": False, "D6_eligible": False, "eligibility_reasons": {"D2": "paired C0-C3 retention directory required", "D4": "registered availability-loss branch required", "D5": "certified cross-scenario family required", "D6": "independent calibration reference required"}, "events": deepcopy(self.events), "assignment": dict(self.tasks.assigned)}
 
 
 __all__ = ["CONTROL_DT_S", "SemanticNode", "SemanticEdge", "SemanticGraph", "RobotSpec", "TaskSpec", "ResourceSpec", "EpisodeSpec", "AlgorithmAdapter", "GreedyGoalAlgorithm", "TaskLedger", "ResourceLedger", "CommunicationModel", "DiagnosticRuntime"]
