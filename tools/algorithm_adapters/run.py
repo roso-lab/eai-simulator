@@ -98,6 +98,9 @@ def main() -> None:
         native_result = getattr(exc, "native_result", None)
         if native_result is not None:
             report["rejected_native_result"] = native_result
+        native_coalition_receipt = getattr(exc, "native_coalition_receipt", None)
+        if native_coalition_receipt is not None:
+            report["native_coalition_receipt"] = native_coalition_receipt
         native_subtasks = getattr(exc, "native_subtasks", None)
         if native_subtasks is not None:
             report["rejected_native_subtasks"] = native_subtasks

@@ -15,6 +15,7 @@ from typing import Any, Mapping, Sequence
 from algorithm.common_coordination.contract import (
     AlgorithmCondition,
     Assignment,
+    CoalitionAssignment,
     CoordinationTask,
     EventLedger,
     ExecutionFeedback,
@@ -130,11 +131,22 @@ class AlgorithmDecision:
     assignments: tuple[Assignment, ...] = ()
     unassigned_tasks: tuple[str, ...] = ()
     provenance: Mapping[str, Any] = field(default_factory=dict)
+    coalition_assignments: tuple[CoalitionAssignment, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "assignments", tuple(self.assignments))
         object.__setattr__(self, "unassigned_tasks", tuple(str(item) for item in self.unassigned_tasks))
         object.__setattr__(self, "provenance", dict(self.provenance))
+        object.__setattr__(self, "coalition_assignments", tuple(self.coalition_assignments))
+        coalition_task_ids = [item.task_id for item in self.coalition_assignments]
+        if len(set(coalition_task_ids)) != len(coalition_task_ids):
+            raise ValueError("algorithm decision contains duplicate coalition task identities")
+        assigned_task_ids = {item.task_id for item in self.assignments}
+        coalition_task_set = set(coalition_task_ids)
+        if assigned_task_ids & coalition_task_set:
+            raise ValueError("a task cannot be both single-assigned and coalition-assigned")
+        if set(self.unassigned_tasks) & coalition_task_set:
+            raise ValueError("a task cannot be both unassigned and coalition-assigned")
 
 
 @dataclass(frozen=True)
@@ -162,6 +174,7 @@ class TaskRunResult:
             "repeat_id": self.request.repeat_id,
             "condition": self.decision.condition.to_dict(),
             "assignments": [item.__dict__ for item in self.decision.assignments],
+            "coalition_assignments": [item.__dict__ for item in self.decision.coalition_assignments],
             "unassigned_tasks": list(self.decision.unassigned_tasks),
             "feedback": [
                 {
@@ -284,6 +297,7 @@ class OrchestratedTaskRunResult:
             "decisions": [
                 {
                     "assignments": [item.__dict__ for item in decision.assignments],
+                    "coalition_assignments": [item.__dict__ for item in decision.coalition_assignments],
                     "unassigned_tasks": list(decision.unassigned_tasks),
                     "provenance": dict(decision.provenance),
                 }
@@ -312,6 +326,7 @@ class OrchestratedTaskRunResult:
 __all__ = [
     "AlgorithmDecision",
     "Assignment",
+    "CoalitionAssignment",
     "DependencyOutcome",
     "EaiTaskPackage",
     "ExecutionFeedback",

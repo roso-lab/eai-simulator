@@ -131,6 +131,7 @@ def test_sub_meter_distance_uses_actual_max_pair_distance(factory_world):
 
 
 def test_previous_assignment_prevents_unnecessary_miqp_transition(factory_world):
+    pytest.importorskip("gurobipy")
     from algorithm.system.coordination.TeamWeaver.eai_adapter.dynamic_miqp import DynamicMIQPAllocator
 
     task = tasks_from_payloads(factory_world, valid_inspect_payload())[0]
@@ -149,7 +150,7 @@ def test_previous_assignment_prevents_unnecessary_miqp_transition(factory_world)
 def test_miqp_objective_matches_breakdown_when_previous_robot_is_busy(
     factory_world, monkeypatch
 ):
-    import gurobipy as gp
+    gp = pytest.importorskip("gurobipy")
 
     from algorithm.system.coordination.TeamWeaver.eai_adapter.dynamic_miqp import DynamicMIQPAllocator
 

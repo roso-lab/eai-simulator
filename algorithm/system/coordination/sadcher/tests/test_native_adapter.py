@@ -23,6 +23,7 @@ from algorithm.common_coordination.contract import (
 from algorithm.system.coordination.sadcher.native_adapter import (
     DEFAULT_CHECKPOINT, LEGACY_CHECKPOINT, DEFAULT_SOURCE_ROOT, CheckpointCompatibilityError,
     NativeCoalitionScopeError, NativeSadcherAdapter, audit_checkpoint,
+    native_coalition_assignments,
 )
 from task.contracts import EaiTaskPackage, OrchestrationState, RobotState, TaskRunRequest
 from task.runner import TaskRunner
@@ -381,6 +382,18 @@ def test_full_coalition_is_retained_and_current_runner_scope_is_explicit():
         "reason": "benchmark_contract_cannot_represent_native_coalition",
     }
     assert exc.value.na_reason == "benchmark_contract_cannot_represent_native_coalition"
+    converted = native_coalition_assignments(decision)
+    assert [(item.task_id, item.robot_ids) for item in converted] == [("t0", ("r0", "r1"))]
+    receipt = exc.value.native_coalition_receipt
+    assert receipt["schema"] == "heterocoord.native_coalition_receipt.v1"
+    assert receipt["N/A_reason"] == "benchmark_contract_cannot_represent_native_coalition"
+    assert receipt["coalition_assignments"] == [{
+        "task_id": "t0",
+        "robot_ids": ("r0", "r1"),
+        "source": "native_sadcher",
+        "plan_version": "native-decision",
+        "role_bindings": {},
+    }]
     with pytest.raises(ValueError, match="assigns a task more than once"):
         TaskRunner().run(TaskRunRequest(task), lambda *_: decision)
 

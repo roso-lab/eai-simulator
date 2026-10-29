@@ -670,6 +670,44 @@ def primary_condition_record(
     return matches[0]
 
 
+def primary_capability_matrix() -> tuple[dict[str, Any], ...]:
+    """Return the frozen capability/status view used by Benchmark planning.
+
+    This is metadata only. It does not infer support from a successful run and
+    cannot promote ``pending`` or ``N/A`` conditions to comparable results.
+    """
+    relation_by_id = {
+        "FMC-ATA": ("P1", "independent_allocation", "market_fractional"),
+        "BT-capabilities": ("P2", "DAG_execution", "capability_auction"),
+        "SADCHER": ("P3-J", "precedence_joint", "native_coalition"),
+        "HARL-HAPPO": ("P1", "policy_action", "heterogeneous_policy"),
+        "TeamWeaver-adapted-to-EAI": ("P1/P2", "decomposition_allocation", "LLM_MIQP"),
+        "EMOS": ("P1/P2", "discussion_allocation", "embodied_discussion"),
+    }
+    rows = []
+    for record in primary_registry_records():
+        subtype, relation, planner = relation_by_id[record["algorithm_id"]]
+        rows.append({
+            "algorithm_id": record["algorithm_id"],
+            "comparison_condition_id": record["comparison_condition_id"],
+            "comparison_group": record["comparison_group"],
+            "supported_primitives": tuple(record["supported_primitives"]),
+            "relation_signature": relation,
+            "p3_subtype": subtype,
+            "planner_signature": planner,
+            "information_rights_group": record["information_rights_group"],
+            "status": record["comparison_condition_status"],
+            "paper_column_coverage_status": record["paper_column_coverage_status"],
+            "fixture_requirements": {
+                "native_decision_only": "required",
+                "input_rejection": "required",
+                "execution_evidence_boundary": "required",
+            },
+            "cross_algorithm_comparison_status": "pending_common_condition_and_receipt",
+        })
+    return tuple(rows)
+
+
 def implementation_condition_complete(record: Mapping[str, Any]) -> bool:
     """Return whether a register row is complete enough for formal evidence."""
 

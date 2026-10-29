@@ -9,6 +9,7 @@ from algorithm.heterocoord.registry import (
     primary_condition_record,
     primary_registry_records,
     primary_system_columns,
+    primary_capability_matrix,
     validate_implementation_register,
     validate_primary_job_identity,
 )
@@ -27,6 +28,18 @@ def test_registry_matches_supplied_pdf_result_columns():
         "TeamWeaver-adapted-to-EAI", "EMOS",
     }
     assert sum(item["paper_scope"] == "table_3_4_primary" for item in REGISTRY) == 6
+
+
+def test_primary_capability_matrix_is_complete_and_does_not_promote_pending_conditions():
+    rows = primary_capability_matrix()
+    assert tuple(row["algorithm_id"] for row in rows) == PRIMARY_SYSTEM_COLUMNS
+    assert all(row["relation_signature"] and row["p3_subtype"] for row in rows)
+    assert all(row["status"] == "pending" for row in rows)
+    assert all(row["information_rights_group"].startswith("N/A_pending") for row in rows)
+    assert all(set(row["fixture_requirements"]) == {
+        "native_decision_only", "input_rejection", "execution_evidence_boundary"
+    } for row in rows)
+    assert all(row["cross_algorithm_comparison_status"].startswith("pending_") for row in rows)
 
 
 def test_registry_preserves_missing_artifact_boundaries():

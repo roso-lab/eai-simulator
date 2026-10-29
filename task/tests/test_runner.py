@@ -7,6 +7,7 @@ import pytest
 from algorithm.common_coordination.contract import (
     AlgorithmCondition,
     Assignment,
+    CoalitionAssignment,
     CoordinationTask,
     ExecutionFeedback,
     FailureCode,
@@ -22,7 +23,7 @@ from task.contracts import (
     RobotState,
     TaskRunRequest,
 )
-from task.runner import TaskRunner
+from task.runner import CoalitionScopeError, TaskRunner
 
 
 CONDITION = AlgorithmCondition(
@@ -105,6 +106,31 @@ def test_one_shot_runner_is_na_without_executor_even_if_evaluator_exists():
         "unassigned_tasks": [],
     }
     assert result.ledger.events[-1]["kind"] == "verdict"
+
+
+def test_algorithm_decision_rejects_single_and_coalition_overlap():
+    with pytest.raises(ValueError, match="both single-assigned and coalition-assigned"):
+        AlgorithmDecision(
+            condition=CONDITION,
+            assignments=(_assignment("carry", "r1"),),
+            coalition_assignments=(
+                CoalitionAssignment("carry", ("r1", "r2"), source="native-sadcher"),
+            ),
+        )
+
+
+def test_task_runner_rejects_coalition_without_dropping_native_decision():
+    package = _package(CoordinationTask("carry", "Carry jointly"))
+    decision = AlgorithmDecision(
+        condition=CONDITION,
+        coalition_assignments=(
+            CoalitionAssignment("carry", ("r1", "r2"), source="native-sadcher"),
+        ),
+    )
+    with pytest.raises(CoalitionScopeError) as exc:
+        TaskRunner().run(TaskRunRequest(package), lambda task, robots: decision)
+    assert exc.value.decision is decision
+    assert exc.value.na_reason == "task_runner_single_owner_contract_cannot_execute_coalition"
 
 
 def test_one_shot_feedback_identity_must_match_dispatch():
