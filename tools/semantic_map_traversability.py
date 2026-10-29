@@ -1260,6 +1260,12 @@ def _scene_hook(inputs: MapInputs, first_node: Mapping[str, Any]):
                 mesh.CreateFaceVertexCountsAttr(counts)
                 mesh.CreateFaceVertexIndicesAttr(indices)
                 mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+                # This mesh exists only for the robot's height scanner.  USD's
+                # guide purpose keeps it in scene queries while excluding it
+                # from the camera render; otherwise every quad appears as a
+                # large unshaded grey slab in the evidence video.
+                mesh.CreatePurposeAttr().Set(UsdGeom.Tokens.guide)
+                mesh.CreateVisibilityAttr().Set(UsdGeom.Tokens.inherited)
             return prim
 
         usd.func = spawn
@@ -1566,19 +1572,38 @@ class CaseVideoRecorder:
 
     def __init__(self, stage: Any, simulation: Any, videos_dir: Path):
         import omni.replicator.core as rep
-        from pxr import Gf, Usd, UsdGeom
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
         self.rep = rep
         self.stage = stage
         self.simulation = simulation
         self.videos_dir = videos_dir
         self.camera_path = "/World/SemanticMapTraversability/Camera"
+        self.route_path = "/World/SemanticMapTraversability/RouteOverlay"
+        self.route_material_path = "/World/SemanticMapTraversability/RouteMaterial"
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             UsdGeom.Scope.Define(stage, "/World/SemanticMapTraversability")
             self.camera = UsdGeom.Camera.Define(stage, self.camera_path)
             self.camera.CreateFocalLengthAttr(24.0)
             self.camera.CreateClippingRangeAttr(Gf.Vec2f(0.03, 10000.0))
             self.transform = self.camera.AddTransformOp()
+            material = UsdShade.Material.Define(stage, self.route_material_path)
+            shader = UsdShade.Shader.Define(
+                stage, self.route_material_path + "/Surface"
+            )
+            shader.CreateIdAttr("UsdPreviewSurface")
+            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(
+                Gf.Vec3f(0.04, 0.55, 1.0)
+            )
+            shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(
+                Gf.Vec3f(0.01, 0.18, 0.35)
+            )
+            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.32)
+            material.CreateSurfaceOutput().ConnectToSource(
+                shader.ConnectableAPI(), "surface"
+            )
+        self.route_material = material
+        self.route_prim = None
         self.product = rep.create.render_product(self.camera_path, (VIDEO_WIDTH, VIDEO_HEIGHT))
         self.rgb = rep.AnnotatorRegistry.get_annotator("rgb")
         self.rgb.attach(self.product)
@@ -1588,6 +1613,50 @@ class CaseVideoRecorder:
         self.last_capture_time = -math.inf
         self.label = ""
         self.error: str | None = None
+
+    def set_route(
+        self,
+        node_ids: Sequence[str],
+        nodes: Mapping[str, Mapping[str, Any]],
+        topology: Mapping[str, Any],
+        domain: str,
+    ) -> None:
+        """Draw a thin camera-only route overlay for the active test case.
+
+        The height-scanner proxy is deliberately hidden with USD ``guide``
+        purpose.  This separate curve is the human-facing evidence overlay;
+        it has no collision API and therefore cannot affect physics or contact
+        measurement.
+        """
+        from pxr import Gf, UsdGeom, UsdShade
+
+        stage = self.stage
+        if stage.GetPrimAtPath(self.route_path).IsValid():
+            stage.RemovePrim(self.route_path)
+        self.route_prim = None
+        points: list[tuple[float, float, float]] = []
+        for node_id in node_ids:
+            row = nodes.get(str(node_id))
+            if not row:
+                continue
+            xyz = row["position_xyz"]
+            z = float(xyz[2]) if domain == "aerial" else node_support_z(row, topology) + 0.055
+            point = (float(xyz[0]), float(xyz[1]), z)
+            if not points or point != points[-1]:
+                points.append(point)
+        if len(points) < 2:
+            return
+        curves = UsdGeom.BasisCurves.Define(stage, self.route_path)
+        curves.CreateCurveVertexCountsAttr([len(points)])
+        curves.CreatePointsAttr([Gf.Vec3f(*point) for point in points])
+        curves.CreateTypeAttr(UsdGeom.Tokens.linear)
+        curves.CreateWidthsAttr([0.055])
+        curves.CreateDisplayColorPrimvar(UsdGeom.Tokens.constant).Set(
+            [(0.08, 0.78, 1.0)]
+        )
+        curves.CreateDisplayOpacityPrimvar(UsdGeom.Tokens.constant).Set([0.92])
+        UsdShade.MaterialBindingAPI(curves.GetPrim()).Bind(self.route_material)
+        self.route_prim = curves.GetPrim()
 
     def _set_camera(self, pose: Mapping[str, Any]) -> None:
         from pxr import Gf
@@ -1947,17 +2016,23 @@ class PhysicalRunner:
             self._set_base_velocity((0.0, 0.0, 0.0))
         self.current_support_z = support
         self.current_route_node_ids = tuple(route_node_ids or (node_id,))
-        self._begin_case_recording(case_id, support)
+        self._begin_case_recording(case_id, support, self.current_route_node_ids)
         for _ in range(20):
             fault = self.advance()
             if fault:
                 break
 
-    def _begin_case_recording(self, case_id: str, support_z_m: float) -> None:
+    def _begin_case_recording(
+        self,
+        case_id: str,
+        support_z_m: float,
+        route_node_ids: Sequence[str] = (),
+    ) -> None:
         """Start evidence capture without advancing the physics clock."""
         self.monitor.begin(support_z_m)
         self.active_trace = [self._trace_sample()]
         self.case_start_time = self.sim_time()
+        self.video.set_route(route_node_ids, self.nodes, self.inputs.topology, self.inputs.domain)
         self.video.start(case_id, self.pose_mapping())
         self.active_video = True
         self.video.capture(0.0, self.pose_mapping(), force=True)
@@ -1972,7 +2047,7 @@ class PhysicalRunner:
         support = node_support_z(self.nodes[origin], self.inputs.topology)
         self.current_support_z = support
         self.current_route_node_ids = tuple(route_node_ids)
-        self._begin_case_recording(case_id, support)
+        self._begin_case_recording(case_id, support, self.current_route_node_ids)
         return _metric(
             self.pose().position_m,
             self.nodes[origin]["position_xyz"],

@@ -10,7 +10,8 @@ from __future__ import annotations
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
-from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
+
+from EAI_assets.asset_resolver import asset_path
 
 ##
 # Configuration
@@ -19,7 +20,10 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 CRAZYFLIE_CFG = ArticulationCfg(
     prim_path="{ENV_REGEX_NS}/Robot",
     spawn=sim_utils.UsdFileCfg(
-        usd_path=f"{ISAAC_NUCLEUS_DIR}/Robots/Bitcraze/Crazyflie/cf2x.usd",
+        # Keep the catalog robot offline and reproducible.  The repository
+        # ships this USD under ``usd/robot/cf2x``; ``asset_path`` also honors
+        # the configured EAI_USD_ROOT when a different asset root is needed.
+        usd_path=asset_path("robot/cf2x/cf2x.usd"),
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
             max_depenetration_velocity=10.0,
