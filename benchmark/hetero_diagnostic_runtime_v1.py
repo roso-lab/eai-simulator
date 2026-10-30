@@ -605,7 +605,7 @@ class DiagnosticRuntime:
             ("controller", lambda: {"robots": self._robot_snapshot()}, lambda s: self._robot_restore(s["robots"])),
             ("skill", lambda: {"reallocation_count": self.reallocation_count, "message_counter": self._message_counter, "replay_equivalent": self._replay_equivalent, "lost_robots": sorted(self.lost_robots), "availability_events": deepcopy(self.availability_events), "report_wait_ticks": self.report_wait_ticks, "notification_submitted": self.notification_submitted, "notification_delivered": self.notification_delivered, "object_state": deepcopy(self.object_state), "cooperative_states": deepcopy(self._cooperative_states), "gate_state": deepcopy(self.gate_state), "announced_tasks": sorted(self._announced_tasks), "observation_windows": deepcopy(self.observation_windows), "last_public_signature": deepcopy(self._last_public_signature), "invalid_assignment_pairs": sorted(self._invalid_assignment_pairs)}, self._skill_restore),
             ("task", self.tasks.snapshot, self.tasks.restore),
-            ("algorithm", self.algorithm.snapshot, self.algorithm.restore),
+            ("algorithm", lambda: self.algorithm.snapshot(), lambda state: self.algorithm.restore(state)),
             ("transport", lambda: self.communication.snapshot(), self._transport_restore),
             ("locks", self.resources.snapshot, self.resources.restore),
             ("events", lambda: {"events": deepcopy(self.events)}, lambda s: setattr(self, "events", deepcopy(s["events"]))),

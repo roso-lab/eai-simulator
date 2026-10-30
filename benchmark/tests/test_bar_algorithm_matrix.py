@@ -208,3 +208,13 @@ def test_authored_matrix_does_not_enable_battery_for_t1_t2():
     from benchmark.run_bar_matrix import jobs
     assert len(jobs((17,18,19)))==504
     assert not any(tier in (1,2) and c in ('battery_hard','battery_very_hard') for _,_,tier,c,_,_ in jobs((17,)))
+
+
+def test_fresh_branch_registry_tracks_the_real_algorithm_after_installation():
+    rt=BarScenarioAdapter().runtime(tier=1)
+    fresh=rt.fresh_branch(rt.checkpoint(),algorithm=BarGoalAlgorithm())
+    fresh.algorithm.assignments['real_state']='must_round_trip'
+    cp=fresh.checkpoint()
+    assert cp['snapshot']['algorithm']['state']['assignments']['real_state']=='must_round_trip'
+    fork=fresh.fork(cp)
+    assert fork.algorithm.snapshot()==fresh.algorithm.snapshot()

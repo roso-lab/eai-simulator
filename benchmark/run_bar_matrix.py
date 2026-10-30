@@ -61,7 +61,12 @@ def run_matrix(seeds=(17, 18, 19), workers=1):
     if workers == 1:
         return list(map(_run, selected))
     with ProcessPoolExecutor(max_workers=workers) as pool:
-        return list(pool.map(_run, selected))
+        results = []
+        for index, result in enumerate(pool.map(_run, selected), 1):
+            results.append(result)
+            if index % 28 == 0:
+                print(f'completed {index}/{len(selected)}', flush=True)
+        return results
 
 
 def main():
@@ -78,7 +83,7 @@ def main():
         'algorithm_scope':'deterministic_contract_witness', 'native_algorithm':False,
         'paper_score_eligible':False, 'source_hashes':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in
             [ROOT/'benchmark/bar_runtime_v1.py', ROOT/'benchmark/scenarios/bar.py', ROOT/'benchmark/bar_algorithms.py', ROOT/'benchmark/bar_evaluator_v1.py',
-             ROOT/'benchmark/tasks/bar/bar_task_manifest.v1.json', ROOT/'task/runtime/logical_objects/ledger.py']}, 'rows':rows}
+             ROOT/'benchmark/tasks/bar/bar_task_manifest.v1.json', ROOT/'task/runtime/logical_objects/ledger.py', ROOT/'benchmark/hetero_diagnostic_runtime_v1.py', ROOT/'benchmark/transport_v3.py']}, 'rows':rows}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2)+'\n')
     with args.output.with_suffix('.csv').open('w', newline='') as f:
