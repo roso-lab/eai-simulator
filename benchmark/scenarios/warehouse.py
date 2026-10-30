@@ -89,7 +89,10 @@ class WarehouseScenarioAdapter:
                 tasks.append(TaskSpec(place,"workspace_place",("workspace",),prerequisites=(verify,),required_capabilities=("payload_transport",),object_id=oid,report_required=True,public=True))
         if tier>=3:
             for i,r in enumerate(robots):
-                tasks.append(TaskSpec(f"charge_{i+1}","charge",("workspace",),prerequisites=tuple(deliveries),required_capabilities=("battery_charge",),resource_id="workspace_charger",service_ticks=max(1,round(float(c.get("charge_wait_s",0.02))/CONTROL_DT_S)),required_for_success=True,public=False))
+                # Charging is a required, algorithm-decided action.  Keep it
+                # public so the controller can explicitly return a robot to
+                # the workspace charger once all deliveries are complete.
+                tasks.append(TaskSpec(f"charge_{i+1}","charge",("workspace",),prerequisites=tuple(deliveries),required_capabilities=("battery_charge",),resource_id="workspace_charger",service_ticks=max(1,round(float(c.get("charge_wait_s",0.02))/CONTROL_DT_S)),required_for_success=True,public=True))
         tasks.append(TaskSpec("episode_closeout","closeout",("workspace",),prerequisites=tuple(x.task_id for x in tasks if x.required_for_success),required_for_success=False,public=False))
         resources=[]
         for r in m["resources"]:
@@ -97,8 +100,13 @@ class WarehouseScenarioAdapter:
             else: service=float(r["nominal_service_s"])
             node=graph.resolve(r["semantic_label"],r["domain"])[0]
             resources.append(ResourceSpec(r["resource_id"],node,int(r["capacity"]),max(1,round(service/CONTROL_DT_S)),bool(r.get("recharges"))))
-        deadline=4000+1000*tier
-        return EpisodeSpec(graph,tuple(robots),tuple(tasks),tuple(resources),horizon_ticks=deadline+1000,hard_deadline_tick=deadline,dt_s=CONTROL_DT_S,seed=seed,communication_condition=communication or c["communication"],availability_loss_task=(c.get("availability_loss_task") if c.get("availability_loss") else None),objects=tuple(objects))
+        # Diagnostic-only logical budgets.  These are deliberately generous
+        # enough for the registered semantic routes, cooperative carry, and
+        # required charging services; they are not paper-calibrated timing
+        # claims (all warehouse results remain paper_score_eligible=False).
+        timing=m['timing_policy']
+        deadline=int(timing['hard_deadline_ticks'][f't{tier}'])
+        return EpisodeSpec(graph,tuple(robots),tuple(tasks),tuple(resources),horizon_ticks=deadline+int(timing['horizon_slack_ticks']),hard_deadline_tick=deadline,dt_s=CONTROL_DT_S,seed=seed,communication_condition=communication or c["communication"],availability_loss_task=(c.get("availability_loss_task") if c.get("availability_loss") else None),objects=tuple(objects))
     def contract(self, *, tier=4, condition_id=None, variant_id=None):
         m=self.manifest(); t=self._tier(tier); c=self._condition(tier,condition_id)
         return {"scenario_id":self.scenario_id,"scene_key":m["scene_key"],"task_family":m["task_family"],"tier":tier,"task_id":t["task_id"],"condition_id":c["condition_id"],"relation_signature":t["relation_signature"],"variant_id":variant_id or m["roster_variants"][-1]["variant_id"],"map_revision":m["semantic_map"]["revision"],"semantic_binding_digest":m["semantic_map"]["semantic_binding_digest"],"paper_score_eligible":False,"digest":_digest({"m":m,"t":tier,"c":c["condition_id"],"v":variant_id})}
@@ -106,7 +114,36 @@ class WarehouseScenarioAdapter:
         if algorithm is None:
             from benchmark.warehouse_algorithms import EmosWarehouseAlgorithm
             algorithm=EmosWarehouseAlgorithm()
-        rt=DiagnosticRuntime(self.build_episode(tier=tier,condition_id=condition_id,variant_id=variant_id,communication=communication,seed=seed),algorithm=algorithm)
+        episode = self.build_episode(tier=tier,condition_id=condition_id,variant_id=variant_id,communication=communication,seed=seed)
+        # Check the registered logical graph before dispatch. Pending physical
+        # route witnesses cannot become a formal D1 infeasibility certificate.
+        for task in episode.tasks:
+            if not task.required_for_success or task.kind == "closeout":
+                continue
+            eligible = [robot for robot in episode.robots
+                        if (not task.required_domain or robot.domain == task.required_domain)
+                        and set(task.required_capabilities).issubset(robot.capabilities)]
+            reachable_binding = False
+            for robot in eligible:
+                try:
+                    for node in episode.graph.resolve(task.targets[0], robot.domain):
+                        try:
+                            episode.graph.shortest(robot.start_node, node, robot.capabilities)
+                            reachable_binding = True
+                            break
+                        except ValueError:
+                            continue
+                    if reachable_binding:
+                        break
+                except ValueError:
+                    continue
+            if not reachable_binding:
+                return {"scenario": self.contract(tier=tier, condition_id=condition_id, variant_id=variant_id),
+                        "success": False, "status": "not-deployable",
+                        "failure_reason": f"logical_route_unavailable:{task.task_id}",
+                        "diagnostic_class": "feasibility-unverified", "paper_score_eligible": False,
+                        "replay_equivalent": False, "checkpoints": [], "diagnostic_metrics": {"paper_score_eligible": False}}
+        rt=DiagnosticRuntime(episode,algorithm=algorithm)
         cp=rt.checkpoint(metadata={"scenario":self.scenario_id,"tier":str(tier),"variant":variant_id or "default"}); result=rt.run(); replay=rt.replay(cp)
         result["checkpoint"]=cp; result["replay_equivalent"]=bool(replay.get("replay_equivalent")); result["scenario"]=self.contract(tier=tier,condition_id=condition_id,variant_id=variant_id); result["checkpoints"]=self._checkpoints(result); result["diagnostic_metrics"]=self.diagnostic_metrics(result); return result
     @staticmethod

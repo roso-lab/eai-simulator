@@ -72,6 +72,17 @@
     {"task_id": "warehouse_infeasible_insufficient_inventory", "certificate": "inventory_quantity_below_order_quantity", "status": "team-state-infeasible"},
     {"task_id": "warehouse_infeasible_deadline_under_search_or_reallocation", "certificate": "lower_bound_exceeds_deadline", "status": "team-state-infeasible"}
   ],
+  "timing_policy": {
+    "status": "logical_diagnostic_only_not_paper_calibrated",
+    "hard_deadline_ticks": {
+      "t1": 5000,
+      "t2": 6000,
+      "t3": 10000,
+      "t4": 12000
+    },
+    "horizon_slack_ticks": 1000,
+    "rationale": "Finite engineering budgets cover registered routes, joint carry and required charging; independent deadline calibration remains a release blocker."
+  },
   "release_gates": {"robot_validated": false, "physical_qualified": false, "runtime_oracle_bound": false, "paper_score_eligible": false},
   "d1_cases": "benchmark/tasks/warehouse/warehouse_d1_cases.v1.json"
 }

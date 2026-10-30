@@ -75,7 +75,11 @@ class CoffeeShopScenarioAdapter:
         for r in m['resources']:
             resources.append(ResourceSpec(r['resource_id'],g.resolve(r['semantic_label'],'ground')[0],int(r['capacity']),max(1,round(float(r['service_s'])*50))))
         deadline=m['hard_deadline_ticks'][f't{tier}']
-        return EpisodeSpec(g,tuple(robots),tuple(tasks),tuple(resources),deadline+1000,deadline,seed=seed,communication_condition=communication or c['communication'],objects=tuple(objects),report_retry_interval_ticks=10)
+        # C3 is a shared FIFO medium.  A retry interval shorter than one
+        # serialized report creates a retry burst that can starve the queue
+        # and turn a deliverable report into a deterministic timeout.
+        policy=m.get('communication_policy', {})
+        return EpisodeSpec(g,tuple(robots),tuple(tasks),tuple(resources),deadline+1000,deadline,seed=seed,communication_condition=communication or c['communication'],objects=tuple(objects),report_retry_limit=int(policy.get('report_retry_limit', 8)),report_retry_interval_ticks=int(policy.get('report_retry_interval_ticks', 30)))
     def contract(self,*,tier=4,condition_id=None,variant_id=None):
         m=self.manifest(); c=self._condition(condition_id,tier); v=self._variant(variant_id); row=next(x for x in m['difficulty_tiers'] if x['difficulty_tier']==tier)
         return {**row,'scenario_id':'coffee_shop','condition_id':c['condition_id'],'variant_id':v['variant_id'],'map_revision':m['semantic_map']['revision'],'semantic_binding_digest':m['semantic_map']['semantic_binding_digest'],'freshness_window_s':c['freshness_window_s'],'digest':_digest({'m':m,'tier':tier,'condition':c,'variant':v}),'paper_score_eligible':False}
