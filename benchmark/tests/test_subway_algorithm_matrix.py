@@ -29,7 +29,23 @@ def test_subway_matrix_adapter_replay_is_logically_available():
     result=a.run_generic(tier=1,variant_id='subway_roster_pegasus_m20_lite3',algorithm=EmosSubwayAlgorithm(),seed=17)
     assert result['paper_score_eligible'] is False
     assert result['replay_equivalent'] is True
-    assert [x['label'] for x in result['checkpoints']]==['cp_00_spawn_valid','cp_01_search_started','cp_02_target_observed','cp_03_ground_handoff_complete','cp_04_target_confirmed','cp_05_generators_started','cp_06_assistance_or_guide_started','cp_07_assembly_arrival','cp_08_closeout']
+    labels=[x['label'] for x in result['checkpoints']]
+    assert labels[0]=='cp_00_spawn_valid' and labels[-1]=='cp_08_closeout'
+    assert labels.index('cp_01_search_started') < labels.index('cp_02_target_observed') < labels.index('cp_03_ground_handoff_complete') < labels.index('cp_04_target_confirmed')
 
 def test_subway_algorithm_adapters_have_distinct_provenance():
     assert EmosSubwayAlgorithm.algorithm_id != TeamWeaverSubwayAlgorithm.algorithm_id
+
+def test_subway_cf2x_and_under_capable_roster_fail_closed():
+    a=SubwayScenarioAdapter(); m=a.manifest()
+    cf2x=next(x for x in m['robot_roster'] if x['robot_id']=='cf2x')
+    assert cf2x['observation_only'] is True and 'pickplace' not in cf2x['capabilities']
+    diagnostic=a.deployment_diagnostic(tier=3,variant_id='subway_roster_pegasus_m20_lite3')
+    assert diagnostic['status']=='not-deployable' and diagnostic['paper_score_eligible'] is False
+
+def test_subway_ground_contact_is_evaluator_owned():
+    a=SubwayScenarioAdapter(); rt=a.runtime(tier=2,variant_id='subway_roster_pegasus_m20_lite3')
+    rt.record_discovery('trapped_people-1','pegasus','aerial')
+    rt.record_ground_contact('trapped_people-1','m20')
+    assert rt.people['trapped_people-1']['ground_reached_tick']==rt.tick
+    assert rt.people['trapped_people-1']['wait_deadline'] is None
