@@ -1,7 +1,7 @@
 {
   "schema": "eai.semantic_map.revision",
   "version": 2,
-  "revision": "48912c4fd29349f2a2386308f8781089",
+  "revision": "3d4065d3c691418a9971824d2a897c73",
   "scene_key": "production_coffee_shop",
   "levels": [
     {
@@ -22,16 +22,16 @@
     "aerial": "topology-aerial.json"
   },
   "semantic_point_product": "semantic-points.json",
-  "semantic_binding_digest": "56b763eae9c0d64867325deb430391615572fe132c6d2ac2368f5da822d93f7c",
+  "semantic_binding_digest": "e08912cef9334da4e3213d117bfc0f4211934cc50d43e2bdd9ef30598d9b27a9",
   "files": {
     "level-000-layer.png": "6bdabd9211e41b80105fcf3844f65acb786dbf5968ac60740d7260ce1d34889f",
     "level-000-semantic-grid.npz": "a78de86587cf3682f1aa4590c6fbd74d22f7d48f3ce4275be3dd9632b60177d9",
-    "level-000-semantic-map.png": "297326e97a9692c7dffdca568edf500931c82c0441c6cc94a5c394769b1da62b",
-    "semantic-footprints.geojson": "cf7db5c7674ba4c6d494db321cd96fa00480c1c86210edb54a468eb22c78d09d",
-    "semantic-footprints.json": "6d55c4feca79c03d51ee4ca7315f96df83b0ec3bbab138195f9d1f636a86524c",
-    "semantic-points.json": "a992d727c66ebd8f11095169edb7f40edf828c360d713a9b761e4333cbd21206",
+    "level-000-semantic-map.png": "7480a633fb5c2c9efdf9f7a5727af044514870534239a36b1ceb2fd8a3bff58e",
+    "semantic-footprints.geojson": "9e1b5f265f83ffb830e5ed053704eca0238cc8ae7e788a53480ba066b023db09",
+    "semantic-footprints.json": "45709536c469a4aca5c16af3049f0014af02f88753b7dc41d88429a9cf849cee",
+    "semantic-points.json": "312734f60c3bdbf05ae2bbadd12de2e8c55a398199773ed313c1fd0f141013b3",
     "topology-aerial.json": "1006e8da5c6cee9ced7f991fd95da6da3007533d74281f4e73d263ab51ec7290",
-    "topology.json": "11ad1ded1615eccc94997dbb72e96b818873b2e51f4eaf83541c2f0c13ac8457"
+    "topology.json": "f5f72d768423d60950e48387574a21315ef44c1830df36d716048081b7d0f20d"
   },
   "robot_validated": false
 }

@@ -183,7 +183,11 @@
       "label": "shaker",
       "kind": "custom",
       "description": "",
-      "aliases": [],
+      "aliases": [
+        "ur5",
+        "fixed",
+        "capacity==1"
+      ],
       "properties": {},
       "navigation_bindings": [
         {
@@ -198,15 +202,33 @@
     },
     {
       "id": "semantic:b25e4d417628428281fe376823f10df9",
-      "label": "rest_area",
+      "label": "rest_area-1",
       "kind": "custom",
       "description": "",
-      "aliases": [],
+      "aliases": [
+        "capacity==4"
+      ],
       "properties": {},
       "navigation_bindings": [
         {
           "domain": "ground",
           "node_id": "node:0040"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b774c512892e41349ff6a10edb94d79c",
+      "label": "rest_area-2",
+      "kind": "custom",
+      "description": "",
+      "aliases": [
+        "capacity==4"
+      ],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0030"
         }
       ]
     }
