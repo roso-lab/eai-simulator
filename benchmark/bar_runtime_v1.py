@@ -517,6 +517,8 @@ class BarRuntime(DiagnosticRuntime):
             raise ValueError('checkpoint task/roster/condition contract mismatch')
         if checkpoint['digest'] != _digest(checkpoint['snapshot']):
             raise ValueError('checkpoint digest mismatch')
+        if checkpoint['snapshot']['transport']['state']['condition'] != self.episode.communication_condition:
+            raise ValueError('checkpoint communication condition mismatch')
         class Bootstrap:
             uses_distance = False
             def initialize(self, observation): pass

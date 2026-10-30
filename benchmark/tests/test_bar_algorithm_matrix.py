@@ -218,3 +218,10 @@ def test_fresh_branch_registry_tracks_the_real_algorithm_after_installation():
     assert cp['snapshot']['algorithm']['state']['assignments']['real_state']=='must_round_trip'
     fork=fresh.fork(cp)
     assert fork.algorithm.snapshot()==fresh.algorithm.snapshot()
+
+
+def test_fresh_branch_rejects_a_different_channel_condition_checkpoint():
+    a=BarScenarioAdapter()
+    cp=a.runtime(tier=1,communication='C0').checkpoint()
+    with pytest.raises(ValueError,match='communication condition mismatch'):
+        a.runtime(tier=1,communication='C1').fresh_branch(cp,algorithm=BarGoalAlgorithm())
