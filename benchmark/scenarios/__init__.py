@@ -4,7 +4,7 @@ from importlib import import_module
 _MODULES = {'City01ScenarioAdapter': 'city_01', 'City02ScenarioAdapter': 'city_02',
             'CandyShopScenarioAdapter': 'candy_shop', 'Room06ScenarioAdapter': 'room_06',
             'LivingHouseScenarioAdapter': 'living_house', 'BarScenarioAdapter': 'bar',
-            'SubwayScenarioAdapter': 'subway', 'CoffeeShopScenarioAdapter': 'coffee_shop'}
+            'SubwayScenarioAdapter': 'subway', 'CoffeeShopScenarioAdapter': 'coffee_shop', 'WarehouseScenarioAdapter': 'warehouse'}
 __all__ = list(_MODULES)
 
 

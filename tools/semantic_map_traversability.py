@@ -68,6 +68,11 @@ ROTATION_DRIFT_M = 0.30
 GROUND_VERTICAL_DEVIATION_M = 0.75
 GROUND_ENDPOINT_VERTICAL_ERROR_M = 0.45
 RAYCAST_PROXY_HALF_WIDTH_M = 1.0
+AERIAL_CONTROL_PROFILES = {
+    "cf2x": {"max_goal_speed_mps": 1.0, "max_goal_accel_mps2": 1.5},
+    "iris": {"max_goal_speed_mps": 1.2, "max_goal_accel_mps2": 1.8},
+    "pegasus": {"max_goal_speed_mps": 1.2, "max_goal_accel_mps2": 1.8},
+}
 
 
 class InputError(ValueError):
@@ -76,6 +81,13 @@ class InputError(ValueError):
 
 class InfrastructureError(RuntimeError):
     """Isaac, measurement or recording infrastructure failed."""
+
+
+def _positive_float(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed <= 0.0:
+        raise argparse.ArgumentTypeError("value must be a finite positive number")
+    return parsed
 
 
 @dataclass(frozen=True)
@@ -787,6 +799,57 @@ def normalise_angle(value: float) -> float:
     return math.atan2(math.sin(value), math.cos(value))
 
 
+def smooth_aerial_goal(
+    current_goal: Sequence[float],
+    goal_velocity: Sequence[float],
+    requested_goal: Sequence[float],
+    dt: float,
+    *,
+    max_speed_mps: float,
+    max_accel_mps2: float,
+    arrival_radius_m: float = ARRIVAL_RADIUS_M,
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Advance a goal-position command under speed and acceleration limits.
+
+    This filters only the controller command.  The robot is still moved by the
+    configured physical controller and the simulator's normal physics step.
+    """
+    if dt <= 0.0:
+        return tuple(float(v) for v in current_goal[:3]), tuple(float(v) for v in goal_velocity[:3])
+    if max_speed_mps <= 0.0 or max_accel_mps2 <= 0.0:
+        raise ValueError("aerial goal speed and acceleration limits must be positive")
+    current = [float(v) for v in current_goal[:3]]
+    velocity = [float(v) for v in goal_velocity[:3]]
+    requested = [float(v) for v in requested_goal[:3]]
+    delta = [requested[i] - current[i] for i in range(3)]
+    distance = math.sqrt(sum(value * value for value in delta))
+    if distance <= 1.0e-9:
+        return tuple(current), (0.0, 0.0, 0.0)
+    # Finish the command in a bounded number of physics steps once the
+    # remaining distance is below one conservative command step.  This keeps
+    # the controller's target exact instead of approaching it asymptotically.
+    if distance <= max_speed_mps * dt * 1.5:
+        return tuple(requested), (0.0, 0.0, 0.0)
+    direction = [value / distance for value in delta]
+    # Reduce commanded speed close to the endpoint to avoid overshoot and
+    # leave the physical controller a short, low-energy braking approach.
+    radius = max(float(arrival_radius_m), 1.0e-3)
+    speed_limit = min(max_speed_mps, max_speed_mps * min(1.0, distance / (2.0 * radius)))
+    desired = [value * speed_limit for value in direction]
+    dv = [desired[i] - velocity[i] for i in range(3)]
+    dv_norm = math.sqrt(sum(value * value for value in dv))
+    max_dv = max_accel_mps2 * dt
+    if dv_norm > max_dv:
+        scale = max_dv / dv_norm
+        dv = [value * scale for value in dv]
+    next_velocity = [velocity[i] + dv[i] for i in range(3)]
+    step = math.sqrt(sum(value * value for value in next_velocity)) * dt
+    if step >= distance:
+        return tuple(requested), (0.0, 0.0, 0.0)
+    next_goal = tuple(current[i] + next_velocity[i] * dt for i in range(3))
+    return next_goal, tuple(next_velocity)
+
+
 def yaw_from_wxyz(quaternion: Sequence[float]) -> float:
     w, x, y, z = (float(value) for value in quaternion)
     return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
@@ -901,6 +964,23 @@ def _initial_report(args: argparse.Namespace, inputs: MapInputs, plan: dict[str,
         "seed": args.seed,
         "device": args.device,
         "headless": True,
+        "aerial_control": {
+            "goal_smoothing": inputs.domain == "aerial",
+            "max_goal_speed_mps": (
+                args.aerial_max_speed_mps
+                if args.aerial_max_speed_mps is not None
+                else AERIAL_CONTROL_PROFILES.get(canonical_robot(args.robot), {}).get(
+                    "max_goal_speed_mps", 1.0
+                )
+            ),
+            "max_goal_accel_mps2": (
+                args.aerial_max_accel_mps2
+                if args.aerial_max_accel_mps2 is not None
+                else AERIAL_CONTROL_PROFILES.get(canonical_robot(args.robot), {}).get(
+                    "max_goal_accel_mps2", 1.5
+                )
+            ),
+        },
         "navigation_skill": {
             "module": NAVIGATION_SKILL_MODULE,
             "skill_id": NODE_ROUTE_SKILL_ID,
@@ -973,6 +1053,18 @@ def update_summary(report: dict[str, Any]) -> None:
         "stress_unreachable_batch_count": sum(
             row.get("status") == "unreachable" for row in stress_batches
         ),
+        "max_linear_speed_mps": max(
+            (float(row["max_linear_speed_mps"])
+             for group in result.values() for row in group
+             if row.get("max_linear_speed_mps") is not None),
+            default=None,
+        ),
+        "max_acceleration_mps2": max(
+            (float(row["max_acceleration_mps2"])
+             for group in result.values() for row in group
+             if row.get("max_acceleration_mps2") is not None),
+            default=None,
+        ),
     }
 
 
@@ -1011,6 +1103,10 @@ def write_markdown(report: Mapping[str, Any], path: Path) -> None:
         f"- 导航 Skill：`{report.get('navigation_skill', {}).get('skill_id', '')}` "
         f"(`{report.get('navigation_skill', {}).get('module', '')}`)",
         f"- 随机种子：`{report.get('seed')}`", "",
+        (f"- 空中目标平滑：启用（速度上限 `{report.get('aerial_control', {}).get('max_goal_speed_mps')}` m/s，"
+         f"加速度上限 `{report.get('aerial_control', {}).get('max_goal_accel_mps2')}` m/s²）"
+         if report.get('aerial_control', {}).get('goal_smoothing') else
+         "- 空中目标平滑：不适用"),
         ("- 物理测试：未执行（`--check` 仅验证地图并生成清单）"
          if report.get("status") == "check_only" else "- 物理测试：已执行"),
         f"- 节点旋转策略：`{report.get('plan', {}).get('rotation_policy', '')}`",
@@ -1031,6 +1127,8 @@ def write_markdown(report: Mapping[str, Any], path: Path) -> None:
         f"- 已执行用例通过率：{'未执行' if pass_rate is None else f'{pass_rate:.1%}'}",
         f"- 适用用例覆盖率：{'不适用' if coverage_rate is None else f'{coverage_rate:.1%}'}",
         f"- 障碍物碰撞事件：{summary.get('obstacle_collision_count', 0)}",
+        f"- 实测最大线速度：{summary.get('max_linear_speed_mps', '未测量')} m/s",
+        f"- 实测最大线加速度：{summary.get('max_acceleration_mps2', '未测量')} m/s²",
     ])
     connectivity = report.get("plan", {}).get("connectivity", {})
     lines.extend([
@@ -1863,12 +1961,29 @@ class PhysicalRunner:
         self.active_video = False
         self.active_trace: list[dict[str, Any]] = []
         self.case_start_time = 0.0
+        profile = AERIAL_CONTROL_PROFILES.get(canonical_robot(args.robot), {})
+        self.aerial_max_speed_mps = float(
+            args.aerial_max_speed_mps
+            if args.aerial_max_speed_mps is not None
+            else profile.get("max_goal_speed_mps", 1.0)
+        )
+        self.aerial_max_accel_mps2 = float(
+            args.aerial_max_accel_mps2
+            if args.aerial_max_accel_mps2 is not None
+            else profile.get("max_goal_accel_mps2", 1.5)
+        )
+        self.aerial_arrival_radius_m = ARRIVAL_RADIUS_M
+        self._aerial_command_position: tuple[float, float, float] | None = None
+        self._aerial_command_velocity = (0.0, 0.0, 0.0)
         self.report["controller"] = {
             "configuration": type(self.controller).__module__ + "." + type(self.controller).__name__,
             "robot_type": getattr(self.controller, "robot_type", None),
             "command_name": self.command_name,
             "yaw_command_name": self.yaw_command_name,
             "control_mode": getattr(self.controller, "control_mode", None),
+            "aerial_goal_smoothing": bool(inputs.domain == "aerial"),
+            "aerial_max_goal_speed_mps": self.aerial_max_speed_mps,
+            "aerial_max_goal_accel_mps2": self.aerial_max_accel_mps2,
         }
 
     def _bounds(self) -> tuple[float, float, float, float, float, float]:
@@ -1921,6 +2036,24 @@ class PhysicalRunner:
         self.env.set_command(self.robot_id, "base_velocity", tensor)
 
     def _set_goal_position(self, values: Sequence[float]) -> None:
+        requested = tuple(float(value) for value in values[:3])
+        if self.inputs.domain == "aerial":
+            current = self._aerial_command_position
+            if current is None:
+                current = tuple(float(value) for value in self.pose().position_m)
+            dt = float(getattr(self.env, "step_dt", 0.02))
+            smoothed, velocity = smooth_aerial_goal(
+                current,
+                self._aerial_command_velocity,
+                requested,
+                dt,
+                max_speed_mps=self.aerial_max_speed_mps,
+                max_accel_mps2=self.aerial_max_accel_mps2,
+                arrival_radius_m=self.aerial_arrival_radius_m,
+            )
+            self._aerial_command_position = smoothed
+            self._aerial_command_velocity = velocity
+            values = smoothed
         tensor = self.torch.tensor([list(values)], dtype=self.torch.float32, device=self.env.device)
         self.env.set_command(self.robot_id, "goal_position", tensor)
 
@@ -1933,7 +2066,14 @@ class PhysicalRunner:
     def safe_stop(self) -> None:
         try:
             if self.goal_controlled:
-                self._set_goal_position(self.pose().position_m)
+                # Hold the measured position.  Resetting the filter state here
+                # prevents a completed leg from carrying command velocity into
+                # the next leg while allowing the physical controller to brake.
+                measured = tuple(float(value) for value in self.pose().position_m)
+                if self.inputs.domain == "aerial":
+                    self._aerial_command_position = measured
+                    self._aerial_command_velocity = (0.0, 0.0, 0.0)
+                self._set_goal_position(measured)
             else:
                 self._set_base_velocity((0.0, 0.0, 0.0))
         except Exception:
@@ -2008,6 +2148,11 @@ class PhysicalRunner:
         state[0, 7:] = 0.0
         self.actions[self.robot_id].zero_()
         self.env.reset()
+        if self.inputs.domain == "aerial":
+            # Each independently reset case starts with a fresh command
+            # filter; no velocity or target from the previous case carries in.
+            self._aerial_command_position = (point[0], point[1], z)
+            self._aerial_command_velocity = (0.0, 0.0, 0.0)
         if self.goal_controlled:
             self._set_goal_position((point[0], point[1], z))
             if self.yaw_command_name:
@@ -2069,6 +2214,7 @@ class PhysicalRunner:
         self.active_video = False
         video, video_error = self.video.finish(keep=keep_video or status != "passed")
         contacts = self.monitor.end()
+        motion = self._trace_motion_metrics()
         result.update({
             "status": "failed" if video_error and status == "passed" else status,
             "reason": "recording_error" if video_error and status == "passed" else reason,
@@ -2091,11 +2237,40 @@ class PhysicalRunner:
             },
             "video": video,
             "video_error": video_error,
+            **motion,
         })
         trace_path = self.output / "trajectories" / (safe_name(result["case_id"]) + ".json")
         _write_json(trace_path, {"case_id": result["case_id"], "samples": self.active_trace})
         result["trajectory"] = "trajectories/" + trace_path.name
         return result
+
+    def _trace_motion_metrics(self) -> dict[str, float | None]:
+        """Summarize measured trajectory speed and finite-difference acceleration."""
+        samples = self.active_trace
+        if not samples:
+            return {"max_linear_speed_mps": None, "max_acceleration_mps2": None}
+        speeds = []
+        for sample in samples:
+            velocity = sample.get("velocity", ())
+            if len(velocity) >= 3:
+                speeds.append(math.sqrt(sum(float(value) ** 2 for value in velocity[:3])))
+        accelerations = []
+        for previous, current in zip(samples, samples[1:]):
+            dt = float(current.get("simulation_time_s", 0.0)) - float(
+                previous.get("simulation_time_s", 0.0)
+            )
+            if dt <= 1.0e-9:
+                continue
+            pv = previous.get("velocity", ())
+            cv = current.get("velocity", ())
+            if len(pv) >= 3 and len(cv) >= 3:
+                accelerations.append(math.sqrt(sum(
+                    ((float(cv[i]) - float(pv[i])) / dt) ** 2 for i in range(3)
+                )))
+        return {
+            "max_linear_speed_mps": max(speeds) if speeds else None,
+            "max_acceleration_mps2": max(accelerations) if accelerations else None,
+        }
 
     def abort_active_case(
         self,
@@ -2294,6 +2469,7 @@ class PhysicalRunner:
             if planned.get("case_type") == "edge" else ARRIVAL_RADIUS_M
         )
         profile = self._navigation_profile(topology, arrival_radius)
+        self.aerial_arrival_radius_m = arrival_radius
         provider = NavigationProvider(
             document,
             profile=profile,
@@ -2755,6 +2931,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--scene", required=True, help="semantic project scene_key or scene directory name")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument(
+        "--aerial-max-speed-mps", type=_positive_float, default=None,
+        help="override aerial goal-command speed limit (m/s)",
+    )
+    parser.add_argument(
+        "--aerial-max-accel-mps2", type=_positive_float, default=None,
+        help="override aerial goal-command acceleration limit (m/s^2)",
+    )
     parser.add_argument("--check", action="store_true", help="write the deterministic plan without Isaac")
     parser.add_argument(
         "--StressT",
