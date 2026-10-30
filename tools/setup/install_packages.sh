@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # EAI Simulator 包安装脚本
-# 此脚本只安装 EAI core、assets 和 HMRS 三个 Python 包
+# 此脚本会安装 Qt 系统依赖和 source 目录下的所有 Python 包
 #
 # 用法:
 #   ./tools/setup/install_packages.sh            # 安装所有包（静默模式）
@@ -35,6 +35,69 @@ print_warn() {
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# 安装 PyQt6 xcb 平台插件所需的 Ubuntu 系统依赖
+install_system_dependencies() {
+    local package="libxcb-cursor0"
+    local -a privilege_command=()
+
+    if command -v dpkg-query > /dev/null 2>&1 \
+        && dpkg-query -W -f='${Status}' "${package}" 2> /dev/null \
+            | grep -q "ok installed"; then
+        print_info "系统依赖 ${package} 已安装"
+        return 0
+    fi
+
+    if ! command -v apt-get > /dev/null 2>&1; then
+        print_error "未找到 apt-get，无法自动安装系统依赖 ${package}"
+        return 1
+    fi
+
+    if [ "${EUID}" -ne 0 ]; then
+        if ! command -v sudo > /dev/null 2>&1; then
+            print_error "安装 ${package} 需要 root 权限，但未找到 sudo"
+            return 1
+        fi
+        privilege_command=(sudo)
+    fi
+
+    print_info "正在安装系统依赖 ${package}..."
+    if ! "${privilege_command[@]}" apt-get update; then
+        print_error "更新 apt 软件包索引失败"
+        return 1
+    fi
+    if ! "${privilege_command[@]}" apt-get install -y "${package}"; then
+        print_error "系统依赖 ${package} 安装失败"
+        return 1
+    fi
+
+    print_info "系统依赖 ${package} 安装成功"
+}
+
+# 仓库 package 使用 --no-deps 安装，需单独安装 Env DIY 的运行时依赖。
+install_python_dependencies() {
+    local requirement="pywebview[qt]"
+
+    print_info "正在安装 Python 依赖 ${requirement}..."
+    if [ "$VERBOSE" = true ]; then
+        if ! python -m pip install "${requirement}"; then
+            print_error "Python 依赖 ${requirement} 安装失败"
+            return 1
+        fi
+    else
+        if ! python -m pip install "${requirement}" > /dev/null 2>&1; then
+            print_error "Python 依赖 ${requirement} 安装失败"
+            print_warn "运行 './tools/setup/install_packages.sh -v' 查看详细错误信息"
+            return 1
+        fi
+    fi
+
+    if ! python -c 'import webview' > /dev/null 2>&1; then
+        print_error "已安装 ${requirement}，但当前 Python 仍无法导入 webview"
+        return 1
+    fi
+    print_info "Python 依赖 ${requirement} 安装成功"
 }
 
 # 解析命令行参数
@@ -87,6 +150,12 @@ while [[ $# -gt 0 ]]; do
             echo "  - EAI_assets"
             echo "  - EAI_hmrs"
             echo ""
+            echo "安装模式还会检查系统依赖:"
+            echo "  - libxcb-cursor0"
+            echo ""
+            echo "安装模式还会安装 Python 依赖:"
+            echo "  - pywebview[qt]"
+            echo ""
             echo "--ros-distro 会为当前 Python/Conda 环境保存 ROS 2 发行版选择。"
             echo "它不会安装 ROS 2，也不会修改项目源码或 ~/.bashrc。"
             exit 0
@@ -118,6 +187,15 @@ if [ "${UNINSTALL}" = false ]; then
     if [[ ! -f "/opt/ros/${SELECTED_ROS_DISTRO}/setup.bash" ]]; then
         print_warn "未检测到 /opt/ros/${SELECTED_ROS_DISTRO}/setup.bash；仅配置 Isaac Sim 内置 bridge"
     fi
+    if ! install_system_dependencies; then
+        print_error "系统依赖安装未完成，终止安装"
+        exit 1
+    fi
+    if ! install_python_dependencies; then
+        print_error "Python 依赖安装未完成，终止安装"
+        exit 1
+    fi
+    echo ""
 fi
 
 print_info "开始${ACTION} source 目录下的所有包..."

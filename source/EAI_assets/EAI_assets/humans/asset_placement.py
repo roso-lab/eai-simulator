@@ -99,18 +99,19 @@ def apply_asset_placement(asset_xform: Any, asset: Any, parent_z: float) -> None
     """Apply manifest orientation/scale and ground the resulting visible bounds."""
     from pxr import Gf, UsdGeom
 
-    # ``retarget_pose`` can request re-grounding whenever locomotion changes
-    # (for example walk -> jog).  Clearing the order does not remove the
-    # existing named attributes, so reuse them instead of adding duplicate
-    # ``eaiAsset`` operations on every motion transition.
-    existing_ops = {op.GetOpName(): op for op in asset_xform.GetOrderedXformOps()}
     asset_xform.ClearXformOpOrder()
-    translate_op = existing_ops.get("xformOp:translate:eaiAsset") or asset_xform.AddTranslateOp(
-        precision=UsdGeom.XformOp.PrecisionDouble, opSuffix="eaiAsset")
-    orient_op = existing_ops.get("xformOp:orient:eaiAsset") or asset_xform.AddOrientOp(
-        precision=UsdGeom.XformOp.PrecisionDouble, opSuffix="eaiAsset")
-    scale_op = existing_ops.get("xformOp:scale:eaiAsset") or asset_xform.AddScaleOp(
-        precision=UsdGeom.XformOp.PrecisionDouble, opSuffix="eaiAsset")
+    translate_op = asset_xform.AddTranslateOp(
+        precision=UsdGeom.XformOp.PrecisionDouble,
+        opSuffix="eaiAsset",
+    )
+    orient_op = asset_xform.AddOrientOp(
+        precision=UsdGeom.XformOp.PrecisionDouble,
+        opSuffix="eaiAsset",
+    )
+    scale_op = asset_xform.AddScaleOp(
+        precision=UsdGeom.XformOp.PrecisionDouble,
+        opSuffix="eaiAsset",
+    )
     translate_op.Set(Gf.Vec3d(0.0, 0.0, 0.0))
     orient_op.Set(asset_orientation(asset, Gf))
     scale_op.Set(Gf.Vec3d(*asset.scale))

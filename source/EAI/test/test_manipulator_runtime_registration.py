@@ -59,12 +59,9 @@ def test_setup_manipulator_graph_manager_registers_each_model(monkeypatch):
     ur5_module.UR5_MODEL_SPEC = SimpleNamespace(model="ur5")
     z1_module = ModuleType("EAI.hmrs_ros.z1_omnigraph")
     z1_module.Z1_MODEL_SPEC = SimpleNamespace(model="z1")
-    d1_module = ModuleType("EAI.hmrs_ros.d1_omnigraph")
-    d1_module.D1_MODEL_SPEC = SimpleNamespace(model="d1")
     monkeypatch.setitem(sys.modules, "EAI.hmrs_ros.manipulator_omnigraph", manipulator_module)
     monkeypatch.setitem(sys.modules, "EAI.hmrs_ros.ur5_omnigraph", ur5_module)
     monkeypatch.setitem(sys.modules, "EAI.hmrs_ros.z1_omnigraph", z1_module)
-    monkeypatch.setitem(sys.modules, "EAI.hmrs_ros.d1_omnigraph", d1_module)
 
     base_env = SimpleNamespace()
     result = simulator._setup_manipulator_graph_manager(
@@ -81,10 +78,3 @@ def test_setup_manipulator_graph_manager_registers_each_model(monkeypatch):
         ("carter_1", "ur5"),
         ("carter_1", "z1"),
     }
-
-
-def test_manipulator_models_keep_legacy_order_and_append_d1():
-    assert simulator.manipulator_attachment_robot_models(
-        _selection("d1", "z1", "ur5"),
-        possible_agents=["carter_1"],
-    ) == (("carter_1", "ur5"), ("carter_1", "z1"), ("carter_1", "d1"))

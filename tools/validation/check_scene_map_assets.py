@@ -32,37 +32,28 @@ from EAI_assets.scene_resources import (  # noqa: E402
 
 def _check_scene_requirements() -> None:
     scene_keys = tuple(key for key, _label in scene_choices())
-    assert scene_keys == tuple(SCENE_RESOURCE_PATHS)
+    assert scene_keys == tuple(SCENE_MAP_PATHS)
     assert scene_keys == tuple(_SCENE_PATHS)
 
     for scene_key in scene_keys:
-        expected_maps = SCENE_RESOURCE_PATHS[scene_key].get(OCCUPANCY_MAP, ())
-        if expected_maps:
-            assert SCENE_MAP_PATHS[scene_key] == expected_maps
-            assert _SCENE_PATHS[scene_key][-2:] == expected_maps
-        else:
-            assert scene_key not in SCENE_MAP_PATHS
-            # Visual scene packs must not advertise invented navigation maps.
-            try:
-                ensure_scene_resource(scene_key, OCCUPANCY_MAP)
-            except ValueError as exc:
-                assert "has no declared resource" in str(exc)
-            else:
-                raise AssertionError(f"Undeclared map accepted for {scene_key}")
+        expected_maps = (
+            f"scene/{scene_key}/{scene_key}_map.yaml",
+            f"scene/{scene_key}/{scene_key}_map.png",
+        )
+        assert SCENE_MAP_PATHS[scene_key] == expected_maps
+        assert _SCENE_PATHS[scene_key][-2:] == expected_maps
 
         graph = resolve_selection({"scene_key": scene_key, "robots": []})
         requirement = next(item for item in graph.requirements if item.id == f"scene:{scene_key}")
         assert requirement.relative_paths == _SCENE_PATHS[scene_key]
-        if expected_maps:
-            assert requirement.remote_paths[-2:] == tuple(f"usd/{path}" for path in expected_maps)
+        assert requirement.remote_paths[-2:] == tuple(f"usd/{path}" for path in expected_maps)
 
 
 def _check_scene_resource_api() -> None:
-    assert tuple(key for key, value in SCENE_RESOURCE_PATHS.items() if OCCUPANCY_MAP in value) == tuple(SCENE_MAP_PATHS)
+    assert tuple(SCENE_RESOURCE_PATHS) == tuple(SCENE_MAP_PATHS)
     for scene_key, resources in SCENE_RESOURCE_PATHS.items():
-        assert tuple(resources) in ((), (OCCUPANCY_MAP,))
-        if resources:
-            assert resources[OCCUPANCY_MAP] == SCENE_MAP_PATHS[scene_key]
+        assert tuple(resources) == (OCCUPANCY_MAP,)
+        assert resources[OCCUPANCY_MAP] == SCENE_MAP_PATHS[scene_key]
 
     with tempfile.TemporaryDirectory(prefix="eai-scene-resource-check-") as tmp_dir:
         usd_root = Path(tmp_dir) / "usd"
@@ -77,7 +68,6 @@ def _check_scene_resource_api() -> None:
 
         resolver = SimpleNamespace(
             usd_root=lambda: usd_root,
-            resolve_local_asset_path=lambda relative_path: usd_root / relative_path,
             ensure_usd_files_for_paths=ensure_paths,
         )
         paths = ensure_scene_resource(
@@ -431,7 +421,7 @@ def _check_source_ownership() -> None:
             "-C",
             str(REPO_ROOT),
             "ls-files",
-            "algorithm/skills/navigation/multi_robot_navigation/maps/**",
+            "algorithm/multi_robot_navigation/maps/**",
             "demo/fire_rescue/assets/factory_map.*",
         ],
         check=True,

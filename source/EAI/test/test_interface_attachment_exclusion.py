@@ -33,50 +33,6 @@ def _ids(attachments: list[str]) -> set[str]:
     }
 
 
-def test_unscaled_ur5_deployment_gate_matches_runtime_matrix():
-    # 2026-10 user policy: mounted UR5 is excluded on every host (UR5 is
-    # standalone-only with a fixed Robotiq 2F-85); historical per-host
-    # evidence stays queryable through manipulator_deployment_status.
-    for host in ("scout", "b2", "go2", "m20", "lite3", "carter"):
-        status, reason = env_diy_catalog.manipulator_deployment_status(host, "ur5")
-        assert status in ("conditional", "rejected")
-        assert reason
-        with pytest.raises(ValueError, match="is not supported"):
-            env_diy_catalog.validate_attachment_types(host, ["ur5"])
-
-
-def test_ur5_bare_uses_the_same_host_stability_gate():
-    for host in ("scout", "b2", "go2"):
-        status, reason = env_diy_catalog.manipulator_deployment_status(host, "ur5_bare")
-        assert status in ("conditional", "rejected")
-        assert reason
-        with pytest.raises(ValueError, match="is not supported"):
-            env_diy_catalog.validate_attachment_types(host, ["ur5_bare"])
-
-
-def test_z1_deployment_gate_requires_host_specific_evidence():
-    # 2026-10-22 装配政策后，Z1 只放行 carter/b2/m20/scout；go2 与 lite3 改为
-    # D1-only（不再出现在 z1 宿主集合）。历史物理筛查证据仍可通过
-    # manipulator_deployment_status 查询。
-    for host in ("scout", "b2", "m20", "carter"):
-        assert env_diy_catalog.manipulator_deployment_status(host, "z1")[0] == "conditional"
-    assert env_diy_catalog.validate_attachment_types("carter", ["z1"]) == ("z1",)
-    for host in ("go2", "lite3"):
-        status, reason = env_diy_catalog.manipulator_deployment_status(host, "z1")
-        assert status in ("conditional", "rejected")
-        assert reason
-        with pytest.raises(ValueError, match="is not supported"):
-            env_diy_catalog.validate_attachment_types(host, ["z1"])
-
-
-def test_carter_ur5_rejected_with_documented_mechanism():
-    status, reason = env_diy_catalog.manipulator_deployment_status("carter", "ur5")
-    assert status == "rejected"
-    assert reason
-    assert env_diy_catalog.validate_attachment_types("carter", ["z1"]) == ("z1",)
-    with pytest.raises(ValueError, match="is not supported"):
-        env_diy_catalog.validate_attachment_types("carter", ["ur5"])
-
 def test_mushr_never_declares_removed_builtin_camera_interfaces():
     for attachments in ([], ["camera"], ["Camera"]):
         ids = _ids(attachments)
@@ -124,6 +80,19 @@ def test_builder_has_no_mushr_builtin_camera_spawn_path():
     ]
     assert builtin_camera_sets
     assert all("mushr_v2" not in robot_types for robot_types in builtin_camera_sets)
+
+
+def test_visual_env_diy_has_no_mushr_camera_exemption():
+    html_path = (
+        Path(__file__).resolve().parents[1]
+        / "EAI"
+        / "hmrs_env"
+        / "env_diy"
+        / "env_diy_app.html"
+    )
+    html = html_path.read_text(encoding="utf-8")
+    assert '["cf2x", "iris", "pegasus", "mushr_v2"]' not in html
+    assert 'const hasBuiltinCamera = ["cf2x", "iris", "pegasus"]' in html
 
 
 def test_env_diy_requires_explicit_mushr_camera_provider():

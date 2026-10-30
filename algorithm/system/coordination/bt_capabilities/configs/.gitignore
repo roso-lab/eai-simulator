@@ -1,3 +1,0 @@
-# Maintained BT integration inputs override the repository-wide JSON ignore.
-!/isaac_ur5_task.json
-!/isaac_ur5_adapter.json

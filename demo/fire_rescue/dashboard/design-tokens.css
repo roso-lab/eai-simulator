@@ -1,0 +1,159 @@
+/********************************************************************************
+ * zho-ide-mvp — Design Tokens
+ * ------------------------------------------------------------------------------
+ * 统一的设计令牌。把原先散落在各业务面板里硬编码的颜色 / 字号 / 圆角 / 间距
+ * 收敛到这里，业务面板今后应优先引用这些变量，而不是再写死 #xxxxxx / 12px。
+ *
+ * 分层原则：
+ *   1. 框架壳层（侧边栏、标题栏、编辑器背景等）继续用 Theia 原生 --theia-* 变量。
+ *   2. 业务面板的品牌色 / 状态色 / 字号 / 形状用本文件的 --zho-* 变量。
+ *   3. --zho-* 变量在可能的情况下回退到对应的 --theia-* 语义变量，
+ *      以便自动跟随用户切换的明 / 暗主题。
+ *
+ * 用法（在 zho-core 的 frontend 模块或各面板入口 import 一次即可）：
+ *   import '../../style/design-tokens.css';   // 路径按实际调整
+ * 然后在样式里：
+ *   color: var(--zho-color-primary);
+ *   font-size: var(--zho-font-size-base);
+ ********************************************************************************/
+
+:root {
+    /* ========================================================================
+     * 1. 字体 Typography — family
+     * ====================================================================== */
+    --zho-font-family-ui: var(--theia-ui-font-family, "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Segoe UI", Arial, sans-serif);
+    --zho-font-family-code: var(--theia-code-font-family, "Consolas", "Menlo", "Courier New", monospace);
+
+    /* ========================================================================
+     * 2. 字号 Font size scale
+     *    原仓库硬编码范围 9–36px，集中在 10/11/12px。这里归并成一套有名字的梯度。
+     *    迁移对照：
+     *      9px  → 2xs   10px → xs    11px → sm    12px → base(正文)
+     *      13px → md    14px → lg    16px → xl    18px → 2xl
+     *      20px → 3xl   24px → 4xl   28/30/32/36px → display-*（大屏 KPI 数字）
+     * ====================================================================== */
+    --zho-font-size-2xs: 9px;
+    --zho-font-size-xs: 10px;
+    --zho-font-size-sm: 11px;
+    --zho-font-size-base: 12px;   /* 面板正文默认 */
+    --zho-font-size-md: 13px;
+    --zho-font-size-lg: 14px;
+    --zho-font-size-xl: 16px;
+    --zho-font-size-2xl: 18px;
+    --zho-font-size-3xl: 20px;
+    --zho-font-size-4xl: 24px;
+    --zho-font-size-display-sm: 28px;
+    --zho-font-size-display-md: 32px;
+    --zho-font-size-display-lg: 36px;
+
+    /* 字重 */
+    --zho-font-weight-normal: 400;
+    --zho-font-weight-medium: 500;
+    --zho-font-weight-semibold: 600;
+    --zho-font-weight-bold: 700;
+
+    /* 行高 */
+    --zho-line-height-tight: 1.2;
+    --zho-line-height-normal: 1.5;
+
+    /* ========================================================================
+     * 3. 品牌色 Brand
+     * ====================================================================== */
+    --zho-color-primary: #5D6FD4;            /* 主强调 / 品牌紫，原 perf-panel 主色 */
+    --zho-color-primary-hover: #4f60c4;
+    --zho-color-primary-contrast: #ffffff;   /* 主色上的前景文字 */
+
+    /* ========================================================================
+     * 4. 语义状态色 Semantic status
+     *    原仓库同一语义存在多个近似值，下面取「规范值」，并保留常见别名供过渡。
+     * ====================================================================== */
+    /* 成功 / 正常 */
+    --zho-color-success: #00B05D;            /* 规范值（品牌绿） */
+    --zho-color-success-alt: #4caf50;        /* 别名：#2da44e / #66bb6a / #10b981 */
+    --zho-color-success-soft-bg: #f0fdf4;
+    --zho-color-success-soft-fg: #15803d;
+
+    /* 信息 / 进行中 */
+    --zho-color-info: #42a5f5;               /* 规范值（蓝） */
+    --zho-color-info-strong: #2563eb;        /* 别名：#1d4ed8 / #007fd4 / #3b82f6 */
+    --zho-color-info-soft-bg: #eff6ff;
+    --zho-color-info-soft-fg: #1d4ed8;
+
+    /* 警告 / 注意 */
+    --zho-color-warning: #ff9800;            /* 规范值（橙） */
+    --zho-color-warning-alt: #ffb74d;        /* 别名：#f59e0b / #ffa726 / #ffc107 */
+    --zho-color-warning-accent: #FFD54F;     /* 高亮黄 */
+    --zho-color-warning-soft-bg: #fff7ed;
+    --zho-color-warning-soft-fg: #c2410c;
+
+    /* 危险 / 错误 / 告警 */
+    --zho-color-danger: #ef5350;             /* 规范值（红） */
+    --zho-color-danger-strong: #dc2626;      /* 别名：#f44336 / #e53935 / #b71c1c */
+    --zho-color-danger-soft-bg: #fff0f0;
+    --zho-color-danger-soft-fg: #b91c1c;
+
+    /* 高亮 / 强调橙（区别于 warning，用于醒目标记） */
+    --zho-color-highlight: #FF6B35;
+
+    /* ========================================================================
+     * 5. 中性灰阶 Neutral scale
+     *    来自 zho-ue-panel 等浅色卡片面板的 Tailwind 风格灰阶，系统化保留。
+     * ====================================================================== */
+    --zho-gray-50: #f9fafb;
+    --zho-gray-100: #f3f4f6;
+    --zho-gray-200: #e5e7eb;
+    --zho-gray-300: #d1d5db;
+    --zho-gray-400: #9ca3af;
+    --zho-gray-500: #6b7280;
+    --zho-gray-600: #4b5563;
+    --zho-gray-700: #374151;
+    --zho-gray-800: #1f2937;
+    --zho-gray-900: #111827;
+
+    /* ========================================================================
+     * 6. 表面 / 文字 Surface & foreground
+     *    优先回退到 Theia 语义变量，自动跟随明 / 暗主题。
+     * ====================================================================== */
+    --zho-surface-bg: var(--theia-editor-background);
+    --zho-surface-panel: var(--theia-sideBar-background);
+    --zho-surface-hover: var(--theia-list-hoverBackground);
+    --zho-surface-border: var(--theia-panel-border);
+
+    --zho-text-primary: var(--theia-foreground);
+    --zho-text-secondary: var(--theia-descriptionForeground);
+
+    /* 深色大屏面板（profiler / mission-alert 等）专用底色，
+     * 这类面板有意固定为深色，不跟随主题。 */
+    --zho-surface-dark-1: #12121e;
+    --zho-surface-dark-2: #1a1a2e;
+    --zho-surface-dark-3: #2a2a3a;
+    --zho-alert-bg: #111820;
+    --zho-alert-fg: #eef3f7;
+
+    /* ========================================================================
+     * 7. 形状 / 间距 / 动效 Shape, spacing, motion
+     *    取自现有面板的常用值（圆角约 3px、1px 边框、过渡 0.15s）。
+     * ====================================================================== */
+    --zho-radius-sm: 3px;
+    --zho-radius-md: 6px;
+    --zho-radius-lg: 10px;
+    --zho-radius-pill: 999px;
+
+    --zho-border-width: 1px;
+    --zho-border: var(--zho-border-width) solid var(--zho-surface-border);
+
+    --zho-space-1: 2px;
+    --zho-space-2: 4px;
+    --zho-space-3: 6px;
+    --zho-space-4: 8px;
+    --zho-space-5: 10px;
+    --zho-space-6: 12px;
+    --zho-space-8: 16px;
+    --zho-space-10: 20px;
+
+    --zho-transition-fast: 0.15s;
+    --zho-transition-normal: 0.25s;
+
+    --zho-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+    --zho-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.12);
+}

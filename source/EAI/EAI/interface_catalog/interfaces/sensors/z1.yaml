@@ -50,7 +50,7 @@ interfaces:
     endpoint: /{robot}/z1/gripper_command
     data_type: sensor_msgs/msg/JointState
     description: Desired position for jointGripper.
-    example: 'ros2 topic pub --once /{robot}/z1/gripper_command sensor_msgs/msg/JointState "{name: [jointGripper], position: [-0.8]}"'
+    example: 'ros2 topic pub --once /{robot}/z1/gripper_command sensor_msgs/msg/JointState "{name: [jointGripper], position: [-0.35]}"'
   - id: ros.z1.gripper_state
     name: Gripper state
     protocol: ros2

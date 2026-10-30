@@ -12,7 +12,6 @@ import subprocess
 import sys
 import tempfile
 import threading
-import time
 from contextlib import contextmanager
 from dataclasses import MISSING, dataclass, field, replace
 from pathlib import Path
@@ -24,8 +23,6 @@ KEYBOARD_CMD_VEL_GOAL_STEP_SCALE = 0.2
 _RTX_LIDAR_PRELOAD_KIT_ARGS = (
     "--enable omni.usd.schema.omni_sensors --enable isaacsim.sensors.rtx"
 )
-_PROCESS_START_LD_LIBRARY_PATH = os.environ.get("LD_LIBRARY_PATH", "")
-_ROS_LOADER_REEXEC_MARKER = "EAI_ROS_LOADER_REEXEC"
 
 # Scout's four fixed wheels resist lateral motion, so its effective skid-steer
 # track is much wider than the 0.498 m geometric controller value. Factory-floor
@@ -224,77 +221,24 @@ def _runtime_device_for_env(
     selection_data: dict[str, Any] | None,
     requested_device: str,
 ) -> str:
-    """Resolve the PhysX device while preserving explicit scene safeguards."""
-    # The converted factory scene destabilizes GPU PhysX: its render load
-    # races RTX-sensor pose reads (per-step getArticulationData error flood
-    # until PhysX stops) and even sensor-less runs hit carb::tasking
-    # recursion assertions. CPU PhysX with GPU rendering is stable.
-    # EAI_FACTORY_GPU_PHYSICS=1 skips this fallback for diagnostics.
-    scene_key = ""
-    if isinstance(selection_data, dict):
-        scene_key = str(selection_data.get("scene_key", "")).strip().lower()
-    if (
-        scene_key == "factory"
-        and str(requested_device).startswith("cuda")
-        and os.environ.get("EAI_FACTORY_GPU_PHYSICS") != "1"
-    ):
+    """Use CPU PhysX for animated humans because Isaac Sim 5.1 GPU pose writes crash."""
+    has_human = False
+    if selection_data:
+        has_human = has_human or any(
+            str(robot.get("type", "")).strip().lower() == "human"
+            for robot in selection_data.get("robots", [])
+            if isinstance(robot, dict)
+        )
+    if has_human and str(requested_device).startswith("cuda"):
         return "cpu"
     return str(requested_device)
-
-
-def _install_cuda_delay_buffer_compat(device: str) -> None:
-    """Avoid a PyTorch CUDA advanced-index broadcast bug in Isaac Lab 2.x.
-
-    Isaac Lab's ``CircularBuffer.append`` uses a boolean mask on the batch
-    dimension while broadcasting the first sample across history.  With the
-    Factory delayed PD tensors on the supported Torch/CUDA stack this can
-    trigger ``Indexing.cu:699`` (for example 72 vs 864 elements) before the
-    first physics step.  Integer indices plus an explicit expanded RHS have
-    identical buffer semantics and keep the original delay ranges and task
-    inputs unchanged.
-    """
-    if not str(device).startswith("cuda"):
-        return
-    from isaaclab.utils.buffers import CircularBuffer
-
-    if getattr(CircularBuffer, "_eai_cuda_compat", False):
-        return
-    def append(self, data):
-        if data.shape[0] != self.batch_size:
-            raise ValueError(
-                f"The input data has '{data.shape[0]}' batch size while expecting '{self.batch_size}'"
-            )
-        data = data.to(self._device)
-        if self._buffer is None:
-            self._pointer = -1
-            # Zero initialization keeps the transient ring finite even on
-            # CUDA builds where masked broadcast writes may leave untouched
-            # lanes; the first-push fill below then applies the same delay
-            # semantics as Isaac Lab's original implementation.
-            self._buffer = torch.zeros(
-                (self.max_length, *data.shape), dtype=data.dtype, device=self._device
-            )
-        is_first_push = self._num_pushes == 0
-        self._pointer = (self._pointer + 1) % self.max_length
-        self._buffer[self._pointer] = data
-        if bool(torch.any(is_first_push)):
-            first_ids = torch.nonzero(is_first_push, as_tuple=False).flatten()
-            first_data = data.index_select(0, first_ids)
-            values = first_data.unsqueeze(0).expand(self.max_length, *first_data.shape)
-            self._buffer[:, first_ids].copy_(values)
-        self._num_pushes += 1
-
-    import torch
-
-    CircularBuffer.append = append
-    CircularBuffer._eai_cuda_compat = True
 
 
 def _selection_requires_omnigraph(selection_data: dict[str, Any] | None) -> bool:
     if not selection_data:
         return False
     graph_attachments = {
-        "orsus", "realsense_d455", "lidar", "camera", "ur5", "ur5_bare", "z1", "d1",
+        "orsus", "realsense_d455", "lidar", "camera", "ur5", "z1",
         "navigation_io",
     }
     aerial_types = {"cf2x", "iris", "pegasus"}
@@ -330,19 +274,6 @@ def _selection_has_attachment(
     )
 
 
-def _simulation_clock_required(
-    selection_data: dict[str, Any] | None,
-    *,
-    ros_bridge_enabled: bool,
-) -> bool:
-    required = _selection_has_attachment(selection_data, "navigation_io")
-    if required and not ros_bridge_enabled:
-        raise ValueError(
-            "Selections with navigation_io require the Isaac ROS2 Bridge for /clock"
-        )
-    return required
-
-
 def _validate_orsus_lidar_exclusivity(selection_data: dict[str, Any] | None) -> None:
     if not selection_data:
         return
@@ -374,7 +305,6 @@ def _validate_payload_mount_compatibility(
     display_names = {
         "ur5": "UR5",
         "z1": "Z1",
-        "d1": "D1",
         "orsus": "Orsus",
         "lidar": "LiDAR",
     }
@@ -415,13 +345,6 @@ def _sensor_scene_single_env_reasons(selection_data: dict[str, Any] | None) -> t
         if robot_type in aerial_types:
             tools = ", ".join(sorted(enabled_tools)) or "default sensors"
             reasons.append(f"robot {index} ({robot_type}: {tools})")
-        elif robot_type == "simple_car" and enabled_tools:
-            tools = ", ".join(sorted(enabled_tools))
-            reasons.append(f"robot {index} (simple_car: {tools})")
-        elif "octagon_aio_c01" in attachments and "navigation_io" in enabled_tools:
-            reasons.append(
-                f"robot {index} ({robot_type or 'unknown'}: navigation_io)"
-            )
         elif "orsus" in attachments and enabled_tools:
             tools = ", ".join(sorted(enabled_tools))
             reasons.append(f"robot {index} ({robot_type or 'unknown'}: {tools})")
@@ -442,7 +365,7 @@ def _validate_sensor_scene_num_envs(
     reasons = _sensor_scene_single_env_reasons(selection_data)
     if reasons:
         raise ValueError(
-            "Aerial/Orsus/RealSense D455/OCTAGON C01 sensor resources support exactly one environment; "
+            "Aerial/Orsus/RealSense D455 sensor resources support exactly one environment; "
             f"got num_envs={num_envs} for {', '.join(reasons)}. Use --num_envs 1."
         )
 
@@ -568,61 +491,6 @@ def _silence_simulation_manager_time_log_spam() -> None:
         print(f"[EAI Simulator] Warning: failed to silence sim-time log spam: {exc}")
 
 
-def _silence_factory_cpu_physx_error_spam() -> None:
-    """Mute the known-benign PhysX error spam of the factory CPU fallback.
-
-    On CPU PhysX the renderer's per-frame sensor-pose reads surface as
-    ``PxArticulationReducedCoordinate::copyInternalStateToCache() not allowed
-    while simulation is running`` errors (~1/s in GUI, as popups plus a
-    notification-manager console echo). PhysX itself ignores the racing call
-    and the simulation runs correctly (verified end-to-end: product
-    ``arrived`` at the commanded goal), so this mutes exactly that message:
-
-    - the ``omni.physx.plugin`` console threshold hides the direct error
-      lines while this validated workaround configuration is active;
-    - a ``NotificationManager.post_notification`` filter drops only
-      notifications whose text starts with the known message, so neither the
-      GUI popup nor its console echo appears; every other notification
-      behaves normally.
-
-    ``EAI_DEBUG_NO_LOG_SILENCE=1`` keeps the errors visible for diagnostics.
-    """
-    if os.environ.get("EAI_DEBUG_NO_LOG_SILENCE") == "1":
-        return
-    try:
-        import carb
-
-        logging_iface = carb.logging.acquire_logging()
-        override = carb.logging.LogSettingBehavior.OVERRIDE
-        logging_iface.set_level_threshold_for_source(
-            "omni.physx.plugin", override, carb.logging.LEVEL_FATAL
-        )
-        from omni.kit.notification_manager.manager import NotificationManager
-
-        original_post = NotificationManager.post_notification
-        if not getattr(original_post, "_eai_factory_filtered", False):
-            benign_prefix = (
-                "PhysX error: PxArticulationReducedCoordinate::"
-                "copyInternalStateToCache()"
-            )
-
-            def filtered_post(manager_self, notification_info):
-                text = str(getattr(notification_info, "text", ""))
-                if text.startswith(benign_prefix):
-                    return None
-                return original_post(manager_self, notification_info)
-
-            filtered_post._eai_factory_filtered = True
-            NotificationManager.post_notification = filtered_post
-        print(
-            "[EAI Simulator] Factory CPU fallback: muted known-benign "
-            "copyInternalStateToCache PhysX spam (EAI_DEBUG_NO_LOG_SILENCE=1 "
-            "to re-enable)."
-        )
-    except Exception as exc:  # pragma: no cover - best-effort silencing
-        print(f"[EAI Simulator] Warning: factory PhysX spam silencing failed: {exc}")
-
-
 def _prepare_replicator_for_app_close() -> None:
     """Prevent Replicator shutdown from stopping Isaac Lab's live timeline."""
     try:
@@ -633,158 +501,48 @@ def _prepare_replicator_for_app_close() -> None:
         print(f"[EAI Simulator] Warning: Replicator close preparation failed: {exc}")
 
 
-def _prepare_gui_for_app_close(simulation_app: Any) -> None:
-    """Release Kit 107 GUI callbacks before native/Python services disappear.
-
-    EditorMenu is retained by Menu.static_class until Python finalization. Its
-    destructor then frees extension hooks against an already destroyed manager
-    (native SIGSEGV with full shutdown). Only touch an existing menu singleton;
-    importing or calling get_editor_menu here could create new subscriptions.
-    """
-    # Some Kit windows omit deregistering their show callback. omni.ui's
-    # static C++ map then releases Python callables after Py_FinalizeEx and
-    # waits forever acquiring the dead interpreter's GIL. Clear the public
-    # workspace registrations while Python and the UI service are alive.
-    workspace = getattr(sys.modules.get("omni.ui"), "Workspace", None)
-    if workspace is not None:
-        try:
-            titles = tuple(workspace.get_show_window_titles())
-        except Exception as exc:
-            print(f"[EAI Simulator] Warning: GUI workspace enumeration failed: {exc}")
-            titles = ()
-        for title in titles:
-            try:
-                workspace.set_show_window_fn(title, None)
-            except Exception as exc:
-                print(f"[EAI Simulator] Warning: GUI window cleanup failed ({title}): {exc}")
-    ui = sys.modules.get("omni.kit.ui")
-    menu = getattr(getattr(ui, "Menu", None), "static_class", None)
-    editor_type = getattr(ui, "EditorMenu", None)
-    # The legacy File menu can retain old stage subscriptions/menu entries.
-    # Stop the menu service too, so late extension events cannot rebuild stale
-    # can_close callbacks after the USD context has gone away. Standalone
-    # editors may load this service without constructing an EditorMenu.
-    try:
-        manager = simulation_app.app.get_extension_manager()
-        if manager.is_extension_enabled("isaacsim.gui.menu"):
-            manager.set_extension_enabled_immediate("isaacsim.gui.menu", False)
-    except Exception as exc:
-        print(f"[EAI Simulator] Warning: GUI menu cleanup failed: {exc}")
-    try:
-        menu_utils = sys.modules.get("omni.kit.menu.utils")
-        instance = menu_utils.get_instance() if menu_utils is not None else None
-        if instance is not None:
-            # Its shutdown is idempotent and clears the singleton. Disabling
-            # this extension through the manager would cascade into live
-            # Replicator/viewport dependencies while they are still in use.
-            instance.on_shutdown()
-    except Exception as exc:
-        print(f"[EAI Simulator] Warning: GUI menu service cleanup failed: {exc}")
-    if not isinstance(editor_type, type) or not isinstance(menu, editor_type):
-        return
-    hooks = getattr(menu, "_hooks", None)
-    if isinstance(hooks, list):
-        hooks.clear()
-
-
-def _close_environment_for_app_close(env: Any) -> None:
-    """Close an owned environment and release views while PhysX is alive.
-
-    Capture the shared view before env.close(), which can stop an in-memory
-    stage and clear SimulationManager's reference. First remove Isaac Lab's
-    interactive STOP handler; asset STOP subscriptions remain registered.
-    Replay adapters and controllers may retain those assets beyond scene close.
-    """
-    base_env = getattr(env, "unwrapped", env)
-    sim = getattr(base_env, "sim", None)
-    view = getattr(sim, "physics_sim_view", None)
-    try:
-        if sim is not None:
-            sim.clear_instance()
-        if env is not None:
-            env.close()
-    finally:
-        try:
-            try:
-                if sim is not None:
-                    sim.stop()
-            finally:
-                if view is not None:
-                    try:
-                        view.invalidate()
-                    finally:
-                        # Kit 107's native destructor needs the live plugin
-                        # even after invalidation. Retained asset wrappers may
-                        # no longer access buffers after their session closes.
-                        view._backend = None
-        except Exception as exc:
-            print(f"[EAI Simulator] Warning: Physics close preparation failed: {exc}")
-
-
 def _repo_root() -> Path:
     return Path(__file__).resolve().parent
 
 
-def _session_close_marker_path() -> Path | None:
-    """Resolve the optional project-local marker used by supervised probes."""
-
-    raw = os.environ.get("HETEROCOORD_SESSION_CLOSE_MARKER", "").strip()
-    if not raw:
-        return None
-    path = Path(raw).expanduser().resolve()
-    if not path.is_relative_to(_repo_root().resolve()):
-        print(f"[EAI Simulator] Warning: refusing external session-close marker: {path}")
-        return None
-    return path
-
-
-def _write_session_close_marker(
-    path: Path | None,
-    *,
-    status: str,
-    cleanup_errors: list[dict[str, str]],
-    app_close_requested: bool,
-    app_close_returned: bool,
-    error: str = "",
-) -> None:
-    """Durably record the close boundary before native Kit can terminate Python."""
-
-    if path is None:
-        return
-    payload = {
-        "schema": "heterocoord.session_close.v1",
-        "status": str(status),
-        "cleanup_callbacks_complete": not cleanup_errors,
-        "cleanup_errors": list(cleanup_errors),
-        "app_close_requested": bool(app_close_requested),
-        "app_close_returned": bool(app_close_returned),
-        "error": str(error),
-        "recorded_at_ns": time.time_ns(),
-    }
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-        temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        temporary.replace(path)
-    except Exception as exc:
-        # A marker is supporting evidence; failure to write it must not mask
-        # the native close exception or alter simulator cleanup semantics.
-        print(f"[EAI Simulator] Warning: session-close marker write failed: {exc}")
+def _module_is_from_repo(module: object, repo_root: Path) -> bool:
+    raw_file = getattr(module, "__file__", None)
+    if raw_file:
+        try:
+            return Path(raw_file).resolve().is_relative_to(repo_root)
+        except OSError:
+            return False
+    raw_path = getattr(module, "__path__", None)
+    if raw_path:
+        for item in raw_path:
+            try:
+                if Path(item).resolve().is_relative_to(repo_root):
+                    return True
+            except OSError:
+                continue
+    return False
 
 
-def _ensure_repo_sources_on_path(*, enforce_cwd: bool = False) -> None:
-    """Enter the complete HeteroCoord runtime boundary before EAI imports.
+def _remove_external_repo_packages(repo_root: Path) -> None:
+    for package_name in ("EAI", "EAI_assets", "EAI_hmrs"):
+        module = sys.modules.get(package_name)
+        if module is None or _module_is_from_repo(module, repo_root):
+            continue
+        for module_name in tuple(sys.modules):
+            if module_name == package_name or module_name.startswith(f"{package_name}."):
+                sys.modules.pop(module_name, None)
 
-    Source precedence alone is insufficient: a process may already contain
-    live classes from another checkout while later imports resolve locally.
-    The shared project bootstrap therefore owns source, asset and output
-    provenance and rejects an already-loaded external EAI package instead of
-    deleting it from ``sys.modules`` and creating a mixed object graph.
-    """
 
-    from tools.project_runtime import activate_project_runtime
-
-    activate_project_runtime(enforce_cwd=enforce_cwd)
+def _ensure_repo_sources_on_path() -> None:
+    repo_root = _repo_root()
+    _remove_external_repo_packages(repo_root)
+    for rel in ("source/EAI", "source/EAI_assets", "source/EAI_hmrs", "source/EAI_env_diy"):
+        path = repo_root / rel
+        if path.is_dir():
+            path_text = str(path)
+            if path_text in sys.path:
+                sys.path.remove(path_text)
+            sys.path.insert(0, path_text)
 
 def _load_asset_resolver():
     module_path = _repo_root() / "source" / "EAI_assets" / "EAI_assets" / "asset_resolver.py"
@@ -813,43 +571,6 @@ def configure_isaac_ros_bridge_env(ros_distro: str | None = None) -> str | None:
     return bridge_path
 
 
-def _ros_loader_reexec_required(
-    bridge_path: str,
-    *,
-    process_start_ld_library_path: str | None = None,
-    reexec_marker: str | None = None,
-) -> bool:
-    if reexec_marker == "1":
-        return False
-    loader_path = str(Path(bridge_path) / "lib")
-    initial_value = (
-        _PROCESS_START_LD_LIBRARY_PATH
-        if process_start_ld_library_path is None
-        else process_start_ld_library_path
-    )
-    return loader_path not in {
-        item for item in initial_value.split(os.pathsep) if item
-    }
-
-
-def _ensure_isaac_ros_loader_env_before_kit() -> None:
-    marker = os.environ.get(_ROS_LOADER_REEXEC_MARKER)
-    bridge_path = configure_isaac_ros_bridge_env()
-    if bridge_path is None or not _ros_loader_reexec_required(
-        bridge_path,
-        reexec_marker=marker,
-    ):
-        return
-    loader_path = str(Path(bridge_path) / "lib")
-    current_paths = [
-        item for item in os.environ.get("LD_LIBRARY_PATH", "").split(os.pathsep) if item
-    ]
-    if loader_path not in current_paths:
-        os.environ["LD_LIBRARY_PATH"] = os.pathsep.join([loader_path, *current_paths])
-    os.environ[_ROS_LOADER_REEXEC_MARKER] = "1"
-    os.execvpe(sys.executable, [sys.executable, *sys.argv], os.environ)
-
-
 def _enable_isaac_extension(extension_name: str) -> None:
     for module_name in (
         "isaacsim.core.experimental.utils.app",
@@ -866,16 +587,41 @@ def _enable_isaac_extension(extension_name: str) -> None:
     raise ModuleNotFoundError("No Isaac Sim extension enable helper is available")
 
 
+@contextmanager
+def _managed_env_diy_extension(
+    extension_manager,
+    extension_root: str | Path,
+    *,
+    direct_path_type,
+):
+    """Register and run the Env DIY extension through Kit's standard lifecycle."""
+    extension_id = "EAI_env_diy"
+    path = str(Path(extension_root))
+    extension_manager.add_path(path, direct_path_type)
+    try:
+        extension_manager.process_and_apply_all_changes()
+        extension_manager.set_extension_enabled_immediate(extension_id, True)
+        if not extension_manager.is_extension_enabled(extension_id):
+            raise RuntimeError(f"Kit could not enable extension '{extension_id}'.")
+        yield
+    finally:
+        try:
+            if extension_manager.is_extension_enabled(extension_id):
+                extension_manager.set_extension_enabled_immediate(extension_id, False)
+        finally:
+            extension_manager.remove_path(path)
+
+
 def _base_parser(*, include_device: bool = True) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="EAI simulator launcher. Builds a saved environment from JSON.",
+        description="EAI simulator launcher. Builds environments from JSON or Env DIY authoring.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         conflict_handler="resolve",
         epilog="""
 Examples:
   python simulator.py --env=EAI-Factory-v0
   python simulator.py --env=factory_go2_nav2
-  python simulator.py --scenario-file=/path/to/eai-scenario.json
+  python simulator.py --diy-3d
         """,
     )
     parser.add_argument(
@@ -884,15 +630,13 @@ Examples:
         default=None,
         help=(
             "JSON environment name from source/EAI_hmrs/EAI_hmrs/envs, without the .json suffix. "
-            "The launcher requires either --env or --scenario-file."
+            "If omitted, Env DIY selection is shown."
         ),
     )
     parser.add_argument(
-        "--scenario-file",
-        help=(
-            "Validated EAI scenario-spec JSON (exclusive with --env); this is an EAI "
-            "environment selection, not a task/config contract."
-        ),
+        "--diy-3d",
+        action="store_true",
+        help="Open the Isaac Sim 3D Env DIY editor before starting simulation.",
     )
     parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
     if include_device:
@@ -902,11 +646,6 @@ Examples:
         type=str,
         default=None,
         help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--disable-ros-bridge",
-        action="store_true",
-        help="Skip the Isaac ROS2 bridge extension (for headless automation without a live ROS environment).",
     )
     parser.add_argument(
         "--enable-cmd-vel-bridge",
@@ -984,31 +723,6 @@ def _report_asset_preflight_failure(failure: dict[str, Any], *, stream=None) -> 
     )
 
 
-def _preflight_internal_failure(exc: BaseException) -> dict[str, str]:
-    """Serialize failures before Kit teardown can terminate the worker."""
-    import traceback
-
-    return {
-        "kind": "internal",
-        "exception_type": type(exc).__name__,
-        "message": str(exc).strip() or repr(exc),
-        "traceback": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
-    }
-
-
-def _report_preflight_internal_failure(failure: dict[str, Any], *, stream=None) -> None:
-    output = stream or sys.stderr
-    exception_type = str(failure.get("exception_type") or "UnknownError")
-    message = str(failure.get("message") or "No diagnostic message was returned.")
-    print("", file=output)
-    print("[EAI Simulator] Asset preflight failed inside the Kit worker.", file=output)
-    print(f"[EAI Simulator] {exception_type}: {message}", file=output)
-    traceback_text = str(failure.get("traceback") or "").strip()
-    if traceback_text:
-        print(traceback_text, file=output)
-    print("[EAI Simulator] The simulator was not started.", file=output)
-
-
 def _read_preflight_payload(output_path: Path) -> dict[str, Any]:
     if not output_path.exists():
         print(
@@ -1030,10 +744,8 @@ def _handle_preflight_payload(
     if isinstance(failure, dict):
         _report_asset_preflight_failure(failure)
         raise SystemExit(1)
-    internal_failure = payload.get("preflight_error")
-    if isinstance(internal_failure, dict):
-        _report_preflight_internal_failure(internal_failure)
-        raise SystemExit(1)
+    if payload.get("startup_mode") == "diy-3d":
+        raise Diy3dRequested
     if not payload.get("should_run", True):
         raise SystemExit(0)
     asset_resolver = _load_asset_resolver()
@@ -1058,6 +770,13 @@ class TaskSource:
 
 
 @dataclass(frozen=True)
+class TerminalCompletionResult:
+    saved_task: dict[str, Any] | None
+    should_run: bool
+    back_to_controller: bool = False
+
+
+@dataclass(frozen=True)
 class SimulatorLaunchConfig:
     env: str
     num_envs: int = 1
@@ -1072,86 +791,7 @@ class SimulatorLaunchConfig:
     resolved_env_name: str | None = None
     selection_data: dict[str, Any] | None = None
     env_cfg_hook: Callable[[Any], None] | None = None
-    # Optional explicit production room_06 observer-source factory.  The
-    # factory is the only supported registration seam for the room06 probe;
-    # no source is inferred from generic skill receipts or controller state.
-    room06_runtime_hook_source_factory: Callable[..., Any] | None = None
     existing_simulation_app: Any | None = None
-    scenario_file: str | None = None
-    # Explicit in-process aerial sensor backend. ``disabled`` keeps aerial
-    # robot physics while requiring an attachment-free selection.
-    aerial_sensor_backend: str = "native"
-
-
-def _validate_session_sensor_backend(config, selection_data):
-    if config.aerial_sensor_backend == "native":
-        _validate_sensor_scene_num_envs(selection_data, config.num_envs)
-        return
-    if config.aerial_sensor_backend == "disabled":
-        robots = (selection_data or {}).get("robots", [])
-        aerial_types = {"cf2x", "iris", "pegasus"}
-        aerial = [robot for robot in robots if robot.get("type") in aerial_types]
-        if any(robot.get("attachments") for robot in aerial):
-            raise ValueError(
-                "disabled aerial sensors require attachment-free aerial robots")
-        _validate_sensor_scene_num_envs(
-            {"robots": [robot for robot in robots if robot not in aerial]},
-            config.num_envs,
-        )
-        return
-    if config.aerial_sensor_backend not in {"tiled_rgb", "tiled_rgb_isolated_orsus", "pooled_rgb_isolated_orsus"}:
-        raise ValueError("unknown aerial sensor backend")
-    if config.enable_ros_bridge_extension or config.resolved_env_name is None:
-        raise ValueError("tiled aerial RGB requires resolved selection and ROS disabled")
-    robots = (selection_data or {}).get("robots", [])
-    aerial = [r for r in robots if r.get("type") in {"cf2x", "iris", "pegasus"}]
-    if not aerial:
-        raise ValueError("tiled aerial RGB requires aerial robots")
-    for robot in aerial:
-        attachments = {a["type"] for a in robot.get("attachments", [])}
-        if attachments != {"camera"}:
-            raise ValueError("tiled aerial RGB supports the camera tool only")
-    if config.aerial_sensor_backend in {"tiled_rgb_isolated_orsus", "pooled_rgb_isolated_orsus"}:
-        ground = [r for r in robots if r not in aerial]
-        if (len(ground) != 1 or ground[0].get("type") != "carter"
-                or {a["type"] for a in ground[0].get("attachments", [])}
-                != {"orsus", "camera", "navigation_io"} or config.env_cfg_hook is None):
-            raise ValueError("isolated Orsus backend requires one Carter with stereo/cloud and an explicit scene hook")
-    else:
-        _validate_sensor_scene_num_envs(
-            {"robots": [r for r in robots if r not in aerial]}, config.num_envs)
-
-
-def _validate_tiled_aerial_cfg(env_cfg, selection_data):
-    from isaaclab.sensors import TiledCameraCfg
-
-    counts = {}
-    for robot in selection_data["robots"]:
-        kind = robot["type"]
-        counts[kind] = counts.get(kind, 0) + 1
-        if kind not in {"cf2x", "iris", "pegasus"}:
-            continue
-        name = f"{kind}_{counts[kind]}"
-        camera = getattr(env_cfg.scene, f"aerial_rgb_{name}", None)
-        if (not isinstance(camera, TiledCameraCfg)
-                or camera.prim_path != f"{{ENV_REGEX_NS}}/{name}/body/Camera"
-                or "rgb" not in camera.data_types):
-            raise ValueError(f"missing registered tiled RGB camera for {name}")
-
-
-def _validate_pooled_aerial_cfg(env_cfg, selection_data):
-    """Pooled render targets retain the native camera mounts, without tiled buffers."""
-    counts = {}
-    for robot in selection_data["robots"]:
-        kind = robot["type"]
-        counts[kind] = counts.get(kind, 0) + 1
-        if kind not in {"cf2x", "iris", "pegasus"}:
-            continue
-        name = f"{kind}_{counts[kind]}"
-        mount = getattr(env_cfg.scene, f"camera_{name}", None)
-        if (mount is None or mount.prim_path != f"{{ENV_REGEX_NS}}/{name}/body/Camera"
-                or getattr(env_cfg.scene, f"aerial_rgb_{name}", None) is not None):
-            raise ValueError(f"pooled RGB requires the native camera mount without tiled buffers: {name}")
 
 
 @dataclass
@@ -1176,14 +816,42 @@ class TaskRequest:
     selection_data: dict[str, Any] | None = None
 
 
+class BackToDiyMethod(Exception):
+    """Raised when terminal DIY backs out to the method chooser."""
+
+
+class Diy3dRequested(Exception):
+    """Raised when the Env DIY method chooser requests the 3D editor."""
+
+
 def _resolve_startup_mode(args: argparse.Namespace) -> str:
-    if getattr(args, "scenario_file", None):
+    if bool(getattr(args, "diy_3d", False)):
         if _requested_env_name(args):
-            raise ValueError("--scenario-file cannot be combined with --env.")
-        return "scenario-file"
-    if not _requested_env_name(args):
-        raise ValueError("the core EAI launcher requires --env or --scenario-file; Env DIY is not included")
-    return "saved-env"
+            raise ValueError("--diy-3d cannot be combined with --env.")
+        return "diy-3d"
+    return "saved-env" if _requested_env_name(args) else "diy"
+
+
+def _task_request_from_diy_3d_result(payload: dict[str, Any]) -> TaskRequest:
+    status = str(payload.get("status", "")).strip().lower()
+    action = str(payload.get("action", "")).strip().lower()
+    selection_data = payload.get("selection")
+    if status == "failed":
+        raise RuntimeError(str(payload.get("error") or "Env DIY 3D authoring failed."))
+    if status == "cancelled" or action == "cancel":
+        return TaskRequest(task_name=None, should_run=False)
+    if status != "completed":
+        raise ValueError(f"Unknown DIY 3D result status '{status}'.")
+    if action not in {"run", "save"}:
+        raise ValueError(f"Unknown DIY 3D result action '{action}'.")
+    if not isinstance(selection_data, dict):
+        raise ValueError("Completed DIY 3D result must include a selection object.")
+    return TaskRequest(
+        task_name="EAI-Interactive-v0" if action == "run" else None,
+        selection_data=selection_data,
+        saved_task=payload.get("saved_task"),
+        should_run=action == "run",
+    )
 
 
 def resolve_task_source(
@@ -1199,30 +867,189 @@ def resolve_task_source(
     raise ValueError(f"Unknown env JSON '{task_name}'.")
 
 
+def _diy_method_prompt_text() -> str:
+    return (
+        "\n未指定 --env，请选择 env 制定方式："
+        "\n  1. 可视化窗口（Scenes → Robots → Payloads → Tools）"
+        "\n  2. 终端快速（同样顺序，Payloads 先机械臂后传感器）"
+        "\n  3. Isaac Sim 3D 编辑器（编辑真实位置、旋转与碰撞面）"
+    )
+
+
+def choose_diy_selection_before_preflight():
+    repo_root = _repo_root()
+    while True:
+        print(_diy_method_prompt_text())
+        raw = input("输入 1、2 或 3: ").strip()
+        if raw == "1":
+            return _choose_visual_diy(repo_root)
+        if raw == "2":
+            try:
+                return _choose_terminal_diy(repo_root)
+            except BackToDiyMethod:
+                continue
+        if raw == "3":
+            raise Diy3dRequested
+        print("请输入 1、2 或 3。")
+
+
 def _requested_env_name(args: argparse.Namespace) -> str | None:
     return getattr(args, "env", None) or getattr(args, "task", None)
 
 
 def _resolve_task_request_before_app(args: argparse.Namespace) -> TaskRequest:
-    _resolve_startup_mode(args)
-    if getattr(args, "scenario_file", None):
-        from EAI.scenario_spec import load_scenario
-        from EAI.scenario_spec.geometry import provider_map, validate_connectivity, validate_geometry
-        from EAI.hmrs_env.env_diy.flow import interactive_selection_from_dict
-
-        if args.num_envs != 1:
-            raise ValueError("Factory V2 composition currently requires --num_envs 1")
-        data = load_scenario(args.scenario_file)
-        occupancy = provider_map(ensure=True, scene_key=data.get("scene_key", "factory"))
-        validate_geometry(data, occupancy)
-        validate_connectivity(data, occupancy)
-        return TaskRequest(task_name=data["task_name"], selection=interactive_selection_from_dict(data),
-                           selection_data=data)
     requested = _requested_env_name(args)
     if requested:
         return TaskRequest(task_name=requested)
 
-    raise AssertionError("unreachable: startup mode validation requires an environment")
+    selection, saved_task_data, should_run = choose_diy_selection_before_preflight()
+    if not should_run:
+        return TaskRequest(
+            task_name=None,
+            selection=selection,
+            saved_task=saved_task_data,
+            should_run=False,
+        )
+    return TaskRequest(
+        task_name="EAI-Interactive-v0",
+        selection=selection,
+        saved_task=saved_task_data,
+        should_run=True,
+    )
+
+
+def _choose_visual_diy(repo_root: Path):
+    output_path = repo_root / "tmp" / "task_diy_window_result.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.unlink(missing_ok=True)
+    cmd = [
+        sys.executable,
+        "-m",
+        "EAI.hmrs_env.env_diy.webview_app",
+        "--keyboard-preflight-output",
+        str(output_path),
+    ]
+    env = os.environ.copy()
+    source_root = str(repo_root / "source" / "EAI")
+    existing_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = source_root if not existing_pythonpath else os.pathsep.join((source_root, existing_pythonpath))
+    if sys.platform.startswith("linux"):
+        environment_lib = str(Path(sys.prefix) / "lib")
+        existing_library_path = env.get("LD_LIBRARY_PATH")
+        env["LD_LIBRARY_PATH"] = (
+            environment_lib
+            if not existing_library_path
+            else os.pathsep.join((environment_lib, existing_library_path))
+        )
+    subprocess.run(cmd, check=True, cwd=repo_root, env=env)
+    if not output_path.exists():
+        raise SystemExit(0)
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    if not payload.get("should_run", False):
+        return None, payload.get("saved_task"), False
+    _ensure_repo_sources_on_path()
+    from EAI.hmrs_env.env_diy.flow import interactive_selection_from_dict
+
+    saved_task = payload.get("saved_task")
+    selection_data = payload.get("selection") or saved_task
+    return interactive_selection_from_dict(selection_data), saved_task, True
+
+
+def _choose_terminal_diy(repo_root: Path):
+    _ensure_repo_sources_on_path()
+    from EAI.hmrs_env.env_diy.flow import (
+        TERMINAL_CONTROLLER_STEP,
+        choose_terminal_interactive_selection,
+        interactive_selection_to_dict,
+    )
+
+    selection = None
+    resume_controller_step = False
+    while True:
+        selection = choose_terminal_interactive_selection(
+            initial_selection=selection if resume_controller_step else None,
+            allow_back_from_first=True,
+            start_step=TERMINAL_CONTROLLER_STEP if resume_controller_step else 0,
+        )
+        if selection is None:
+            raise BackToDiyMethod
+        resume_controller_step = False
+        selection_data = interactive_selection_to_dict(selection)
+        result = _complete_terminal_selection(selection_data, repo_root)
+        if result.back_to_controller:
+            resume_controller_step = True
+            continue
+        return selection, result.saved_task, result.should_run
+
+
+def _complete_terminal_selection(
+    selection_data: dict[str, Any],
+    repo_root: Path,
+    *,
+    input_func=input,
+) -> TerminalCompletionResult:
+    _ensure_repo_sources_on_path()
+    from EAI.hmrs_env.env_diy.storage import save_task
+
+    print("\n[完成] 保存与运行")
+    print("-" * 72)
+    print("  可以保存为可复用的 JSON env，并选择是否立即运行")
+    saved_task = None
+    step = "save"
+    while True:
+        if step == "save":
+            save_choice = _ask_yes_no_or_back("保存此 env", default=True, input_func=input_func)
+            if save_choice is None:
+                return TerminalCompletionResult(None, False, back_to_controller=True)
+            if not save_choice:
+                saved_task = None
+            step = "name" if save_choice else "execute"
+            continue
+
+        if step == "name":
+            name = input_func("env 名称 (b 返回): ").strip()
+            if not name:
+                print("  ! env 名称不能为空。")
+                continue
+            if name.lower() in {"b", "back"}:
+                step = "save"
+                continue
+            try:
+                saved_path = save_task(
+                    name,
+                    selection_data,
+                    repo_root=repo_root,
+                )
+            except ValueError as exc:
+                print(f"  ! env 名称无效: {exc}")
+                continue
+            saved_task = json.loads(saved_path.read_text(encoding="utf-8"))
+            print("\n  已保存 env")
+            print(f"  {saved_path}")
+            step = "execute"
+            continue
+
+        should_run = _ask_yes_no_or_back("立即运行", default=True, input_func=input_func)
+        if should_run is None:
+            saved_task = None
+            step = "save"
+            continue
+        return TerminalCompletionResult(saved_task, bool(should_run))
+
+
+def _ask_yes_no_or_back(prompt: str, *, default: bool, input_func=input) -> bool | None:
+    suffix = "Y/n" if default else "y/N"
+    while True:
+        raw = input_func(f"{prompt} [{suffix}] (b 返回): ").strip().lower()
+        if raw in {"b", "back"}:
+            return None
+        if not raw:
+            return default
+        if raw in {"y", "yes"}:
+            return True
+        if raw in {"n", "no"}:
+            return False
+        print("  ! 请输入 y、n 或 b。")
 
 
 def _initialize_preflight_env_cfg(env_cfg: Any, *, num_envs: int, device: str) -> None:
@@ -1354,7 +1181,7 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
         from EAI.hmrs_env.env_diy.flow import interactive_selection_to_dict as flow_selection_to_dict
 
         selection_data = flow_selection_to_dict(selection)
-        task_name = selection_data.get("task_name") or "EAI-Interactive-v0"
+        task_name = "EAI-Interactive-v0"
     else:
         raise RuntimeError("No task or DIY selection was resolved.")
 
@@ -1382,8 +1209,20 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
 
 def _run_asset_preflight_worker(args: argparse.Namespace) -> None:
     _ensure_repo_sources_on_path()
-    output_path = Path(args.preflight_output).resolve()
-    task_request = _resolve_task_request_before_app(args)
+    try:
+        task_request = _resolve_task_request_before_app(args)
+    except Diy3dRequested:
+        payload = {
+            "startup_mode": "diy-3d",
+            "task_name": None,
+            "selection": None,
+            "saved_task": None,
+            "usd_paths": [],
+            "controller_paths": [],
+            "should_run": False,
+        }
+        Path(args.preflight_output).write_text(json.dumps(payload), encoding="utf-8")
+        return
 
     if not task_request.should_run:
         payload = {
@@ -1394,15 +1233,12 @@ def _run_asset_preflight_worker(args: argparse.Namespace) -> None:
             "controller_paths": [],
             "should_run": False,
         }
-        output_path.write_text(json.dumps(payload), encoding="utf-8")
+        Path(args.preflight_output).write_text(json.dumps(payload), encoding="utf-8")
         return
 
     from isaaclab.app import AppLauncher
 
-    # Same headless rule as the main app: the plain headless experience
-    # cannot build the Replicator SDG pipeline, and this worker also
-    # constructs the scene while collecting asset paths.
-    app_launcher = AppLauncher({"headless": True, "device": args.device, "enable_cameras": True})
+    app_launcher = AppLauncher({"headless": True, "device": args.device})
     simulation_app = app_launcher.app
 
     try:
@@ -1411,12 +1247,13 @@ def _run_asset_preflight_worker(args: argparse.Namespace) -> None:
             payload = _run_with_controller_package_retry(
                 lambda: _collect_asset_payload_after_app(args, task_request, asset_resolver),
             )
-        except BaseException as exc:
-            if _is_asset_preflight_failure(exc):
-                payload = {"asset_error": _asset_preflight_failure(exc)}
-            else:
-                payload = {"preflight_error": _preflight_internal_failure(exc)}
-        output_path.write_text(json.dumps(payload), encoding="utf-8")
+        except Exception as exc:
+            if not _is_asset_preflight_failure(exc):
+                raise
+            payload = {
+                "asset_error": _asset_preflight_failure(exc),
+            }
+        Path(args.preflight_output).write_text(json.dumps(payload), encoding="utf-8")
     finally:
         simulation_app.close()
 
@@ -1439,8 +1276,6 @@ def _run_asset_preflight(
         ]
         if args.env:
             cmd.extend(["--env", args.env])
-        if getattr(args, "scenario_file", None):
-            cmd.extend(["--scenario-file", str(Path(args.scenario_file).resolve())])
         env = os.environ.copy()
         env["HEADLESS"] = "1"
         if getattr(args, "disable_orsus_ros_env", False):
@@ -1448,6 +1283,76 @@ def _run_asset_preflight(
         _run_preflight_subprocess(cmd, env)
         payload = _read_preflight_payload(output_path)
     return _handle_preflight_payload(payload)
+
+
+def _run_diy_3d_authoring_in_process(
+    args: argparse.Namespace,
+    *,
+    simulation_app: Any | None = None,
+    initial_selection: dict[str, Any] | None = None,
+    restore_error: str | None = None,
+) -> tuple[TaskRequest, Any]:
+    """Run Env DIY authoring in the Kit process that will run the formal env."""
+
+    _ensure_repo_sources_on_path()
+    if simulation_app is None:
+        from isaaclab.app import AppLauncher
+
+        raw_launcher_options = getattr(args, "app_launcher_args", None)
+        launcher_options = dict(raw_launcher_options if raw_launcher_options is not None else vars(args))
+        launcher_options.pop("interfaces_menu", None)
+        launcher_options.setdefault("headless", False)
+        launcher_options.setdefault("device", getattr(args, "device", "cuda:0"))
+        launcher_options["enable_cameras"] = True
+        existing_kit_args = str(launcher_options.get("kit_args", "")).strip()
+        launcher_options["kit_args"] = " ".join(
+            item for item in (existing_kit_args, _RTX_LIDAR_PRELOAD_KIT_ARGS) if item
+        )
+        app_launcher = AppLauncher(launcher_options)
+        simulation_app = app_launcher.app
+
+    from EAI_env_diy.protocol import (
+        AuthoringResult,
+        clear_in_process_callback,
+        set_in_process_callback,
+    )
+
+    result_box: list[AuthoringResult] = []
+    result_ready = threading.Event()
+
+    def receive(result: AuthoringResult) -> None:
+        result_box.append(result)
+        result_ready.set()
+
+    set_in_process_callback(
+        receive,
+        initial_selection=initial_selection,
+        error=restore_error,
+    )
+    try:
+        _enable_isaac_extension("omni.kit.viewport.window")
+        import omni.ext
+        import omni.kit.app
+
+        extension_manager = omni.kit.app.get_app().get_extension_manager()
+        with _managed_env_diy_extension(
+            extension_manager,
+            _repo_root() / "source/EAI_env_diy",
+            direct_path_type=omni.ext.ExtensionPathType.DIRECT_PATH,
+        ):
+            while simulation_app.is_running() and not result_ready.is_set():
+                simulation_app.update()
+    except Exception as exc:
+        if not result_box:
+            result_box.append(AuthoringResult(status="failed", action="cancel", error=str(exc)))
+        raise
+    finally:
+        clear_in_process_callback()
+
+    if not result_box:
+        raise RuntimeError("Env DIY 3D authoring ended without a result.")
+    result = result_box[-1]
+    return _task_request_from_diy_3d_result(result.to_dict()), simulation_app
 
 
 def _pump_kit_updates(simulation_app: Any, count: int) -> None:
@@ -1566,21 +1471,19 @@ def manipulator_attachment_robot_models(
             attachment_types = {
                 str(item.get("type", "")).lower() for item in robot.get("attachments", [])
             }
-            enabled.update((agent_name, model) for model in ("ur5", "ur5_bare") if model in attachment_types)
-            enabled.update((agent_name, "z1") for model in ("z1",) if model in attachment_types)
-            enabled.update((agent_name, "d1") for model in ("d1",) if model in attachment_types)
+            enabled.update((agent_name, model) for model in ("ur5", "z1") if model in attachment_types)
 
     controllers = getattr(env_cfg, "controllers", {}) if env_cfg is not None else {}
     for agent_name, entry in controllers.items():
         configs = entry if isinstance(entry, (tuple, list)) else (entry,)
         identities = tuple(f"{type(config).__module__}.{type(config).__name__}".lower() for config in configs)
-        for model in ("ur5", "ur5_bare", "z1", "d1"):
+        for model in ("ur5", "z1"):
             if any(model in identity for identity in identities):
                 enabled.add((agent_name, model))
     return tuple(
         (agent_name, model)
         for agent_name in possible_agents
-        for model in ("ur5", "ur5_bare", "z1", "d1")
+        for model in ("ur5", "z1")
         if (agent_name, model) in enabled
     )
 
@@ -1604,18 +1507,10 @@ def _setup_manipulator_graph_manager(
         attach_manipulator_graph_manager,
         get_manipulator_graph_manager,
     )
-    import importlib
-
-    ur5_module = importlib.import_module("EAI.hmrs_ros.ur5_omnigraph")
+    from EAI.hmrs_ros.ur5_omnigraph import UR5_MODEL_SPEC
     from EAI.hmrs_ros.z1_omnigraph import Z1_MODEL_SPEC
-    from EAI.hmrs_ros.d1_omnigraph import D1_MODEL_SPEC
 
-    model_specs = {
-        "ur5": ur5_module.UR5_MODEL_SPEC,
-        "ur5_bare": getattr(ur5_module, "UR5_BARE_MODEL_SPEC", ur5_module.UR5_MODEL_SPEC),
-        "z1": Z1_MODEL_SPEC,
-        "d1": D1_MODEL_SPEC,
-    }
+    model_specs = {"ur5": UR5_MODEL_SPEC, "z1": Z1_MODEL_SPEC}
     manager = get_manipulator_graph_manager(base_env)
     created_manager = manager is None
     if manager is None:
@@ -1662,204 +1557,12 @@ def _disable_manipulator_ros2_auxiliaries(env_cfg: Any) -> int:
     return removed
 
 
-def _setup_simulation_clock_manager(base_env: Any):
-    from EAI.hmrs_ros.simulation_clock import ensure_simulation_clock_manager
-
-    return ensure_simulation_clock_manager(base_env)
-
-
-def _register_three_way_concordance_evaluator(base_env: Any) -> Any | None:
-    """Register the native diagnostic evaluator only under an explicit contract."""
-
-    if os.environ.get("EAI_THREE_WAY_CONCORDANCE", "").strip() != "1":
-        return None
-    if hasattr(base_env, "three_way_concordance_evaluator"):
-        raise RuntimeError("three-way concordance evaluator is already registered")
-    from tools.validation.three_way_evaluator import build_from_environment
-
-    provider = build_from_environment(base_env)
-    base_env.three_way_concordance_evaluator = provider
-    return provider
-
-
-def _register_factory_native_shared_slot_runtime(session: SimulatorSession) -> Any | None:
-    """Attach the production C-route runtime only for the explicit shared route.
-
-    A and B also enable the three-way evaluator, but use one environment and
-    must not be forced through the same-session slot contract.  The second
-    guard is therefore route-specific; once selected, every missing native
-    owner or isolation surface is an admission error rather than a fallback.
-    """
-
-    if os.environ.get("EAI_THREE_WAY_SHARED_SLOT", "").strip() != "1":
-        return None
-    if os.environ.get("EAI_THREE_WAY_CONCORDANCE", "").strip() != "1":
-        raise RuntimeError(
-            "shared-slot registration requires the three-way concordance contract"
-        )
-    from tools.physics_replay.factory_native_owners import (
-        install_factory_native_owner_graph,
-    )
-    from tools.physics_replay.factory_native_registration import (
-        register_factory_native_production_runtime,
-    )
-
-    install_factory_native_owner_graph(session)
-    return register_factory_native_production_runtime(session)
-
-
-def _prime_factory_native_shared_slot_buffers(base_env: Any) -> None:
-    """Create live batch rows required before native owner registration.
-
-    ``MultiRobotDirectEnv`` intentionally allocates ``_commands_dict`` and
-    computed-action caches on the first control step.  Isaac Lab's
-    ``DirectMARLEnv`` also creates reward/termination dictionaries only after
-    the first step, while an A-route checkpoint necessarily contains them.
-    The shared-session owner graph must be installed before that step, so it
-    needs real live rows for both families.  Priming calls the environment's
-    own pure reward/done evaluators and creates registered zero-hold command
-    rows; it does not advance simulation or invoke a controller.  The one
-    task-owned computed-action cache is allocated from the evaluator's explicit
-    binding rather than guessed from ``action_spaces``.  Checkpoint restore
-    then overwrites the target slot.
-    """
-
-    if os.environ.get("EAI_THREE_WAY_SHARED_SLOT", "").strip() != "1":
-        return
-    import torch
-    from tools.physics_replay.agent_checkpoint_schema import (
-        resolve_agent_checkpoint_schema,
-    )
-
-    capacity = getattr(base_env, "num_envs", None)
-    agents = tuple(getattr(base_env, "possible_agents", ()))
-    if type(capacity) is not int or capacity < 2 or not agents:
-        raise RuntimeError("shared-slot buffer priming requires a vectorized agent environment")
-    device = getattr(base_env, "device", "cpu")
-    command_registry = getattr(base_env, "_commands_dict", None)
-    if not isinstance(command_registry, dict):
-        base_env._commands_dict = {}
-        command_registry = base_env._commands_dict
-    actions = getattr(base_env, "actions_dict", None)
-    if not isinstance(actions, dict):
-        base_env.actions_dict = {}
-        actions = base_env.actions_dict
-    last_actions = getattr(base_env, "_last_computed_actions", None)
-    if not isinstance(last_actions, dict):
-        base_env._last_computed_actions = {}
-        last_actions = base_env._last_computed_actions
-
-    reward_reader = getattr(base_env, "_get_rewards", None)
-    done_reader = getattr(base_env, "_get_dones", None)
-    if not callable(reward_reader) or not callable(done_reader):
-        raise RuntimeError(
-            "shared-slot buffer priming requires native reward/done evaluators"
-        )
-
-    reward_rows = reward_reader()
-    done_rows = done_reader()
-    if (not isinstance(done_rows, tuple) or len(done_rows) != 2):
-        raise RuntimeError("shared-slot done evaluator returned a malformed pair")
-    terminated_rows, time_out_rows = done_rows
-
-    def validate_agent_rows(value: Any, label: str, *, boolean: bool) -> dict[str, Any]:
-        if not isinstance(value, dict) or set(value) != set(agents):
-            raise RuntimeError(f"shared-slot {label} rows do not cover all agents")
-        for agent, row in value.items():
-            shape = tuple(int(item) for item in getattr(row, "shape", ()))
-            dtype = getattr(row, "dtype", None)
-            if not shape or shape[0] != capacity:
-                raise RuntimeError(
-                    f"shared-slot {label} row for {agent} is not batch-indexed"
-                )
-            if boolean and dtype is not torch.bool:
-                raise RuntimeError(
-                    f"shared-slot {label} row for {agent} is not boolean"
-                )
-            if not boolean and not (getattr(dtype, "is_floating_point", False)):
-                raise RuntimeError(
-                    f"shared-slot {label} row for {agent} is not floating-point"
-                )
-        return value
-
-    # These are the actual DirectMARLEnv state attributes captured by
-    # EnvironmentBuffersComponent on A.  Bind the same owner-visible schema
-    # before constructing C's _AlgorithmSlotComponent.
-    base_env.reward_dict = validate_agent_rows(
-        reward_rows, "reward", boolean=False,
-    )
-    base_env.terminated_dict = validate_agent_rows(
-        terminated_rows, "termination", boolean=True,
-    )
-    base_env.time_out_dict = validate_agent_rows(
-        time_out_rows, "timeout", boolean=True,
-    )
-
-    try:
-        schema = resolve_agent_checkpoint_schema(base_env)
-    except ValueError as exc:
-        raise RuntimeError(str(exc)) from exc
-    if schema is None or schema[0] != capacity:
-        raise RuntimeError("shared-slot agent checkpoint schema is unavailable")
-
-    specs = {spec.agent: spec for spec in schema[1]}
-    for spec in schema[1]:
-        agent = spec.agent
-        command_name = spec.command_name
-        command_dim = spec.command_dim
-        if agent not in command_registry or command_name not in command_registry[agent]:
-            base_env.set_command(
-                agent, command_name,
-                torch.zeros((capacity, command_dim), device=device, dtype=torch.float32),
-            )
-
-    evaluator = getattr(base_env, "three_way_concordance_evaluator", None)
-    binding_reader = getattr(evaluator, "controller_checkpoint_binding", None)
-    if not callable(binding_reader):
-        raise RuntimeError("shared-slot evaluator lacks a controller checkpoint binding")
-    binding = binding_reader()
-    if not isinstance(binding, dict) or set(binding) != {
-        "agent", "command_name", "command_dim", "action_dim",
-    }:
-        raise RuntimeError("shared-slot controller checkpoint binding is malformed")
-    agent = binding["agent"]
-    if agent not in specs:
-        raise RuntimeError("shared-slot controller checkpoint agent is not configured")
-    spec = specs[agent]
-    if (binding["command_name"] != spec.command_name
-            or binding["command_dim"] != spec.command_dim
-            or type(binding["action_dim"]) is not int
-            or binding["action_dim"] <= 0):
-        raise RuntimeError("shared-slot controller checkpoint binding differs from the live command schema")
-    expected_shape = (capacity, binding["action_dim"])
-    for registry, label in (
-        (actions, "actions_dict"),
-        (last_actions, "_last_computed_actions"),
-    ):
-        unknown = sorted(set(registry) - {agent})
-        if unknown:
-            raise RuntimeError(
-                f"shared-slot {label} has unregistered controller cache keys: {unknown}"
-            )
-        if agent not in registry:
-            registry[agent] = torch.zeros(
-                expected_shape, device=device, dtype=torch.float32,
-            )
-        row = registry[agent]
-        if (tuple(int(item) for item in getattr(row, "shape", ())) != expected_shape
-                or not getattr(getattr(row, "dtype", None), "is_floating_point", False)):
-            raise RuntimeError(
-                f"shared-slot {label} row differs from the evaluator binding"
-            )
-
-
 def _setup_aerial_sensor_manager(
     *,
     base_env: Any,
     selection_data: dict[str, Any] | None,
     possible_agents: list[str],
     seed: int = 0,
-    publish_ros: bool = True,
 ):
     from EAI.hmrs_ros.aerial_sensor_suite import (
         AerialSensorSuiteManager,
@@ -1874,173 +1577,11 @@ def _setup_aerial_sensor_manager(
     manager = get_aerial_sensor_manager(base_env)
     if manager is not None:
         return manager
-    manager = AerialSensorSuiteManager(
-        base_env,
-        specs,
-        seed=seed,
-        publish_ros=publish_ros,
-    )
+    manager = AerialSensorSuiteManager(base_env, specs, seed=seed)
     if not manager.registered_robots:
         manager.close()
         return None
     attach_aerial_sensor_manager(base_env, manager)
-    return manager
-
-
-_WITNESS_CAMERAS: list[object] = []
-
-
-def _setup_witness_camera(base_env, possible_agents, namespace: str) -> None:
-    """Create an opt-in third-person ROS 2 camera for visual inspection.
-
-    Enabled only through ``EAI_WITNESS_NAMESPACE=<topic-namespace>``; the
-    default launch is unchanged. Screenshots are captured externally from the
-    GUI or ``/<namespace>/image_raw`` so this helper owns only the stream.
-    """
-    import torch
-    from isaaclab.utils.math import quat_from_matrix
-
-    articulations = getattr(getattr(base_env, "scene", None), "articulations", {})
-    target_name = next(
-        (name for name in possible_agents if name in articulations), None
-    )
-    robot = articulations.get(target_name) if target_name else None
-    if robot is None:
-        print("[EAI Simulator] Witness camera skipped: no articulation found.")
-        return
-    position = robot.data.root_pos_w[0, :3].detach().cpu().to(torch.float64)
-    eye = position + torch.tensor([2.6, 1.9, 1.35], dtype=torch.float64)
-    target = position + torch.tensor([0.0, 0.0, 0.25], dtype=torch.float64)
-    forward = torch.nn.functional.normalize(target - eye, dim=0)
-    world_up = torch.tensor([0.0, 0.0, 1.0], dtype=torch.float64)
-    right = torch.nn.functional.normalize(torch.linalg.cross(forward, world_up), dim=0)
-    up = torch.linalg.cross(right, forward)
-    rotation_matrix = torch.stack((right, up, -forward), dim=-1)
-    quaternion = quat_from_matrix(rotation_matrix).tolist()
-
-    import omni.graph.core as og
-    import omni.kit.app
-    import omni.usd
-    from isaacsim.sensors.camera import Camera
-
-    camera = Camera(
-        prim_path="/World/EaiWitnessCamera",
-        name="eai_witness_camera",
-        resolution=(1920, 1080),
-    )
-    camera.set_world_pose(
-        position=tuple(float(value) for value in eye),
-        orientation=quaternion,
-        camera_axes="usd",
-    )
-    camera.set_focal_length(50.0)
-    camera.set_horizontal_aperture(20.955, maintain_square_pixels=False)
-    camera.set_vertical_aperture(11.78719, maintain_square_pixels=False)
-    camera.set_clipping_range(0.05, 300.0)
-    # The raw RGB writer applies no tonemap; dim the dome light while the
-    # debug witness runs so unclipped whites do not wash out the scene.
-    stage = omni.usd.get_context().get_stage()
-    dome = stage.GetPrimAtPath("/World/DomeLight")
-    if dome and dome.IsValid():
-        intensity = dome.GetAttribute("inputs:intensity")
-        if intensity and intensity.Get() is not None and float(intensity.Get()) > 300.0:
-            intensity.Set(300.0)
-    omni.kit.app.get_app().update()
-    camera.initialize(attach_rgb_annotator=False)
-    actual_position, actual_quat = camera.get_world_pose(camera_axes="usd")
-    actual_position = actual_position.detach().cpu()
-    actual_quat = actual_quat.detach().cpu()
-    from isaaclab.utils.math import matrix_from_quat
-
-    actual_forward = -matrix_from_quat(actual_quat)[:, 2]
-    angle_error = math.degrees(
-        math.acos(float(torch.clamp(torch.dot(actual_forward, forward), -1.0, 1.0)))
-    )
-    print(
-        f"[EAI Simulator] Witness pose check: boresight error {angle_error:.2f} deg, "
-        f"pos {actual_position.round(decimals=3).tolist()}"
-    )
-    render_product_path = str(camera.get_render_product_path())
-    if not render_product_path:
-        raise RuntimeError("Witness camera render product was not initialized")
-
-    namespace = namespace.strip("/").replace("/", "_") or "eai_witness"
-    result = og.Controller.edit(
-        {
-            "graph_path": "/World/ROS2_EaiWitness/witness_graph",
-            "evaluator_name": "execution",
-        },
-        {
-            og.Controller.Keys.CREATE_NODES: [
-                ("on_playback_tick", "omni.graph.action.OnPlaybackTick"),
-                ("ros2_context", "isaacsim.ros2.bridge.ROS2Context"),
-                ("image_publisher", "isaacsim.ros2.bridge.ROS2CameraHelper"),
-            ],
-            og.Controller.Keys.CONNECT: [
-                ("on_playback_tick.outputs:tick", "image_publisher.inputs:execIn"),
-                ("ros2_context.outputs:context", "image_publisher.inputs:context"),
-            ],
-            og.Controller.Keys.SET_VALUES: [
-                ("image_publisher.inputs:renderProductPath", render_product_path),
-                ("image_publisher.inputs:nodeNamespace", f"/{namespace}"),
-                ("image_publisher.inputs:topicName", "image_raw"),
-                ("image_publisher.inputs:frameId", "eai_witness_optical_frame"),
-                ("image_publisher.inputs:type", "rgb"),
-            ],
-        },
-    )
-    graph = result[0] if isinstance(result, tuple) else result
-    _WITNESS_CAMERAS.append(camera)
-    for _ in range(2):
-        og.Controller.evaluate_sync(graph)
-    omni.kit.app.get_app().update()
-    print(
-        f"[EAI Simulator] Witness camera streaming: /{namespace}/image_raw "
-        f"(robot {target_name})"
-    )
-
-
-def _close_witness_cameras() -> None:
-    cameras = tuple(_WITNESS_CAMERAS)
-    _WITNESS_CAMERAS.clear()
-    for camera in cameras:
-        try:
-            camera.destroy()
-        except Exception as exc:
-            print(f"[EAI Simulator] Witness camera cleanup warning: {exc}")
-
-
-def _setup_simple_car_sensor_manager(
-    *,
-    base_env: Any,
-    selection_data: dict[str, Any] | None,
-    possible_agents: list[str],
-    seed: int = 0,
-):
-    from EAI.hmrs_ros.simple_car_sensor_suite import (
-        OctagonAioC01SensorSuiteManager,
-        attach_octagon_aio_c01_sensor_manager,
-        get_octagon_aio_c01_sensor_manager,
-    )
-    from EAI.physics.simple_car_sensors import (
-        octagon_aio_c01_sensor_specs_from_selection,
-    )
-
-    specs = tuple(
-        octagon_aio_c01_sensor_specs_from_selection(
-            selection_data, possible_agents
-        ).values()
-    )
-    if not specs or not any(spec.camera or spec.navigation_io for spec in specs):
-        return None
-    manager = get_octagon_aio_c01_sensor_manager(base_env)
-    if manager is not None:
-        return manager
-    manager = OctagonAioC01SensorSuiteManager(base_env, specs, seed=seed)
-    if not manager.registered_robots:
-        manager.close()
-        return None
-    attach_octagon_aio_c01_sensor_manager(base_env, manager)
     return manager
 
 
@@ -2255,20 +1796,6 @@ def _initialize_env_cfg(env_cfg: Any, args: argparse.Namespace) -> None:
     env_cfg.scene.num_envs = args.num_envs
     env_cfg.sim.device = args.device
     env_cfg.seed = args.seed
-    # The shared-session C route requires every AssetBaseCfg payload to have a
-    # real per-environment prim before native owner registration.  With
-    # replicate_physics=True Isaac clones the source environment only after
-    # custom AssetBase spawn callbacks have run; the custom Orsus/RealSense
-    # callbacks consequently see env_0 only and no env_1 sensor prim exists.
-    # Disable physics replication for this route so InteractiveScene clones
-    # the env xforms first and invokes each payload callback against all real
-    # environment parents.  A/B do not set this route flag and retain the
-    # normal homogeneous-scene fast path.
-    if os.environ.get("EAI_THREE_WAY_SHARED_SLOT", "").strip() == "1":
-        scene = getattr(env_cfg, "scene", None)
-        if scene is None:
-            raise RuntimeError("shared-slot route requires an interactive scene configuration")
-        scene.replicate_physics = False
 
 
 def _load_env_cfg(env_name: str, selection_data: dict[str, Any] | None):
@@ -2291,59 +1818,9 @@ def _apply_env_cfg_hook(env_cfg: Any, config: SimulatorLaunchConfig) -> None:
         config.env_cfg_hook(env_cfg)
 
 
-def _register_room06_runtime_hook_source(
-    *,
-    base_env: Any,
-    env_cfg: Any,
-    config: SimulatorLaunchConfig,
-    env_name: str,
-    selection_data: dict[str, Any] | None,
-    possible_agents: list[str],
-) -> None:
-    """Attach an explicitly supplied room06 observer source to the live env.
-
-    This is deliberately a registration seam only.  A real task runner must
-    provide the factory and the observer-owned completed-event semantics;
-    generic executor ledgers are never adapted here.  For non-room06 sessions
-    the helper is a no-op.  For room06, an explicitly requested but invalid
-    factory/source fails closed before the session is yielded.
-    """
-    scene_key = str((selection_data or {}).get("scene_key", "")).strip().lower()
-    if scene_key != "room_06" and str(env_name).strip().lower() != "room_06":
-        return
-    factory = getattr(config, "room06_runtime_hook_source_factory", None)
-    if factory is None:
-        factory = getattr(env_cfg, "room06_runtime_hook_source_factory", None)
-    if factory is None:
-        return
-    if not callable(factory):
-        raise TypeError("room06 runtime hook source factory must be callable")
-    source = factory(
-        base_env=base_env,
-        env_cfg=env_cfg,
-        env_name=env_name,
-        selection_data=selection_data,
-        possible_agents=tuple(possible_agents),
-    )
-    schema = "heterocoord.eai-room06-runtime-hook-source.v1"
-    if source is None or getattr(source, "schema", None) != schema:
-        raise RuntimeError(
-            "explicit room06 runtime hook factory did not return a valid "
-            f"{schema} source"
-        )
-    if not callable(getattr(source, "object_path_bindings", None)):
-        raise RuntimeError("room06 runtime hook source lacks object_path_bindings")
-    if not callable(getattr(source, "collect_room06", None)):
-        raise RuntimeError("room06 runtime hook source lacks collect_room06")
-    if getattr(base_env, "room06_runtime_hook_source", None) is not None:
-        raise RuntimeError("room06 runtime hook source was already registered")
-    base_env.room06_runtime_hook_source = source
-
-
 def _session_preflight_args(config: SimulatorLaunchConfig) -> SimpleNamespace:
     return SimpleNamespace(
-        env=None if config.scenario_file else config.env,
-        scenario_file=config.scenario_file,
+        env=config.env,
         task=None,
         num_envs=config.num_envs,
         device=config.device,
@@ -2365,24 +1842,6 @@ def _session_env_init_args(config: SimulatorLaunchConfig) -> SimpleNamespace:
     )
 
 
-def _resolve_project_session_inputs(
-    config: SimulatorLaunchConfig,
-    *, caller_cwd: Path | None = None,
-) -> SimulatorLaunchConfig:
-    """Freeze path-valued session inputs before the runtime changes cwd."""
-
-    if config.scenario_file is None:
-        return config
-    base = Path.cwd() if caller_cwd is None else Path(caller_cwd)
-    scenario = Path(config.scenario_file).expanduser()
-    if not scenario.is_absolute():
-        scenario = base / scenario
-    resolved = scenario.resolve()
-    if not resolved.is_relative_to(_repo_root().resolve()):
-        raise ValueError("scenario_file must resolve inside HeteroCoord")
-    return replace(config, scenario_file=str(resolved))
-
-
 def _app_launcher_args(
     config: SimulatorLaunchConfig,
     selection_data: dict[str, Any] | None = None,
@@ -2392,15 +1851,6 @@ def _app_launcher_args(
     args.setdefault("headless", config.headless)
     args.setdefault("device", config.device)
     args.setdefault("ml_framework", config.ml_framework)
-    if args.get("headless") and not args.get("enable_cameras"):
-        # The plain headless experience cannot initialize the Replicator SDG
-        # pipeline; the environment build then dies inside OmniGraph (and the
-        # full launcher surfaces it as a silent native exit). The rendering
-        # experience -- what sensor selections already use -- initializes it
-        # fine. The argparse default (False) is indistinguishable from an
-        # explicit opt-out, and the plain experience is broken anyway, so
-        # headless always gets cameras.
-        args["enable_cameras"] = True
     effective_selection = selection_data if selection_data is not None else config.selection_data
     if effective_selection:
         from EAI.physics.aerial_sensors import selection_requires_aerial_camera
@@ -2409,28 +1859,13 @@ def _app_launcher_args(
             args["enable_cameras"] = True
         has_orsus = _selection_has_attachment(effective_selection, "orsus")
         has_standalone_lidar = _selection_has_attachment(effective_selection, "lidar")
-        has_octagon_c01 = _selection_has_attachment(
-            effective_selection, "octagon_aio_c01"
-        )
-        has_simple_car_sensors = any(
-            isinstance(robot, dict)
-            and str(robot.get("type", "")).strip().casefold() == "simple_car"
-            and any(
-                isinstance(attachment, dict)
-                and str(attachment.get("type", "")).strip().casefold()
-                in {"camera", "navigation_io"}
-                for attachment in robot.get("attachments", ())
-            )
-            for robot in effective_selection.get("robots", ())
-        )
-        if (
-            has_orsus
-            or has_standalone_lidar
-            or has_octagon_c01
-            or has_simple_car_sensors
-        ):
+        if has_orsus or has_standalone_lidar:
             args["enable_cameras"] = True
-            motion_bvh_args = "--/renderer/raytracingMotion/enabled=true"
+            motion_bvh_args = (
+                "--/renderer/raytracingMotion/enabled=true "
+                "--/renderer/raytracingMotion/enableHydraEngineMasking=true "
+                "--/renderer/raytracingMotion/enabledForHydraEngines='0'"
+            )
             existing_kit_args = str(args.get("kit_args", "")).strip()
             args["kit_args"] = " ".join(
                 item
@@ -2448,40 +1883,18 @@ def _app_launcher_args(
 def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorSession]:
     """Open Isaac Sim and an EAI environment for programmatic callers."""
 
-    config = _resolve_project_session_inputs(config)
-    # This is the experiment boundary: direct callers get the same cwd and
-    # provenance guarantees as ``tools/project_runtime.py exec``.  Lower-level
-    # import/resource helpers keep their caller cwd by using the default.
-    _ensure_repo_sources_on_path(enforce_cwd=True)
+    _ensure_repo_sources_on_path()
     if config.resolved_env_name is not None:
         env_name = config.resolved_env_name
         selection_data = config.selection_data
     else:
         env_name, selection_data = _run_asset_preflight(_session_preflight_args(config))
-    if selection_data and selection_data.get("version") == 2:
-        from EAI.scenario_spec import validate_scenario
-        from EAI.scenario_spec.geometry import provider_map, validate_connectivity, validate_geometry
-
-        from EAI.scenario_spec.templates import FACTORY_LEVELS
-
-        selection_data = validate_scenario(
-            selection_data, known_floors=tuple(level.floor_z for level in FACTORY_LEVELS))
-        if config.num_envs != 1:
-            raise ValueError("Factory V2 composition currently requires num_envs=1")
-        occupancy = provider_map(ensure=True, scene_key=selection_data.get("scene_key", "factory"))
-        validate_geometry(selection_data, occupancy)
-        validate_connectivity(selection_data, occupancy)
-        config = replace(config, seed=selection_data["seed"])
-    requires_simulation_clock = _simulation_clock_required(
-        selection_data,
-        ros_bridge_enabled=config.enable_ros_bridge_extension,
-    )
     _validate_payload_mount_compatibility(selection_data)
-    _validate_session_sensor_backend(config, selection_data)
+    _validate_sensor_scene_num_envs(selection_data, config.num_envs)
     runtime_device = _runtime_device_for_env(env_name, selection_data, config.device)
     if runtime_device != config.device:
         print(
-            "[EAI Simulator] Scene-specific physics fallback "
+            "[EAI Simulator] Human assets use CPU PhysX on Isaac Sim 5.1 "
             f"(requested {config.device}, using {runtime_device})."
         )
         app_launcher_args = dict(config.app_launcher_args)
@@ -2504,21 +1917,11 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
     else:
         simulation_app = config.existing_simulation_app
     _silence_simulation_manager_time_log_spam()
-    if (
-        isinstance(selection_data, dict)
-        and str(selection_data.get("scene_key", "")).strip().lower() == "factory"
-        and runtime_device == "cpu"
-    ):
-        _silence_factory_cpu_physx_error_spam()
-    _install_cuda_delay_buffer_compat(runtime_device)
     env = None
     manipulator_manager = None
     aerial_sensor_manager = None
-    simple_car_sensor_manager = None
     realsense_imu_manager = None
-    simulation_clock_manager = None
     orsus_cleanup = None
-    session_close_marker = _session_close_marker_path()
     try:
         from EAI_assets.sensor.high_sensor.orsus import (
             close_orsus_ros_resources,
@@ -2535,17 +1938,6 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         env_cfg = _load_env_cfg(env_name, selection_data)
         _initialize_env_cfg(env_cfg, _session_env_init_args(config))
         _apply_env_cfg_hook(env_cfg, config)
-        if config.aerial_sensor_backend in {"tiled_rgb", "tiled_rgb_isolated_orsus"}:
-            _validate_tiled_aerial_cfg(env_cfg, selection_data)
-        if config.aerial_sensor_backend == "pooled_rgb_isolated_orsus":
-            _validate_pooled_aerial_cfg(env_cfg, selection_data)
-        if config.aerial_sensor_backend in {"tiled_rgb_isolated_orsus", "pooled_rgb_isolated_orsus"}:
-            payload = env_cfg.scene.orsus_carter_1.spawn
-            if (payload.enable_camera_publish or payload.enable_ros_publish
-                    or not env_cfg.scene.world.prim_path.startswith("{ENV_REGEX_NS}/")
-                    or not env_cfg.scene.world.prim_path.removeprefix("{ENV_REGEX_NS}/").isidentifier()
-                    or env_cfg.scene.env_spacing < 128.0):
-                raise ValueError("isolated Orsus requires disabled embedded publishers and spatial scene copies")
         if not config.enable_ros_bridge_extension:
             disabled_manipulators = _disable_manipulator_ros2_auxiliaries(env_cfg)
             if disabled_manipulators:
@@ -2556,22 +1948,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         env = _create_env(env_name, env_cfg)
         base_env = env.unwrapped if hasattr(env, "unwrapped") else env
         possible_agents = list(base_env.possible_agents)
-        if requires_simulation_clock:
-            simulation_clock_manager = _setup_simulation_clock_manager(base_env)
         env.reset()
-        _register_room06_runtime_hook_source(
-            base_env=base_env,
-            env_cfg=env_cfg,
-            config=config,
-            env_name=env_name,
-            selection_data=selection_data,
-            possible_agents=possible_agents,
-        )
-        collision_report = getattr(base_env, "robot_robot_collision_filter_report", None)
-        if collision_report is not None:
-            print(f"[EAI Simulator] collision filter report: {collision_report}")
-        _register_three_way_concordance_evaluator(base_env)
-        _prime_factory_native_shared_slot_buffers(base_env)
         # Re-apply log silencing after scene setup: native plugins can
         # (re-)register their carb logging source while the stage loads,
         # which resets per-source thresholds.
@@ -2594,31 +1971,19 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                     possible_agents=possible_agents,
                     env_cfg=env_cfg,
                 )
-        if config.aerial_sensor_backend == "native":
-            aerial_sensor_manager = _setup_aerial_sensor_manager(
-                base_env=base_env,
-                selection_data=selection_data,
-                possible_agents=possible_agents,
-                seed=config.seed,
-                publish_ros=config.enable_ros_bridge_extension,
-            )
-        if config.enable_ros_bridge_extension:
-            simple_car_sensor_manager = _setup_simple_car_sensor_manager(
-                base_env=base_env,
-                selection_data=selection_data,
-                possible_agents=possible_agents,
-                seed=config.seed,
-            )
+        aerial_sensor_manager = _setup_aerial_sensor_manager(
+            base_env=base_env,
+            selection_data=selection_data,
+            possible_agents=possible_agents,
+            seed=config.seed,
+        )
         realsense_imu_manager = _setup_realsense_imu_manager(
             base_env=base_env,
             seed=config.seed,
         )
-        witness_namespace = os.environ.get("EAI_WITNESS_NAMESPACE", "").strip()
-        if witness_namespace:
-            _setup_witness_camera(base_env, possible_agents, witness_namespace)
 
 
-        session = SimulatorSession(
+        yield SimulatorSession(
             simulation_app=simulation_app,
             env=env,
             base_env=base_env,
@@ -2629,30 +1994,14 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
             num_envs=config.num_envs,
             device=config.device,
         )
-        _register_factory_native_shared_slot_runtime(session)
-        yield session
-    except BaseException:
-        # Kit's native shutdown may terminate the process before an outer
-        # caller can report this exception. Preserve the original failure
-        # before closing the application, including scene-construction errors.
-        import traceback
-
-        traceback.print_exc(file=sys.stderr)
-        sys.stderr.flush()
-        raise
     finally:
-        cleanup_errors: list[dict[str, str]] = []
         try:
             cleanup_callbacks = (
-                _close_witness_cameras if _WITNESS_CAMERAS else None,
                 orsus_cleanup,
                 getattr(aerial_sensor_manager, "close", None),
-                getattr(simple_car_sensor_manager, "close", None),
                 getattr(realsense_imu_manager, "close", None),
                 getattr(manipulator_manager, "close", None),
-                getattr(simulation_clock_manager, "close", None),
-                ((lambda: _close_environment_for_app_close(env))
-                 if owns_simulation_app else getattr(env, "close", None)),
+                getattr(env, "close", None),
             )
             for cleanup_callback in cleanup_callbacks:
                 if cleanup_callback is None:
@@ -2660,56 +2009,11 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                 try:
                     cleanup_callback()
                 except Exception as exc:
-                    cleanup_errors.append({
-                        "callback": getattr(cleanup_callback, "__name__", type(cleanup_callback).__name__),
-                        "error": f"{type(exc).__name__}: {exc}",
-                    })
                     print(f"[EAI Simulator] Cleanup warning: {exc}")
         finally:
             if owns_simulation_app:
-                try:
-                    _prepare_gui_for_app_close(simulation_app)
-                except Exception as exc:
-                    print(f"[EAI Simulator] Warning: GUI close preparation failed: {exc}")
-                finally:
-                    try:
-                        _prepare_replicator_for_app_close()
-                    finally:
-                        marker_status = "cleanup_failed" if cleanup_errors else "app_close_requested"
-                        _write_session_close_marker(
-                            session_close_marker,
-                            status=marker_status,
-                            cleanup_errors=cleanup_errors,
-                            app_close_requested=True,
-                            app_close_returned=False,
-                        )
-                        try:
-                            simulation_app.close()
-                        except BaseException as exc:
-                            _write_session_close_marker(
-                                session_close_marker,
-                                status="app_close_failed",
-                                cleanup_errors=cleanup_errors,
-                                app_close_requested=True,
-                                app_close_returned=False,
-                                error=f"{type(exc).__name__}: {exc}",
-                            )
-                            raise
-                        _write_session_close_marker(
-                            session_close_marker,
-                            status="app_close_returned",
-                            cleanup_errors=cleanup_errors,
-                            app_close_requested=True,
-                            app_close_returned=True,
-                        )
-            else:
-                _write_session_close_marker(
-                    session_close_marker,
-                    status="context_released",
-                    cleanup_errors=cleanup_errors,
-                    app_close_requested=False,
-                    app_close_returned=False,
-                )
+                _prepare_replicator_for_app_close()
+                simulation_app.close()
 
 
 def main() -> None:
@@ -2723,22 +2027,44 @@ def main() -> None:
     _ensure_repo_sources_on_path()
     preflight_parser = _base_parser()
     preflight_args, hydra_args = preflight_parser.parse_known_args()
-    _ensure_isaac_ros_loader_env_before_kit()
     if preflight_args.preflight_output:
         _run_asset_preflight_worker(preflight_args)
         return
     try:
-        _resolve_startup_mode(preflight_args)
+        startup_mode = _resolve_startup_mode(preflight_args)
     except ValueError as exc:
         preflight_parser.error(str(exc))
-    env_name, selection_data = _run_asset_preflight(preflight_args)
-    from isaaclab.app import AppLauncher
+    task_request = None
+    existing_simulation_app = None
+    if startup_mode != "diy-3d":
+        try:
+            env_name, selection_data = _run_asset_preflight(preflight_args, task_request)
+        except Diy3dRequested:
+            startup_mode = "diy-3d"
 
-    launch_parser = _base_parser(include_device=False)
-    AppLauncher.add_app_launcher_args(launch_parser)
-    args_cli, hydra_args = launch_parser.parse_known_args()
-    args_cli.env = env_name
-    sys.argv = [sys.argv[0]] + hydra_args
+    if startup_mode == "diy-3d":
+        from isaaclab.app import AppLauncher
+
+        launch_parser = _base_parser(include_device=False)
+        AppLauncher.add_app_launcher_args(launch_parser)
+        args_cli, hydra_args = launch_parser.parse_known_args()
+        task_request, existing_simulation_app = _run_diy_3d_authoring_in_process(args_cli)
+        if not task_request.should_run:
+            if task_request.saved_task:
+                print("Env DIY 3D selection saved; simulation was not started.")
+            existing_simulation_app.close()
+            return
+        env_name = "EAI-Interactive-v0"
+        selection_data = task_request.selection_data
+        sys.argv = [sys.argv[0]] + hydra_args
+    else:
+        from isaaclab.app import AppLauncher
+
+        launch_parser = _base_parser(include_device=False)
+        AppLauncher.add_app_launcher_args(launch_parser)
+        args_cli, hydra_args = launch_parser.parse_known_args()
+        args_cli.env = env_name
+        sys.argv = [sys.argv[0]] + hydra_args
 
     launch_config = SimulatorLaunchConfig(
         env=env_name,
@@ -2746,21 +2072,44 @@ def main() -> None:
         device=args_cli.device,
         seed=args_cli.seed,
         headless=bool(getattr(args_cli, "headless", False)),
-        enable_ros_bridge_extension=not bool(getattr(args_cli, "disable_ros_bridge", False)),
+        enable_ros_bridge_extension=True,
         enable_cmd_vel_bridge=bool(getattr(args_cli, "enable_cmd_vel_bridge", False)),
         ml_framework=getattr(args_cli, "ml_framework", "torch"),
         app_launcher_args=dict(vars(args_cli)),
         resolved_env_name=env_name,
         selection_data=selection_data,
-        existing_simulation_app=None,
+        existing_simulation_app=existing_simulation_app,
     )
 
     entered_session = False
     session_context = None
     try:
-        session_context = open_simulator_session(launch_config)
-        session = session_context.__enter__()
-        entered_session = True
+        if existing_simulation_app is not None:
+            _prepare_formal_gpu_stage(existing_simulation_app, args_cli.device)
+        while True:
+            session_context = open_simulator_session(launch_config)
+            try:
+                session = session_context.__enter__()
+            except Exception as exc:
+                if existing_simulation_app is None:
+                    raise
+                _reset_kit_after_failed_formal_env(existing_simulation_app, args_cli.device)
+                task_request, _ = _run_diy_3d_authoring_in_process(
+                    args_cli,
+                    simulation_app=existing_simulation_app,
+                    initial_selection=selection_data,
+                    restore_error=str(exc),
+                )
+                if not task_request.should_run:
+                    if task_request.saved_task:
+                        print("Env DIY 3D selection saved after formal environment rollback.")
+                    return
+                selection_data = task_request.selection_data
+                _prepare_formal_gpu_stage(existing_simulation_app, args_cli.device)
+                launch_config = replace(launch_config, selection_data=selection_data)
+                continue
+            entered_session = True
+            break
         import torch
         from EAI.controllers.base import normalize_controller_entry
 
@@ -2880,10 +2229,9 @@ def main() -> None:
                     daemon=True,
                 ).start()
             last_snapshot_heartbeat = 0.0
-            demo_collision = os.environ.get("EAI_DEMO_COLLISION", "").strip() == "1"
-            if demo_collision:
-                print("[EAI Simulator] collision demo active: persistent initial velocity; robot↔robot filtered; robot↔cube enabled")
             while session.simulation_app.is_running():
+                import time
+
                 now = time.monotonic()
                 if now - last_snapshot_heartbeat >= 2.0:
                     from EAI.interface_catalog.snapshot import refresh_snapshot
@@ -2914,19 +2262,6 @@ def main() -> None:
                     yaw_command_names=yaw_command_names,
                     robot_types=robot_types,
                 )
-                if demo_collision:
-                    # The collision demo configs place two robots at (-3, 0)
-                    # and (0, -3), with the second facing +Y. Both pass
-                    # through the origin; their mutual contact is filtered
-                    # while each remains collidable with the demo cubes.
-                    speed = 0.65
-                    for robot_name in ("carter_1", "carter_2", "go2_1", "pepper_1"):
-                        if robot_name in robot_commands:
-                            robot_commands[robot_name][:, 0] = speed
-                            robot_commands[robot_name][:, 1] = 0.0
-                            robot_commands[robot_name][:, 2] = 0.0
-                if manipulator_manager is not None:
-                    manipulator_manager.apply_gripper_commands(base_env)
                 actions = {
                     agent: torch.zeros((num_envs, 3), device=runtime_device)
                     if agent in goal_controlled_robots
@@ -2946,6 +2281,8 @@ def main() -> None:
     finally:
         if entered_session:
             session_context.__exit__(*sys.exc_info())
+        if existing_simulation_app is not None:
+            existing_simulation_app.close()
 
 
 if __name__ == "__main__":

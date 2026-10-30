@@ -165,23 +165,13 @@ class ONNXPolicy:
         if not states.flags['C_CONTIGUOUS']:
             states = np.ascontiguousarray(states)
         
-        input_info = self.session.get_inputs()[0]
-        input_shape = getattr(input_info, "shape", None)
-        expected_batch = input_shape[0] if input_shape else None
-        if expected_batch == 1 and states.ndim == len(input_shape) and states.shape[0] > 1:
-            actions = np.concatenate([
-                self.session.run(
-                    [self.output_name],
-                    {self.input_name: np.ascontiguousarray(states[index:index + 1])},
-                )[0]
-                for index in range(states.shape[0])
-            ], axis=0)
-        else:
-            outputs = self.session.run([self.output_name], {self.input_name: states})
-            actions = outputs[0]
+        # Run inference
+        outputs = self.session.run([self.output_name], {self.input_name: states})
+        actions = outputs[0]
         
         return (actions, None)
     
     def reset(self, dones: Optional[Any] = None):
         """Reset internal state (no-op for ONNX models without recurrent state)."""
         pass
+

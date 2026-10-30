@@ -21,29 +21,11 @@ def _ids(attachments: list[str]) -> set[str]:
     }
 
 
-import os
-from typing import Any
-
-
 def test_standalone_lidar_interfaces_require_navigation_io() -> None:
     lidar_ids = {"ros.lidar.point_cloud", "ros.lidar.odometry"}
     assert _ids(["lidar"]).isdisjoint(lidar_ids)
     assert lidar_ids <= _ids(["lidar", "navigation_io"])
     assert _ids(["navigation_io"]).isdisjoint(lidar_ids)
-
-
-def test_aerial_camera_only_selection_does_not_request_rtx_lidar() -> None:
-    from EAI.physics.aerial_sensors import aerial_sensor_specs_from_selection
-
-    specs = aerial_sensor_specs_from_selection({"robots": [{
-        "id": "iris_1", "type": "iris", "attachments": [{"type": "camera"}],
-    }]}, ["iris_1"])
-    assert len(specs) == 1
-    assert specs[0].camera is True
-    assert specs[0].lidar is False
-    source = (ROOT / "source/EAI/EAI/hmrs_ros/aerial_sensor_suite.py").read_text(
-        encoding="utf-8")
-    assert "if spec.robot_type in AERIAL_SENSOR_TYPES and spec.lidar:" in source
 
 
 def test_builder_passes_navigation_gate_to_standalone_lidar() -> None:
@@ -91,14 +73,9 @@ def test_standalone_lidar_preloads_rtx_extensions_and_rendering() -> None:
     )
     launcher_source = ast.get_source_segment(source, launcher_args)
     assert 'has_standalone_lidar = _selection_has_attachment(effective_selection, "lidar")' in launcher_source
-    assert 'has_octagon_c01 = _selection_has_attachment' in launcher_source
-    assert "or has_octagon_c01" in launcher_source
-    assert "or has_simple_car_sensors" in launcher_source
+    assert "if has_orsus or has_standalone_lidar:" in launcher_source
     assert 'args["enable_cameras"] = True' in launcher_source
     assert "_RTX_LIDAR_PRELOAD_KIT_ARGS" in launcher_source
-    assert "--/renderer/raytracingMotion/enabled=true" in launcher_source
-    assert "enableHydraEngineMasking" not in launcher_source
-    assert "enabledForHydraEngines" not in launcher_source
 
 
 def test_physical_lidar_creation_can_skip_ros_render_product() -> None:
@@ -133,35 +110,3 @@ def test_lidar_cfg_propagates_gate_to_spawn_cfg() -> None:
     source = (ROOT / "source/EAI_assets/EAI_assets/sensor/low_sensor/ros_lidar.py").read_text(encoding="utf-8")
     assert "class RosLidarSpawnCfg" in source
     assert "self.spawn.enable_ros_publish = self.enable_ros_publish" in source
-
-
-def test_runtime_device_preserves_human_choice_and_factory_fallback(monkeypatch) -> None:
-    """Humans honor CPU/CUDA choices; the factory fallback is independent."""
-    monkeypatch.delenv("EAI_FACTORY_GPU_PHYSICS", raising=False)
-    import ast as _ast
-
-    source = (ROOT / "simulator.py").read_text(encoding="utf-8")
-    tree = _ast.parse(source)
-    function = next(
-        node
-        for node in _ast.walk(tree)
-        if isinstance(node, _ast.FunctionDef) and node.name == "_runtime_device_for_env"
-    )
-    namespace: dict = {"Any": Any, "os": os}
-    exec(_ast.get_source_segment(source, function), namespace)  # noqa: S102
-    runtime_device = namespace["_runtime_device_for_env"]
-
-    factory_selection = {"scene_key": "factory", "robots": []}
-    assert runtime_device("x", factory_selection, "cuda:0") == "cpu"
-    assert runtime_device("x", factory_selection, "cuda") == "cpu"
-    assert runtime_device("x", factory_selection, "cpu") == "cpu"
-    rmuc_selection = {"scene_key": "rmuc2024", "robots": []}
-    assert runtime_device("x", rmuc_selection, "cuda:0") == "cuda:0"
-    assert runtime_device("x", None, "cuda:0") == "cuda:0"
-    human_selection = {"scene_key": "plane", "robots": [{"type": "Human"}]}
-    for device in ("cuda", "cuda:0", "cuda:1", "cpu"):
-        assert runtime_device("x", human_selection, device) == device
-    factory_human = {"scene_key": "factory", "robots": [{"type": "human"}]}
-    assert runtime_device("x", factory_human, "cuda:0") == "cpu"
-    monkeypatch.setenv("EAI_FACTORY_GPU_PHYSICS", "1")
-    assert runtime_device("x", factory_human, "cuda:0") == "cuda:0"

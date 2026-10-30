@@ -1,127 +1,59 @@
-# Algorithm and skill layers
+# Algorithm Modules
 
-`algorithm/` has two different responsibilities and they must not be mixed:
+This directory contains reusable planners and ROS integration clients that can be called by the simulator or external demos. Modules have separate runtime boundaries; see each module README for its dependencies and startup procedure.
 
-1. `algorithm/system/` classifies paper-level system algorithms. They decide
-   task decomposition, heterogeneous allocation, coordination, communication,
-   and replanning.
-2. `algorithm/skills/` classifies low-level providers. They turn one assigned
-   task into a path, trajectory, controller command, or ROS transport event.
+## Catalog
 
-The system layer answers **what the team should do**. The skill layer answers
-**how one robot executes an already assigned part**. EAI owns the controller
-contract and simulator stepping; the benchmark adapter layer connects a skill
-plan to EAI.
+| Path | Purpose |
+|---|---|
+| algorithm/emos/ | Scenario-driven multi-agent LLM discussion and subtask allocation. |
+| algorithm/TeamWeaver/ | LLM task decomposition, MIQP/Hungarian allocation, phase scheduling, and replanning. |
+| algorithm/global_planner/ | Standalone 2D occupancy-grid planning, path tracking, and velocity commands. |
+| algorithm/multi_robot_navigation/ | Native db-CBS, synchronized trajectories, and the EAI Simulator session adapter. |
+| algorithm/nav2/ | External ROS2/Nav2 configuration, TF completion, point-cloud conversion, and goal client. |
+| algorithm/keyboard/ | Interactive ROS2 keyboard client for the EAI cmd_vel interface. |
 
-## Canonical structure
+## Import boundary
 
-```text
-algorithm/
-├── system/
-│   └── coordination/
-│       ├── emos/             # tested EMOS system algorithm
-│       ├── TeamWeaver/       # tested TeamWeaver system algorithm
-│       ├── coherent/         # tested COHERENT adapter
-│       ├── fmc_ata/          # tested FMC-ATA adapter
-│       ├── dcmrta/           # tested DCMRTA adapter
-│       ├── heteromrta/       # tested HeteroMRTA adapter
-│       ├── hybrid_susd/       # tested Hybrid-SUSD adapter
-│       ├── mrta_heuristic/   # tested MRTA heuristic adapter
-│       ├── bt_capabilities/  # tested capability-auction adapter
-│       └── registry.py       # paper/system adapter classification
-├── skills/
-│   ├── contracts.py          # dependency-free SkillRequest/SkillPlan
-│   ├── registry.py           # navigation and external-IO skill inventory
-│   ├── navigation/           # navigation provider upload point
-│   └── external_io/          # Nav2 and keyboard provider upload point
-├── common_coordination/       # task/system contracts without Isaac imports
-└── heterocoord/               # provenance and benchmark decision bridge
-```
+From the repository root, the namespace-package modules can be imported directly. Multi-robot navigation exposes its public sessions from __init__.py; its EAI adapter is in eai_plugin.py.
 
-EMOS and TeamWeaver are tested system-algorithm implementations, not
-compatibility copies. Their only supported import paths are
-`algorithm.system.coordination.emos` and
-`algorithm.system.coordination.TeamWeaver`. Authored-node ground navigation is
-implemented under `algorithm/skills/navigation/`, with native I/O in
-`task/executors/`. Global-grid, db-CBS, Nav2 and keyboard providers remain
-reserved for dedicated Skill implementations. These skills are not paper-level
-coordination algorithms.
+~~~python
+from algorithm.emos.engine import EMOSDiscussionManager
+from algorithm.emos.types import scenario_from_dict
+from algorithm.global_planner.session import GlobalNavSession
+from algorithm.multi_robot_navigation import DbcbsNavigationSession
+from algorithm.multi_robot_navigation.eai_plugin import EaiMultiRobotNavigationPlugin
+~~~
 
-## System algorithm boundary
+A repository-root demo can be started without a second checkout:
 
-System adapters may consume:
+~~~bash
+cd eai-simulator
+python -m demo.fire_rescue.main --env=EAI-Factory-v0 --device=cuda:0
+~~~
 
-- `task.EaiTaskPackage` and its task graph;
-- the active robot capability roster;
-- symbolic world state and execution feedback; and
-- the append-only coordination ledger.
+Fire Rescue selects this repository's algorithm directory through demo/fire_rescue/algorithm_paths.py. The adapter connects simulator state to the planner and does not replace the planner implementation.
 
-They return `AlgorithmDecision`, task DAGs, allocations, or replanning events.
-They must not create an Isaac application, access PhysX/joint handles, call an
-EAI skill, emit controller action tensors, or write physical success.
+## Runtime boundaries
 
-The system registry is in `algorithm/system/coordination/registry.py`. The
-paper/provenance registry in `algorithm/heterocoord/registry.py` records source
-and checkpoint status separately, including explicit `N/A` conditions.
+- EMOS receives a scenario, robot specifications, and optional environment state; it does not build an Isaac scene or execute actions.
+- TeamWeaver receives natural-language tasks and symbolic world state; it returns a task DAG and assignments, not simulator commands.
+- The global planner is independent of Isaac Sim, EMOS, Torch, and ROS.
+- Multi-robot navigation owns its planning worker and action generation; the caller owns the Isaac application, simulation loop, and cleanup.
+- Nav2 and keyboard run in the selected system-ROS Python, not in env_isaaclab. Do not mix rclpy processes with the Isaac Lab Conda interpreter.
+- tools/ros2/ contains operational ROS clients, not additional control algorithms or manipulator graph owners.
 
-## Skill boundary
+## Scene resources
 
-Skill providers accept a `SkillRequest` after allocation and return a
-`SkillPlan` containing executor-facing `SkillCommand` records. They may do
-map/path planning, collision-free trajectory generation, controller command
-translation, or ROS/Nav2 transport. They do not decide task ownership and do
-not claim that a physical milestone was reached.
+Provider-owned resources that accompany an EAI scene are declared in `EAI_assets.scene_resources`. Code already running with the EAI packages can call `ensure_scene_resource(scene, resource)`. External algorithms, including system-ROS processes that must not import the Isaac Lab environment, use the repository fast path:
 
-The dependency-free contract is in `algorithm/skills/contracts.py`. Existing
-providers are classified in `algorithm/skills/registry.py`:
+~~~bash
+python simulator.py assets list --format json
+python simulator.py assets ensure --scene warehouse --resource occupancy_map --format json
+~~~
 
-| Skill provider | Planned provider path | Role |
-|---|---|---|
-| unified node navigation | `algorithm/skills/navigation/node_route.py` | target references, XY/XYZ routing; controller adapters via shared executor |
-| global 2D navigation | `algorithm/skills/navigation/global_planner/` | path and velocity generation |
-| db-CBS navigation | `algorithm/skills/navigation/multi_robot_navigation/` | multi-robot trajectory and collision avoidance |
-| Nav2 | `algorithm/skills/external_io/nav2/` | system-ROS goal/transport path |
-| keyboard | `algorithm/skills/external_io/keyboard/` | manual velocity transport |
-| EMOS internal skills | `algorithm/system/coordination/emos/brain/skills/` | EAI/Torch-dependent runtime used internally by EMOS; not a separate system algorithm |
+Both forms delegate to the shared EAI asset resolver and honor `EAI_USD_ROOT`, `EAI_ASSETS_HF_REPO`, `EAI_ASSETS_HF_REVISION`, and `EAI_ASSETS_AUTO_DOWNLOAD`. Algorithms must not construct Hugging Face paths or implement their own downloader. Explicit user-supplied maps remain outside this provider contract.
 
-`source/EAI/EAI/controllers/` remains the only controller/action application
-contract. The adapter from `SkillPlan` to that contract lives behind
-`benchmark/adapters.py`, and the benchmark evaluator owns physical evidence.
+## Documentation
 
-## Decision-to-execution flow
-
-```text
-task package + roster + symbolic state
-                  |
-                  v
-          system algorithm adapter
-                  |
-                  v
-       AlgorithmDecision / Assignment
-                  |
-                  v
-          task executor -> SkillRequest
-                  |
-                  v
-            skill provider -> SkillPlan
-                  |
-                  v
-       EAI controller and simulator step
-                  |
-                  v
-       feedback -> evaluator -> physical verdict
-```
-
-```python
-from algorithm.skills import SkillRequest
-from task.contracts import EaiTaskPackage, TaskRunRequest
-from task.runner import TaskRunner
-
-package = EaiTaskPackage.from_json("task/config/fire_rescue.json")
-result = TaskRunner().run(TaskRunRequest(package), decision_provider)
-```
-
-`TaskRunner` reports `N/A / physical_evidence_required` when an EAI executor or
-evaluator is not injected. Do not add a second simulator launcher inside any
-algorithm package. Do not put USD, downloaded checkpoints, runtime ledgers, or
-experiment output under `algorithm/`.
+Each module README documents its import path, dependencies, startup commands, and limitations. Provider-owned assets and model weights may be downloaded on demand through the shared resolver; ROS installations and Isaac Sim remain runtime prerequisites.

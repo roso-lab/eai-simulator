@@ -1,9 +1,0 @@
-{
-  "scene_key": "numpy-reference",
-  "slots": 2,
-  "execution_mode": "shared_session",
-  "execution_scope": "protocol_synthetic",
-  "runtime_factory": "tools.benchmark_branch.examples.vectorized_reference:factory",
-  "runtime_kwargs": {"num_envs": 4, "horizon": 4},
-  "shared_session_envs": 4
-}

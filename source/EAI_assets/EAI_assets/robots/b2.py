@@ -71,12 +71,3 @@ B2_CFG = ArticulationCfg(
         ),
     },
 )
-
-
-def build_b2_stationary_cfg():
-    """Bounded PD for stationary mount trials, independent of locomotion policy gains."""
-    cfg = B2_CFG.copy()
-    for actuator in cfg.actuators.values():
-        actuator.stiffness = 800.0
-        actuator.damping = 20.0
-    return cfg

@@ -32,25 +32,6 @@ interfaces:
     description: Current UR5 joint positions and velocities.
     example: ros2 topic echo --once /{robot}/ur5/joint_states
     read_only_test: {type: ros_topic}
-  - id: ros.ur5.gripper_command
-    name: Robotiq gripper command
-    protocol: ros2
-    direction: input
-    kind: topic
-    endpoint: /{robot}/ur5/gripper_command
-    data_type: sensor_msgs/msg/JointState
-    description: Desired Robotiq finger_joint position, clamped to articulation limits.
-    example: 'ros2 topic pub --once /{robot}/ur5/gripper_command sensor_msgs/msg/JointState "{name: [finger_joint], position: [0.4]}"'
-  - id: ros.ur5.gripper_state
-    name: Robotiq gripper state
-    protocol: ros2
-    direction: output
-    kind: topic
-    endpoint: /{robot}/ur5/gripper_state
-    data_type: sensor_msgs/msg/JointState
-    description: Current Robotiq finger_joint position and velocity.
-    example: ros2 topic echo --once /{robot}/ur5/gripper_state
-    read_only_test: {type: ros_topic}
   - id: ros.ur5.ee_pose
     name: End-effector pose
     protocol: ros2

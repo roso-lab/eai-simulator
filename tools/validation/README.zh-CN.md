@@ -2,39 +2,21 @@
 
 [English](README.md)
 
-`tools/validation/` 包含仓库、配置、资产和可选运行时 smoke check。它是 benchmark 周边的
-质量门禁，不是任务 evaluator，也不能替代 `task/evaluators/`。
+这些命令提供无需完整启动 simulator 的聚焦仓库检查，均从仓库根目录运行。通过只代表下表列出的契约成立，不能证明 Isaac Sim、GPU、实时 ROS2、网络或已下载资产可以正常工作。
 
-## 检查范围
+## 检查清单
 
-这些工具可以检查：
+| 命令 | 检查内容 | 运行环境 |
+| --- | --- | --- |
+| `python tools/validation/check_asset_download_errors.py` | 资产 preflight 网络/访问错误归一化、父进程报告、worker payload、可见诊断和非零退出行为 | Python；使用 mock，不下载资产 |
+| `python tools/validation/check_documentation_consistency.py` | Release revision 文本、算法 README 清单、公开 README 图片引用，以及 hosted 文档目录存在时的引用 | Python；只读取本地文件 |
+| `python tools/validation/check_env_diy_exclusivity.py` | Env DIY 共享附件验证、Orsus/LiDAR 互斥、authoring model、simulator 验证和 Navigation I/O gate | Python；导入纯模块和 test double，不启动 Isaac |
+| `node tools/validation/check_env_diy_runtime.mjs all` | Env DIY HTML 结构、元素 ID 唯一性、本地资源引用、内联 JavaScript 语法和相关 runtime 契约 | Node.js 20 LTS 或更新 LTS |
+| `python tools/validation/check_release_links.py` | 公开 Release/下载链接和 release revision 一致性 | Python；只读取本地文件 |
+| `python tools/validation/check_ros_distro_config.py` | Humble/Jazzy 验证、解析优先级、保存选择和非法值行为 | Python 和 Bash；不导入 Isaac 或 ROS2 |
+| `python tools/validation/check_scene_map_assets.py` | 7 组规范场景地图、requirement 展开、普通 preflight 路径合并，以及算法/Demo 地图副本清理 | Python；只读取本地文件和纯模块 |
 
-- 仓库和文档的一致性；
-- 资产 preflight 和 provider 错误报告；
-- 场景/地图所有权和资源声明；
-- ROS 发行版和安装配置；
-- Env DIY 或 interface 兼容性合同；
-- 机器人、挂载、URDF/USD 以及指定的物理 smoke probe。
-
-检查通过只代表对应合同成立，不能证明 Isaac Sim、GPU、ROS2、外部资产、controller 或完整多机
-任务链路一定可运行。
-
-## 与任务评测的边界
-
-```text
-tools/validation/
-    仓库、配置和输入是否满足准入条件？
-
-task/evaluators/
-    机器人实际执行后是否满足物理任务里程碑？
-```
-
-例如，`check_scene_map_assets.py` 只检查地图声明和资产所有权是否一致；机器人是否到达目标、
-是否完成危险源检查或灭火，必须由任务 evaluator 根据物理证据判定。
-
-## 轻量检查
-
-从仓库根目录运行适用的检查：
+## 建议执行顺序
 
 ```bash
 python tools/validation/check_asset_download_errors.py
@@ -46,43 +28,16 @@ python tools/validation/check_scene_map_assets.py
 node tools/validation/check_env_diy_runtime.mjs all
 ```
 
-轻量检查使用本地文件、mock 或纯模块，不应下载资产或启动 Isaac Sim。定位问题时请逐个运行，
-确保失败命令的非零退出状态不会被 shell pipeline 吞掉。
-
-## 可选运行时探针
-
-本目录中有少量工具会跨越轻量检查边界，例如机械臂接触/抓取说明和 headless 挂载 smoke test。
-它们属于可选集成检查：
-
-- 只能在指定的 `env_isaaclab` 中运行；
-- 必须使用当前测试对应的资产和 controller 配置；
-- 报告应放在源码树之外，除非明确作为受控 fixture；
-- 不能把探针通过解释成 benchmark 任务成功。
+任何检查失败时命令都会返回非零状态，并输出失败断言或诊断。定位问题时应逐个运行，不要放进会无条件吞掉退出状态的 Shell pipeline。
 
 ## 何时运行
 
-GUI 生命周期回归不需要启动 Isaac：
+- 修改 README、Release 引用、算法文档或公开图片链接后，运行文档和 Release 链接检查。
+- 修改 Env DIY catalog、selection 格式、兼容规则、HTML 应用、authoring model 或 launcher gate 后，运行两个 Env DIY 检查。
+- 修改 preflight worker、provider 错误转换或父子进程报告后，运行资产下载错误检查。
+- 修改可选场景、资源声明、外部资产请求、preflight 路径收集或占据地图所有权后，运行场景资源检查。
+- 修改 setup 脚本、ROS 发行版优先级或持久配置后，运行 ROS 发行版检查。
 
-```bash
-python -m pytest -q tools/validation/test_simulator_gui_shutdown.py tools/validation/test_box_transport_capture.py
-```
+## 限制
 
-`open_simulator_session()` 在关闭自己创建的应用前释放已有 Kit GUI 回调；
-不关闭或修改调用方持有的应用。环境关闭后，在 PhysX 仍存活时停止物理并释放
-共享 native tensor view，覆盖回放和 controller 对资产的残留引用；这些对象在
-session 关闭后不可继续使用。Kit 107 的兼容清理显式释放失效 view 的 native owner，
-因为上游 wrapper 没有独立 close 方法。单项清理失败不会跳过其余清理或应用关闭。
-GUI 集成检查必须分别确认物理证据、进程退出码为0及整个工作进程组终止，
-物理报告成功不能抵消逐扩展卸载期间的崩溃。
-
-- 修改文档或算法清单 → 运行文档和 Release 链接检查；
-- 修改 preflight、provider 或资产 resolver → 运行资产错误和场景资源检查；
-- 修改 Env DIY、interface 或兼容性规则 → 运行 Env DIY 检查；
-- 修改安装脚本或 ROS 发行版逻辑 → 运行 ROS 发行版检查；
-- 修改机器人挂载或物理逻辑 → 运行对应运行时探针和单元测试。
-
-这些检查之后仍需运行受影响的单元测试。若改动跨越运行时边界，再使用独立的 Isaac Sim 集成
-测试验证，不得为了测试修改现有 simulator、Torch、ROS 或资产缓存环境。
-
-任务合同和执行编排请先阅读 [task/README.zh-CN.md](../../task/README.zh-CN.md)。可选的场景编写
-工具请阅读 [scenario generation](../scenario_generation/README.zh-CN.md)。
+这些脚本有意避开高成本依赖。它们通过后仍应运行相关单元测试；如果变更跨越 runtime 边界，还应在受影响的 Isaac Sim、ROS2、资产和硬件配置中完成真实集成验证。

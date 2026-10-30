@@ -1,8 +1,0 @@
-{
-  "checkpoint_path": "imitation_learning/checkpoints/hyperparam_2_8t3r3s/best_checkpoint.pt",
-  "skill_names": [
-    "manipulate",
-    "inspect",
-    "transport"
-  ]
-}

@@ -1,0 +1,5 @@
+numpy>=1.20
+PyYAML>=5.4
+Pillow>=9.0
+# Optional (FactoryMapVisualizer):
+# matplotlib>=3.5

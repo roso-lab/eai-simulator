@@ -12,8 +12,6 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
-from EAI.keyed_random import KeyedRandom
-
 
 AERIAL_SENSOR_TYPES = frozenset({"cf2x", "iris", "pegasus"})
 # Robots that carry a built-in monocular camera published by the sensor suite.
@@ -97,10 +95,11 @@ class AerialSensorReading:
 
 @dataclass(frozen=True)
 class AerialSensorRobotSpec:
-    """Independently gated sensor resources and ROS publishers.
+    """Sensor resources and their independently gated ROS publishers.
 
-    Ground-robot camera providers are handled by their explicit Orsus or
-    RealSense D455 payload runtimes.
+    Aerial robots own the complete physical/model suite, so their booleans
+    describe ROS publication only. Ground-robot camera providers are handled by
+    their explicit Orsus or RealSense D455 payload runtimes.
     """
 
     robot_name: str
@@ -136,27 +135,20 @@ def quaternion_wxyz_to_matrix(quaternion: Sequence[Any]) -> np.ndarray:
 
 
 class _FirstOrderBias:
-    def __init__(self, config: FirstOrderBiasConfig, rng: KeyedRandom, entity: str) -> None:
+    def __init__(self, config: FirstOrderBiasConfig, rng: np.random.Generator) -> None:
         self.config = config
         self._rng = rng
-        self._entity = entity
-        self.value = self._rng.normal(
-            entity, ("reset", "turn_on"), 0.0, config.turn_on_bias_sigma, size=3
-        )
+        self.value = self._rng.normal(0.0, config.turn_on_bias_sigma, size=3)
 
-    def sample(self, true_value: np.ndarray, dt: float, event_key: Any) -> np.ndarray:
+    def sample(self, true_value: np.ndarray, dt: float) -> np.ndarray:
         config = self.config
         phi = math.exp(-dt / max(config.correlation_time, 1.0e-9))
         bias_sigma = config.random_walk * math.sqrt(
             max(config.correlation_time * (1.0 - phi * phi) * 0.5, 0.0)
         )
-        self.value = phi * self.value + self._rng.normal(
-            self._entity, (event_key, "bias"), 0.0, bias_sigma, size=3
-        )
+        self.value = phi * self.value + self._rng.normal(0.0, bias_sigma, size=3)
         white_sigma = config.noise_density / math.sqrt(dt)
-        return true_value + self.value + self._rng.normal(
-            self._entity, (event_key, "white"), 0.0, white_sigma, size=3
-        )
+        return true_value + self.value + self._rng.normal(0.0, white_sigma, size=3)
 
 
 class AerialSensorModel:
@@ -173,19 +165,10 @@ class AerialSensorModel:
         self.reset()
 
     def reset(self) -> None:
-        # Preserve the legacy entropy-seeded behavior when callers omit a
-        # seed; explicit episode seeds use the order-independent keyed path.
-        seed = (int(self._seed) if self._seed is not None
-                else int(np.random.SeedSequence().entropy))
-        self._rng = KeyedRandom(seed, "aerial_sensor")
-        self._sample_index = 0
-        self._gyro = _FirstOrderBias(self.config.gyroscope, self._rng, "gyroscope")
-        self._accelerometer = _FirstOrderBias(
-            self.config.accelerometer, self._rng, "accelerometer"
-        )
-        self._magnetometer = _FirstOrderBias(
-            self.config.magnetometer, self._rng, "magnetometer"
-        )
+        self._rng = np.random.default_rng(self._seed)
+        self._gyro = _FirstOrderBias(self.config.gyroscope, self._rng)
+        self._accelerometer = _FirstOrderBias(self.config.accelerometer, self._rng)
+        self._magnetometer = _FirstOrderBias(self.config.magnetometer, self._rng)
         self._gps_bias = np.zeros(3, dtype=np.float64)
         self._previous_velocity_w: np.ndarray | None = None
         self._barometer_drift_pa = 0.0
@@ -206,7 +189,6 @@ class AerialSensorModel:
         linear_velocity_w: Sequence[Any],
         angular_velocity_b: Sequence[Any],
         dt: float,
-        event_key: Any | None = None,
     ) -> AerialSensorReading:
         dt = float(dt)
         if not math.isfinite(dt) or dt <= 0.0:
@@ -215,9 +197,6 @@ class AerialSensorModel:
         orientation = _normalize_vector(orientation_wxyz, 4, "orientation_wxyz")
         velocity = _normalize_vector(linear_velocity_w, 3, "linear_velocity_w")
         angular_velocity = _normalize_vector(angular_velocity_b, 3, "angular_velocity_b")
-        if event_key is None:
-            event_key = ("step", self._sample_index)
-        self._sample_index += 1
         rotation_body_to_world = quaternion_wxyz_to_matrix(orientation)
 
         if self._previous_velocity_w is None:
@@ -228,21 +207,17 @@ class AerialSensorModel:
         gravity_w = np.asarray((0.0, 0.0, -self.config.gravity), dtype=np.float64)
         specific_force_b = rotation_body_to_world.T @ (acceleration_w - gravity_w)
 
-        measured_angular_velocity = self._gyro.sample(angular_velocity, dt, event_key)
-        measured_specific_force = self._accelerometer.sample(
-            specific_force_b, dt, event_key
-        )
+        measured_angular_velocity = self._gyro.sample(angular_velocity, dt)
+        measured_specific_force = self._accelerometer.sample(specific_force_b, dt)
 
-        gps_position = position + self._gps_measurement_error(dt, event_key)
+        gps_position = position + self._gps_measurement_error(dt)
         latitude, longitude, altitude = self._local_enu_to_geodetic(gps_position)
 
         magnetic_field_b = rotation_body_to_world.T @ np.asarray(
             self.config.magnetic_field_enu_t, dtype=np.float64
         )
-        measured_magnetic_field = self._magnetometer.sample(
-            magnetic_field_b, dt, event_key
-        )
-        pressure = self._barometer(position[2], dt, event_key)
+        measured_magnetic_field = self._magnetometer.sample(magnetic_field_b, dt)
+        pressure = self._barometer(position[2], dt)
 
         orientation = orientation / np.linalg.norm(orientation)
         return AerialSensorReading(
@@ -257,18 +232,14 @@ class AerialSensorModel:
             pressure_variance=self.config.barometer_noise_std_pa**2,
         )
 
-    def _gps_measurement_error(self, dt: float, event_key: Any) -> np.ndarray:
+    def _gps_measurement_error(self, dt: float) -> np.ndarray:
         config = self.config
         tau = max(config.gps_bias_correlation_time_s, 1.0e-9)
         phi = math.exp(-dt / tau)
         random_walk = np.asarray(config.gps_random_walk_m_sqrt_s, dtype=np.float64)
         bias_sigma = random_walk * math.sqrt(max(tau * (1.0 - phi * phi) * 0.5, 0.0))
-        self._gps_bias = phi * self._gps_bias + self._rng.normal(
-            "gps", (event_key, "bias"), 0.0, bias_sigma, size=3
-        )
+        self._gps_bias = phi * self._gps_bias + self._rng.normal(0.0, bias_sigma, size=3)
         white_noise = self._rng.normal(
-            "gps",
-            (event_key, "white"),
             0.0,
             np.asarray(config.gps_position_noise_std_m, dtype=np.float64),
             size=3,
@@ -285,7 +256,7 @@ class AerialSensorModel:
         altitude = self.config.origin_altitude_m + position_enu[2]
         return float(latitude), float(longitude), float(altitude)
 
-    def _barometer(self, local_altitude_m: float, dt: float, event_key: Any) -> float:
+    def _barometer(self, local_altitude_m: float, dt: float) -> float:
         config = self.config
         altitude_amsl = config.origin_altitude_m + float(local_altitude_m)
         temperature = max(config.temperature_msl_k - config.lapse_rate_k_per_m * altitude_amsl, 1.0)
@@ -294,9 +265,7 @@ class AerialSensorModel:
         return float(
             pressure
             + self._barometer_drift_pa
-            + self._rng.normal(
-                "barometer", (event_key, "white"), 0.0, config.barometer_noise_std_pa
-            )
+            + self._rng.normal(0.0, config.barometer_noise_std_pa)
         )
 
 

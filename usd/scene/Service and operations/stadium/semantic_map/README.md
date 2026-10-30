@@ -1,1 +1,0 @@
-105 × 68 m scene map. Coordinates and geometry-grid lattice migrated using metric_scale.json. Original occupancy classifications are resampled historical evidence, not new collision validation. All routes remain unvalidated. Open with the normal semantic-map editor.

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "algorithm": "sha256-path-content-v1",
+  "revision": "v0.1.0-beta.1",
+  "packs": {
+    "usd/human/characters/**": {
+      "root": "usd/human/characters",
+      "file_count": 280,
+      "size_bytes": 1395941443,
+      "sha256": "62287f69dd6ed3a5d04f4b8732cee78af2feef12ce9a861df58880481740c1c7"
+    },
+    "usd/human/activities/**": {
+      "root": "usd/human/activities",
+      "file_count": 23,
+      "size_bytes": 201272129,
+      "sha256": "a674c226d95acd693975585ae806fae8ce6eceb02a99de79cd9ac80b1159e065"
+    },
+    "usd/human/motions/**": {
+      "root": "usd/human/motions",
+      "file_count": 588,
+      "size_bytes": 152014138,
+      "sha256": "2947bb81e7753af5fb1dae7d6f9100ce090ff284f4f391353e9487b0531f8910"
+    }
+  }
+}

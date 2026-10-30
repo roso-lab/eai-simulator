@@ -7,44 +7,14 @@
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
-from isaaclab.sim.spawners.from_files import spawn_from_usd
-from pxr import Gf
 
 from EAI_assets.asset_resolver import asset_path
 
 usd_path = asset_path("robot/pepper/pepper.usd")
 
-
-def spawn_pepper_usd_with_plastic_shell(prim_path, cfg, translation=None, orientation=None, **kwargs):
-    """Spawn Pepper and normalize its authored shell material for RTX rendering.
-
-    The distributed USD has a white emissive value on ``material_shiny_white``.
-    That makes the shell look self-lit and washes out its plastic shading.  The
-    override is authored on the instance after spawning, so it also applies when
-    the asset resolver refreshes the underlying USD cache.
-    """
-    prim = spawn_from_usd(
-        prim_path, cfg, translation=translation, orientation=orientation, **kwargs
-    )
-    stage = prim.GetStage()
-    for descendant in stage.Traverse():
-        path = str(descendant.GetPath())
-        if not path.startswith(str(prim.GetPath())) or descendant.GetName() != "Shader":
-            continue
-        if not path.endswith("/material_shiny_white/Shader"):
-            continue
-        diffuse = descendant.GetAttribute("inputs:diffuse_color_constant")
-        emissive = descendant.GetAttribute("inputs:emissive_color")
-        if diffuse:
-            diffuse.Set(Gf.Vec3f(0.86, 0.86, 0.86))
-        if emissive:
-            emissive.Set(Gf.Vec3f(0.0, 0.0, 0.0))
-    return prim
-
 PEPPER_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path=usd_path,
-        func=spawn_pepper_usd_with_plastic_shell,
         activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
@@ -133,11 +103,3 @@ PEPPER_CFG = ArticulationCfg(
         ),
     },
 )
-
-
-# Fixed-base variant used by the idealized two-arm box skill.  The mobile base
-# joints remain part of the authored Pepper articulation, but the root is
-# fixed so this bottom-level skill cannot translate or rotate the robot.
-PEPPER_BOX_GRASP_ROBOT_CFG = PEPPER_CFG.copy()
-PEPPER_BOX_GRASP_ROBOT_CFG.spawn.articulation_props.fix_root_link = True
-"""Fixed-base Pepper configuration for stationary two-arm box transfer."""

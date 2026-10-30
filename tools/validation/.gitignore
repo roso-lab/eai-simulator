@@ -1,2 +1,0 @@
-# Keep the semantic editor regression suite visible despite the global test glob.
-!test_semantic_topology_authoring.py

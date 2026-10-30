@@ -377,14 +377,6 @@ G1_CFG = ArticulationCfg(
 """Configuration for the Unitree G1 Humanoid robot."""
 
 
-# Stationary upper-body variant used by the idealized G1 box skill.  The root
-# is fixed so the bottom-level skill cannot accidentally turn or walk while
-# the arms execute their reach/carry/place sequence.
-G1_BOX_GRASP_ROBOT_CFG = G1_CFG.copy()
-G1_BOX_GRASP_ROBOT_CFG.spawn.articulation_props.fix_root_link = True
-"""Fixed-base G1 configuration for stationary two-arm box transfer."""
-
-
 G1_MINIMAL_CFG = G1_CFG.copy()
 G1_MINIMAL_CFG.spawn.usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Robots/Unitree/G1/g1_minimal.usd"
 """Configuration for the Unitree G1 Humanoid robot with fewer collision meshes.

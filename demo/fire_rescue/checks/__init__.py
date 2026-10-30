@@ -1,0 +1,1 @@
+"""Fire Rescue regression checks."""

@@ -17,14 +17,7 @@ from .utils import get_model_dims, find_checkpoint, load_yaml_config
 
 _CHECKPOINT_MODULE_NAMES = {
     "state_preprocessor": "observation_preprocessor",
-    "observation_preprocessor": "state_preprocessor",
 }
-
-
-def _legacy_skrl_api() -> bool:
-    """SKRL 1.x calls observations 'states' and exposes set_running_mode."""
-    import skrl
-    return int(skrl.__version__.split('.')[0]) < 2
 
 
 def _load_agent_checkpoint(agent: Any, path: str) -> None:
@@ -40,7 +33,7 @@ def _load_agent_checkpoint(agent: Any, path: str) -> None:
 
     installed = dict(getattr(agent, "checkpoint_modules", {}) or {})
     for stored_name, state_dict in modules.items():
-        module_name = stored_name if stored_name in installed else _CHECKPOINT_MODULE_NAMES.get(stored_name, stored_name)
+        module_name = _CHECKPOINT_MODULE_NAMES.get(stored_name, stored_name)
         module = installed.get(module_name)
         if module is None:
             print(f"[SKRL] Skipping unregistered checkpoint module '{stored_name}'")
@@ -135,7 +128,7 @@ class SKRLControllerCfg(ControllerCfg):
         
         # Forward through policy
         with torch.inference_mode():
-            action = policy.act({controller_dict.get('policy_input_key', 'observations'): observations}, role="policy")[0]
+            action = policy.act({"observations": observations}, role="policy")[0]
         
         # Ensure tensor format
         if not isinstance(action, torch.Tensor):
@@ -189,7 +182,6 @@ class SKRLControllerCfg(ControllerCfg):
             'name': robot_name,
             'policy': policy,
             'preprocessor': preprocessor,
-            'policy_input_key': 'states' if _legacy_skrl_api() else 'observations',
         }
     
     def _load_skrl_model(
@@ -269,11 +261,6 @@ class SKRLControllerCfg(ControllerCfg):
             cfg = load_cfg_from_registry(task_name, skrl_cfg_entry)
         
         cfg["trainer"]["close_environment_at_exit"] = False
-        if _legacy_skrl_api():
-            for suffix in ('', '_kwargs'):
-                key = 'observation_preprocessor' + suffix
-                if key in cfg['agent']:
-                    cfg['agent']['state_preprocessor' + suffix] = cfg['agent'].pop(key)
         if "agent" in cfg and "experiment" in cfg["agent"]:
             cfg["agent"]["experiment"]["write_interval"] = 0
             cfg["agent"]["experiment"]["checkpoint_interval"] = 0
@@ -282,17 +269,11 @@ class SKRLControllerCfg(ControllerCfg):
         minimal_env = MinimalEnv(observation_space, action_space, device)
         runner = Runner(minimal_env, cfg)
         _load_agent_checkpoint(runner.agent, model_path)
-        if hasattr(runner.agent, 'enable_training_mode'):
-            runner.agent.enable_training_mode(False)
-        else:
-            runner.agent.set_running_mode('eval')
-            runner.agent.set_mode('eval')
+        runner.agent.enable_training_mode(False)
 
         preprocessor = getattr(runner.agent, "observation_preprocessor", None)
         if preprocessor is None:
             preprocessor = getattr(runner.agent, "_observation_preprocessor", None)
-        if preprocessor is None and _legacy_skrl_api():
-            preprocessor = runner.agent.checkpoint_modules.get('state_preprocessor')
         return runner.agent.policy, preprocessor
     
     def _get_action_dim(self, robot_name: str, base_env: Any) -> Optional[int]:
@@ -382,3 +363,4 @@ class SKRLControllerCfg(ControllerCfg):
         
         # Return None to trigger model dimension inference from checkpoint
         return None
+

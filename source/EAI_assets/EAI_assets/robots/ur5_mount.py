@@ -3,10 +3,8 @@ from __future__ import annotations
 import copy
 from contextlib import nullcontext
 import os
-import math
 from dataclasses import dataclass
 from functools import partial
-from pathlib import Path
 
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
@@ -21,10 +19,6 @@ from EAI_assets.robots.manipulator_mount import (
     find_first_valid_child,
     scale_articulation_mass,
 )
-from EAI_assets.robots.ur5_robotiq import (
-    attach_robotiq_85,
-    default_robotiq_85_usd,
-)
 
 
 UR5_STANDALONE_USD_PATH = asset_path("payloads/manipulators/ur5/ur5-noroot.usd")
@@ -36,12 +30,6 @@ UR5_JOINT_NAMES = (
     "wrist_1_joint",
     "wrist_2_joint",
     "wrist_3_joint",
-)
-
-UR5_JOINT_EFFORT_LIMITS = {"shoulder.*": 150.0, "elbow_joint": 150.0, "wrist.*": 28.0}
-UR5_JOINT_LIMIT_SOURCE = (
-    "https://github.com/UniversalRobots/Universal_Robots_ROS2_Description/"
-    "blob/rolling/config/ur5/joint_limits.yaml"
 )
 
 UR5_DEFAULT_JOINT_POS = {
@@ -68,26 +56,13 @@ class Ur5MountProfile:
 _YAW_PI = (0.0, 0.0, 0.0, 1.0)
 
 UR5_MOUNT_PROFILES = {
-    # Carter reuses the physically screened Z1 mount flange on the Orsus
-    # chassis link; the USD-declared 54 kg host mass puts 40 kg in the two
-    # drive wheels, so its stability margin is authored-favorable (see the
-    # 2026-09-16 mass audit before treating passes as hardware-realistic).
-    "carter": Ur5MountProfile(
-        robot_type="carter",
-        mount_body_path="Carter/Orsus_chassis_link",
-        mount_position=(0.0, 0.0, 0.414),
-        mount_rotation=_YAW_PI,
-        visual_scale=1.0,
-        mass_scale=1.0,
-        enable_self_collisions=False,
-    ),
     "go2": Ur5MountProfile(
         robot_type="go2",
         mount_body_path="base",
         mount_position=(0.0, 0.0, 0.056),
         mount_rotation=_YAW_PI,
         visual_scale=1.0,
-        mass_scale=1.0,
+        mass_scale=0.01,
         enable_self_collisions=False,
     ),
     "b2": Ur5MountProfile(
@@ -96,7 +71,7 @@ UR5_MOUNT_PROFILES = {
         mount_position=(0.0, 0.0, 0.085),
         mount_rotation=_YAW_PI,
         visual_scale=1.0,
-        mass_scale=1.0,
+        mass_scale=0.07,
         enable_self_collisions=False,
     ),
     "m20": Ur5MountProfile(
@@ -105,7 +80,7 @@ UR5_MOUNT_PROFILES = {
         mount_position=(0.0, 0.0, 0.0852),
         mount_rotation=_YAW_PI,
         visual_scale=1.0,
-        mass_scale=1.0,
+        mass_scale=0.03,
         enable_self_collisions=True,
     ),
     "scout": Ur5MountProfile(
@@ -114,7 +89,7 @@ UR5_MOUNT_PROFILES = {
         mount_position=(0.0, 0.0, 0.1162),
         mount_rotation=_YAW_PI,
         visual_scale=1.0,
-        mass_scale=1.0,
+        mass_scale=0.05,
         enable_self_collisions=True,
     ),
     "lite3": Ur5MountProfile(
@@ -123,7 +98,7 @@ UR5_MOUNT_PROFILES = {
         mount_position=(0.0, 0.0, 0.073),
         mount_rotation=_YAW_PI,
         visual_scale=1.0,
-        mass_scale=1.0,
+        mass_scale=0.01,
         enable_self_collisions=False,
     ),
 }
@@ -137,8 +112,7 @@ def _mount_debug_enabled() -> bool:
     return os.environ.get("EAI_UR5_MOUNT_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _spawn_mounted_ur5_instance(stage, *, host_path: str, arm_path: str,
-                                profile: Ur5MountProfile, with_gripper: bool = True) -> str:
+def _spawn_mounted_ur5_instance(stage, *, host_path: str, arm_path: str, profile: Ur5MountProfile) -> str:
     from pxr import Gf, UsdGeom, UsdPhysics
 
     ur5_cfg = sim_utils.UsdFileCfg(
@@ -146,8 +120,6 @@ def _spawn_mounted_ur5_instance(stage, *, host_path: str, arm_path: str,
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=profile.enable_self_collisions,
             fix_root_link=False,
-            solver_position_iteration_count=64,
-            solver_velocity_iteration_count=4,
         ),
         activate_contact_sensors=False,
     )
@@ -188,14 +160,6 @@ def _spawn_mounted_ur5_instance(stage, *, host_path: str, arm_path: str,
                 orientation=arm_orientation,
             )
         deactivate_root_joint(stage, arm_path)
-        if with_gripper:
-            gripper_path = default_robotiq_85_usd()
-            if not Path(gripper_path).is_file():
-                raise FileNotFoundError(
-                    f"Default UR5 Robotiq 2F-85 asset is missing: {gripper_path}. "
-                    f"Set EAI_ROBOTIQ_2F85_USD or install {GRIPPER_ASSET_RELATIVE_PATH}."
-                )
-            attach_robotiq_85(stage, arm_path=arm_path, gripper_usd=gripper_path)
         total_mass = scale_articulation_mass(stage, arm_path, profile.mass_scale)
 
         ur5_base_path = find_first_valid_child(stage, arm_path, ("base_link", "base", "world", "root_link"))
@@ -203,9 +167,6 @@ def _spawn_mounted_ur5_instance(stage, *, host_path: str, arm_path: str,
             raise RuntimeError(f"{host_path}: UR5 base_link does not exist under {arm_path}")
         ur5_base = stage.GetPrimAtPath(ur5_base_path)
         UsdPhysics.ArticulationRootAPI.Apply(ur5_base)
-        sim_utils.modify_articulation_root_properties(
-            ur5_base_path, ur5_cfg.articulation_props, stage=stage
-        )
 
         articulation_root_path = find_articulation_root(stage, host_body_path)
         if articulation_root_path is None:
@@ -244,7 +205,6 @@ def spawn_mounted_ur5_single_host(
     orientation: tuple[float, float, float, float] | None = None,
     *,
     profile: Ur5MountProfile,
-    with_gripper: bool = True,
 ) -> None:
     """Mount one UR5 on one explicit host assembly.
 
@@ -254,8 +214,7 @@ def spawn_mounted_ur5_single_host(
     import omni.usd
 
     stage = omni.usd.get_context().get_stage()
-    _spawn_mounted_ur5_instance(stage, host_path=host_path, arm_path=arm_path,
-                                profile=profile, with_gripper=with_gripper)
+    _spawn_mounted_ur5_instance(stage, host_path=host_path, arm_path=arm_path, profile=profile)
 
 
 def spawn_mounted_ur5(
@@ -265,7 +224,6 @@ def spawn_mounted_ur5(
     orientation: tuple[float, float, float, float] | None,
     *,
     profile: Ur5MountProfile,
-    with_gripper: bool = True,
 ) -> None:
     """Formal Builder callback retaining its historical multi-instance behavior."""
     import omni.usd
@@ -281,8 +239,7 @@ def spawn_mounted_ur5(
     mounted_count = 0
     for arm_path, host_path in zip(arm_paths, host_paths):
         try:
-            _spawn_mounted_ur5_instance(stage, host_path=host_path, arm_path=arm_path,
-                                        profile=profile, with_gripper=with_gripper)
+            _spawn_mounted_ur5_instance(stage, host_path=host_path, arm_path=arm_path, profile=profile)
             mounted_count += 1
         except Exception as exc:
             errors.append(str(exc))
@@ -295,21 +252,12 @@ def spawn_mounted_ur5(
 
 @configclass
 class MountedUr5ArmCfg(ArticulationCfg):
-    asset_dependencies = (
-        UR5_STANDALONE_USD_PATH,
-        default_robotiq_85_usd(),
-    )
-
-
-@configclass
-class MountedUr5BareArmCfg(ArticulationCfg):
     asset_dependencies = (UR5_STANDALONE_USD_PATH,)
 
 
 def build_mounted_ur5_asset_cfg(prim_path: str, profile: Ur5MountProfile) -> MountedUr5ArmCfg:
     return MountedUr5ArmCfg(
         prim_path=prim_path,
-        asset_dependencies=(UR5_STANDALONE_USD_PATH, default_robotiq_85_usd()),
         articulation_root_prim_path="/base_link",
         spawn=sim_utils.UsdFileCfg(
             usd_path=UR5_STANDALONE_USD_PATH,
@@ -322,42 +270,7 @@ def build_mounted_ur5_asset_cfg(prim_path: str, profile: Ur5MountProfile) -> Mou
         actuators={
             "ur5_arm": ImplicitActuatorCfg(
                 joint_names_expr=list(UR5_JOINT_NAMES),
-                effort_limit_sim={name: effort * profile.mass_scale
-                                  for name, effort in UR5_JOINT_EFFORT_LIMITS.items()},
-                velocity_limit_sim=math.pi,
-                stiffness=800.0 * profile.mass_scale,
-                damping=40.0 * profile.mass_scale,
-            ),
-            "gripper": ImplicitActuatorCfg(
-                joint_names_expr=["finger_joint"], effort_limit_sim=2.0,
-                velocity_limit_sim=0.8, stiffness=50.0, damping=1.0,
-            ),
-            "passive_gripper": ImplicitActuatorCfg(
-                joint_names_expr=["right_outer_knuckle_joint", ".*inner.*joint"],
-                effort_limit_sim=0.0, stiffness=0.0, damping=0.0,
-            ),
-        },
-    )
-
-
-def build_mounted_ur5_bare_asset_cfg(prim_path: str, profile: Ur5MountProfile) -> MountedUr5BareArmCfg:
-    return MountedUr5BareArmCfg(
-        prim_path=prim_path,
-        articulation_root_prim_path="/base_link",
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=UR5_STANDALONE_USD_PATH,
-            func=partial(spawn_mounted_ur5, profile=profile, with_gripper=False),
-        ),
-        init_state=ArticulationCfg.InitialStateCfg(
-            joint_pos=dict(UR5_DEFAULT_JOINT_POS),
-            joint_vel={".*": 0.0},
-        ),
-        actuators={
-            "ur5_arm": ImplicitActuatorCfg(
-                joint_names_expr=list(UR5_JOINT_NAMES),
-                effort_limit_sim={name: effort * profile.mass_scale
-                                  for name, effort in UR5_JOINT_EFFORT_LIMITS.items()},
-                velocity_limit_sim=math.pi,
+                effort_limit_sim=87.0 * profile.mass_scale,
                 stiffness=800.0 * profile.mass_scale,
                 damping=40.0 * profile.mass_scale,
             ),

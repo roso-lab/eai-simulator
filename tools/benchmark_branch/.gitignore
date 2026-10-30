@@ -1,7 +1,0 @@
-# Maintained tool fixtures override repository-wide test/JSON output ignores.
-!tests/
-!tests/*.py
-!examples/*.json
-!schemas/*.json
-**/__pycache__/
-**/*.pyc

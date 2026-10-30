@@ -54,51 +54,6 @@ class EnvDiyWebViewBridge:
     def attach_window(self, window: Any) -> None:
         self.window = window
 
-    def manipulator_deployment(self) -> dict[str, dict[str, dict[str, str]]]:
-        from . import catalog
-
-        return {
-            host: {
-                model: {"status": status, "reason": reason}
-                for model in ("ur5", "ur5_bare", "z1")
-                for status, reason in [catalog.manipulator_deployment_status(host, model)]
-            }
-            for host in catalog.ROBOT_KEYS
-        }
-
-    def controller_catalog(self) -> dict[str, list[str]]:
-        """Expose the Python controller vocabulary to the visual DIY editor."""
-        from . import catalog
-
-        return {
-            robot_type: list(catalog.controller_cfgs_for_robot(robot_type))
-            for robot_type in catalog.ROBOT_KEYS
-        }
-
-    def manipulator_physics_summary(self) -> dict[str, dict[str, dict[str, Any]]]:
-        from . import catalog
-        from tools.scenario_generation.robot_dossier import robot_dossier
-
-        result: dict[str, dict[str, dict[str, Any]]] = {}
-        for host in catalog.ROBOT_KEYS:
-            result[host] = {}
-            for model in ("ur5", "ur5_bare", "z1"):
-                try:
-                    dossier = robot_dossier(host, attachments=[model], physics_context="benchmark")
-                except ValueError as exc:
-                    result[host][model] = {"status": "unsupported", "reason": str(exc)}
-                    continue
-                physics = dossier["physics"]
-                result[host][model] = {
-                    "mass": physics["mass_kg"]["status"],
-                    "com": physics["center_of_mass_m"]["status"],
-                    "inertia": physics["inertia_kg_m2"]["status"],
-                    "support": physics["support_geometry_status"],
-                    "aggregate": physics["aggregate_com_inertia_status"],
-                    "installation": physics["installation_geometry_status"],
-                }
-        return result
-
     def submit_selection(self, payload: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(payload, dict):
             raise TypeError("Env DIY payload must be a JSON object.")

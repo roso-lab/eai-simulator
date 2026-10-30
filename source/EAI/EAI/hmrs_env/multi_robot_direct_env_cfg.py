@@ -38,12 +38,6 @@ class MultiRobotDirectEnvCfg(DirectMARLEnvCfg):
     post_apply_action: Optional[Any] = None
     after_reset_idx_hook: Optional[Any] = None
 
-    # Heterogeneous multi-robot scenes model robot↔scene contacts, while
-    # contacts between different robot entities are ignored by default for
-    # coordination studies. A mounted arm/sensor belongs to its host entity;
-    # this does not change per-articulation self-collision settings.
-    ignore_robot_robot_collisions: bool = True
-
     # Unified controllers configuration
     controllers: Dict[str, Any] = {}
     """统一控制器配置字典，键为机器人资产名字，值为对应的控制器配置。
@@ -65,12 +59,12 @@ class MultiRobotDirectEnvCfg(DirectMARLEnvCfg):
     
     def __post_init__(self):
         """Post-initialization: generate multi-robot configs and set simulation parameters."""
-        # 1. An empty controllers mapping is a scene-only environment: the env
-        #    runs the scene with zero agents and no controller loading.
-        #    scene_key remains mandatory upstream, so robot-only selections
-        #    are still rejected before reaching this cfg.
-        scene_only = not self.controllers
-
+        # 1. Validate controllers is defined
+        if not self.controllers:
+            raise ValueError(
+                "At least one controller must be defined in 'controllers' dictionary."
+            )
+        
         # 2. Generate possible_agents from controllers keys
         self.possible_agents = list(self.controllers.keys())
         
@@ -100,10 +94,8 @@ class MultiRobotDirectEnvCfg(DirectMARLEnvCfg):
         self.observation_spaces = observation_spaces
         self.action_spaces = action_spaces
         
-        # 4. Set state_space to -1 (auto-concatenate all observations); a
-        #    scene-only environment has no observations to concatenate, and
-        #    Isaac Lab's empty-Tuple flatten would raise, so disable it (0).
-        self.state_space = 0 if scene_only else -1
+        # 4. Set state_space to -1 (auto-concatenate all observations)
+        self.state_space = -1
         
         # 5. Set default simulation parameters (can be overridden in subclasses)
         self.decimation = 4  # Control frequency is 1/4 of simulation frequency
@@ -130,3 +122,4 @@ class MultiRobotDirectEnvCfg(DirectMARLEnvCfg):
         if self.scene is not None and hasattr(self.scene, 'terrain') and self.scene.terrain is not None:
             if hasattr(self.scene.terrain, 'terrain_generator'):
                 self.scene.terrain.terrain_generator = None
+

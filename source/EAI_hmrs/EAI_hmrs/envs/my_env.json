@@ -1,19 +1,32 @@
 {
   "robots": [
     {
-      "attachments": [],
+      "attachments": [
+        {
+          "controller": null,
+          "type": "realsense_d455"
+        },
+        {
+          "controller": null,
+          "type": "camera"
+        },
+        {
+          "controller": null,
+          "type": "navigation_io"
+        }
+      ],
       "controller": {
-        "cfg": "G1_SKRL_CFG",
-        "mode": "manual"
+        "cfg": "MUSHR_ACKERMANN_CFG",
+        "mode": "default"
       },
-      "type": "g1",
+      "type": "mushr_v2",
       "visual": {
         "x": 0.0,
         "y": 0.0
       }
     }
   ],
-  "scene_key": "plane",
+  "scene_key": "factory",
   "task_name": "my_env",
   "version": 1
 }

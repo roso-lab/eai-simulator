@@ -1,4 +1,4 @@
-"""Declared resources owned by selectable EAI scenes."""
+"""Provider-backed resources owned by selectable EAI scenes."""
 
 from __future__ import annotations
 
@@ -13,48 +13,20 @@ from typing import Any, Mapping
 OCCUPANCY_MAP = "occupancy_map"
 
 SCENE_RESOURCE_PATHS: Mapping[str, Mapping[str, tuple[str, ...]]] = {
-    **{
-        scene_key: {
-            OCCUPANCY_MAP: (
-                f"scene/{scene_key}/{scene_key}_map.yaml",
-                f"scene/{scene_key}/{scene_key}_map.png",
-            )
-        }
-        for scene_key in ("plane", "warehouse", "factory", "airs", "desert", "hospital")
-    },
-    "rmuc2024": {
+    scene_key: {
         OCCUPANCY_MAP: (
-            "scene/rmuc2024/rmuc2024_map.yaml",
-            "scene/rmuc2024/rmuc2024_map.png",
-        ),
-    },
-    # Imported scenes expose only resources actually present in the local pack.
-    "warehouse_nvd": {
-        OCCUPANCY_MAP: (
-            "scene/warehouse_nvd/warehouse_nvd_map.yaml",
-            "scene/warehouse_nvd/warehouse_nvd_map.png",
-        ),
-    },
-    "modern_house_nvd": {
-        OCCUPANCY_MAP: (
-            "scene/modern_house_nvd/ground_map_0.6m.yaml",
-            "scene/modern_house_nvd/ground_map_0.6m.png",
-        ),
-    },
-    "city": {},
-    "restaurant": {},
-    "restaurant_benchmark": {},
-    "factory_benchmark": {
-        OCCUPANCY_MAP: (
-            "scene/factory_benchmark/factory_map.yaml",
-            "scene/factory_benchmark/factory_map.png",
-        ),
-    },
-    # Local HSSD rooms do not publish a legacy occupancy-map pair.
-    "hssd_room1": {},
-    # Multi-level semantic products are consumed by the benchmark preflight,
-    # not by the legacy single-image occupancy-map API.
-    "room_06": {},
+            f"scene/{scene_key}/{scene_key}_map.yaml",
+            f"scene/{scene_key}/{scene_key}_map.png",
+        )
+    }
+    for scene_key in (
+        "plane",
+        "warehouse",
+        "factory",
+        "airs",
+        "desert",
+        "hospital",
+    )
 }
 
 SCENE_RESOURCE_REMOTE_PATHS = frozenset(
@@ -93,10 +65,7 @@ def ensure_scene_resource(
         from EAI_assets import asset_resolver
 
     relative_paths = scene_resource_relative_paths(scene_key, resource)
-    local_paths = tuple(
-        asset_resolver.resolve_local_asset_path(relative_path)
-        for relative_path in relative_paths
-    )
+    local_paths = tuple(asset_resolver.usd_root() / relative_path for relative_path in relative_paths)
     asset_resolver.ensure_usd_files_for_paths([str(path) for path in local_paths])
     missing = tuple(path for path in local_paths if not path.is_file())
     if missing:

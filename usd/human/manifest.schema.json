@@ -1,0 +1,388 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eai-simulator.local/schemas/human-manifest-v2.json",
+  "title": "EAI Human Asset Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "assets",
+    "motions"
+  ],
+  "properties": {
+    "version": {
+      "const": 2
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/asset"
+      }
+    },
+    "motions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/motion"
+      }
+    }
+  },
+  "$defs": {
+    "relativeAssetPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "source": {
+      "type": "object"
+    },
+    "redistributionStatus": {
+      "type": "string",
+      "enum": [
+        "review_required",
+        "allowed",
+        "prohibited"
+      ]
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "activity_type",
+        "usd_path",
+        "enabled",
+        "validation",
+        "scale",
+        "yaw_offset",
+        "ground_offset",
+        "content_up_axis",
+        "animation_profile",
+        "articulated",
+        "can_play_actions",
+        "path_following",
+        "motions",
+        "default_speed",
+        "turning_speed",
+        "skeleton_signature",
+        "duplicate_of",
+        "redistribution_status",
+        "source"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "activity_type": {
+          "type": "string",
+          "enum": [
+            "pedestrian",
+            "cyclist",
+            "scooter_rider",
+            "skateboarder",
+            "wheelchair",
+            "static_biker"
+          ]
+        },
+        "usd_path": {
+          "$ref": "#/$defs/relativeAssetPath"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "validation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scale": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "yaw_offset": {
+          "type": "number"
+        },
+        "ground_offset": {
+          "type": "number"
+        },
+        "content_up_axis": {
+          "type": "string",
+          "enum": [
+            "Y",
+            "Z"
+          ]
+        },
+        "animation_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "articulated": {
+          "type": "boolean"
+        },
+        "can_play_actions": {
+          "type": "boolean"
+        },
+        "path_following": {
+          "type": "boolean"
+        },
+        "motions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "default_speed": {
+          "type": "number",
+          "minimum": 0
+        },
+        "turning_speed": {
+          "type": "number",
+          "minimum": 0
+        },
+        "skeleton_signature": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "duplicate_of": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "redistribution_status": {
+          "type": "string",
+          "enum": [
+            "review_required",
+            "allowed",
+            "prohibited"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "articulated": {
+                "const": true
+              }
+            },
+            "required": [
+              "articulated"
+            ]
+          },
+          "then": {
+            "properties": {
+              "skeleton_signature": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "skeleton_signature": {
+                "type": "null"
+              },
+              "can_play_actions": {
+                "const": false
+              },
+              "motions": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "can_play_actions": {
+                "const": false
+              }
+            },
+            "required": [
+              "can_play_actions"
+            ]
+          },
+          "then": {
+            "properties": {
+              "motions": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "motion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "usd_path",
+        "source_profile",
+        "duration",
+        "loop",
+        "enabled",
+        "semantic",
+        "variant",
+        "root_motion",
+        "path_policy",
+        "resume_policy",
+        "content_sha256",
+        "redistribution_status",
+        "source"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "usd_path": {
+          "$ref": "#/$defs/relativeAssetPath"
+        },
+        "source_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "duration": {
+          "type": "number",
+          "minimum": 0
+        },
+        "loop": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "semantic": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "root_motion": {
+          "type": "string",
+          "enum": [
+            "in_place",
+            "authored",
+            "none"
+          ]
+        },
+        "path_policy": {
+          "type": "string",
+          "enum": [
+            "continue",
+            "pause"
+          ]
+        },
+        "resume_policy": {
+          "type": "string",
+          "enum": [
+            "resume_phase",
+            "restart_phase",
+            "hold_final"
+          ]
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "redistribution_status": {
+          "type": "string",
+          "enum": [
+            "review_required",
+            "allowed",
+            "prohibited"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "source_fps": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "sample_start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "sample_end": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "blend_in": {
+          "type": "number",
+          "minimum": 0
+        },
+        "blend_out": {
+          "type": "number",
+          "minimum": 0
+        },
+        "retargeter_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "intended_speed": {
+          "type": "number",
+          "minimum": 0
+        },
+        "in_place": {
+          "type": "boolean"
+        },
+        "facing_yaw_offset": {
+          "type": "number"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "sample_start",
+              "sample_end"
+            ]
+          },
+          "then": {
+            "$comment": "sample_end >= sample_start is enforced by the standard-library loader"
+          }
+        }
+      ]
+    }
+  }
+}

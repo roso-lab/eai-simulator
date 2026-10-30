@@ -5,39 +5,31 @@ import importlib
 from typing import Any
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sensors import RayCasterCfg, patterns
 from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils import configclass
 
 from EAI.hmrs_env import MultiRobotDirectEnvCfg
-from EAI.scenario_spec.benchmark_physics import benchmark_mount_profile
 from EAI.hmrs_env.env_diy import catalog as env_diy_catalog
 from EAI_assets.robots.b2 import B2_CFG
-from EAI_assets.asset_resolver import asset_path
 from EAI_assets.robots.carter import CARTER_CFG
-from EAI_assets.robots.simple_car import SIMPLE_CAR_CFG
 from EAI_assets.robots.coco import COCO_CFG
 from EAI_assets.robots.deeprobotics import (
     DEEPROBOTICS_LITE3_CFG,
     DEEPROBOTICS_M20_CFG,
 )
 from EAI_assets.robots.go2 import GO2_CFG
-from EAI_assets.scene.factory_runtime import FACTORY_RAYCAST_PROXY_PRIM_PATH
-from EAI_assets.scene.hssd_room1 import HSSD_ROOM1_CFG
-from EAI_assets.scene.room06_runtime import ROOM06_RAYCAST_PROXY_PRIM_PATH
 from EAI_assets.robots.pepper import PEPPER_CFG
 from EAI_assets.robots.pegasus import PEGASUS_IRIS_CFG, PEGASUS_X4_CFG
 from EAI_assets.robots.quadcopter import CRAZYFLIE_CFG
 from EAI_assets.robots.scout import SCOUT_CFG
-from EAI_assets.robots.microduck import MICRODUCK_CFG, MICRODUCK_INIT_ROOT_Z
 from EAI_assets.robots.mushr_v2 import MUSHR_V2_CFG, MUSHR_V2_RWD_CFG
+from EAI_assets.robots.unitree import G1_CFG
 from EAI_assets.robots.ur5_mount import (
     UR5_MOUNT_PROFILES,
     Ur5MountProfile,
     build_mounted_ur5_asset_cfg,
-    build_mounted_ur5_bare_asset_cfg,
     build_ur5_host_cfg,
 )
 from EAI_assets.robots.z1_mount import (
@@ -45,17 +37,8 @@ from EAI_assets.robots.z1_mount import (
     Z1MountProfile,
     build_mounted_z1_asset_cfg,
 )
-from EAI_assets.robots.d1_mount import (
-    D1_MOUNT_PROFILES,
-    D1MountProfile,
-    build_mounted_d1_asset_cfg,
-)
 from EAI_assets.sensor.high_sensor import OrsusCfg, RealSenseD455Cfg
-from EAI_assets.sensor.low_sensor.octagon_aio_c01 import OctagonAioC01Cfg
-from EAI_hmrs.controller_loader import (
-    _install_controller_namespaces,
-    load_controller_attr,
-)
+from EAI_hmrs.controller_loader import load_controller_attr
 from EAI.hmrs_env.env_diy.flow import (
     AttachmentSelection,
     ControllerChoice,
@@ -70,22 +53,6 @@ from EAI.hmrs_env.env_diy.flow import (
 )
 
 
-# Install namespace packages before importing the portable bundles. Importing
-# ``EAI_assets.controller`` normally executes its legacy eager ``__init__`` and
-# pulls ROS/OmniGraph modules that are unrelated to these controllers.
-_install_controller_namespaces("g1_dwaq/integration.py")
-_install_controller_namespaces("go2_extreme_parkour/integration.py")
-from EAI_assets.controller.g1_dwaq.integration import G1_DWAQ_CFG
-from EAI_assets.controller.g1_dwaq.robot import make_robot_cfg as make_g1_dwaq_robot_cfg
-from EAI_assets.controller.go2_extreme_parkour.integration import (
-    GO2_EXTREME_PARKOUR_TEACHER_CFG,
-    sensor_configs as make_go2_extreme_parkour_sensor_configs,
-)
-from EAI_assets.controller.go2_extreme_parkour.robot import (
-    make_robot_cfg as make_go2_extreme_parkour_robot_cfg,
-)
-
-
 @dataclass(frozen=True)
 class SceneOption:
     key: str
@@ -94,10 +61,6 @@ class SceneOption:
     prim_path: str = "/World/InteractiveScene"
     spawn_pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
     robot_spawn_origin: tuple[float, float] = (0.0, 0.0)
-    # Isaac Lab 5.1's RayCaster accepts exactly one Plane or Mesh prim.  This
-    # must name the actual scene collision surface, never an arbitrary first
-    # descendant or a proxy belonging to another scene.
-    raycast_collision_prim_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -108,13 +71,8 @@ class RobotOption:
     controller: Any
     default_z: float
     orsus_mount_link: str | None = None
-    # Trunk rigid-body prim name below the articulation root. The mixed-stairs
-    # height scanner ray-casts from this body; go2 names it "base" while b2
-    # names it "base_link".
-    trunk_link: str | None = None
     ur5_mount_profile: Ur5MountProfile | None = None
     z1_mount_profile: Z1MountProfile | None = None
-    d1_mount_profile: D1MountProfile | None = None
     orsus_offset: tuple[float, float, float] = (0.026, 0.0, 0.0)
     lidar_mount_link: str | None = None
     # RealSense D455 挂载点（可解耦装载）。D455 彩色相机在资产本地坐标系中
@@ -125,19 +83,11 @@ class RobotOption:
     realsense_rot: tuple[float, float, float, float] = (0.70710678, 0.0, 0.0, 0.70710678)
     # The HESAI XT32 mounting flange is 47.7 mm below its sensor origin. The
     # cable reaches 88.7 mm below the origin and must not be used as the mount plane.
-    # The OCTAGON-AIO-C01 attachment shares this lidar mount placement.
     lidar_offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
     lidar_rot: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
     camera_mount_link: str | None = None
     camera_offset: tuple[float, float, float] = (0.12, 0.0, 0.02)
     camera_rot: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
-    # D455 外壳校准（可选）：仅覆写资产内部 Visual 网格层的局部
-    # translate/rotateXYZ/scale，让外壳落座宿主的安装位；不影响相机/IMU
-    # 传感器 prim，也不改变上面的挂载外参。rotate 为 XYZ 欧拉角（度），
-    # 平移单位米，坐标系均为资产 RSD455 系。None = 资产原样。
-    realsense_shell_translate: tuple[float, float, float] | None = None
-    realsense_shell_rotate: tuple[float, float, float] | None = None
-    realsense_shell_scale: tuple[float, float, float] | None = None
     orsus_disable_physics: bool = False
 
 
@@ -145,12 +95,7 @@ DESERT_SCENE_Z_OFFSET = -4322.563
 HOSPITAL_SCENE_OFFSET = (-23.0896, 0.7555, -0.0010)
 HOSPITAL_ROBOT_SPAWN_ORIGIN = (1.175, 1.8)
 SCENE_OPTIONS = [
-    SceneOption(
-        "plane",
-        "Plane flat ground",
-        None,
-        raycast_collision_prim_path="/World/ground",
-    ),
+    SceneOption("plane", "Plane flat ground", None),
     SceneOption("warehouse", "Warehouse", ("EAI_assets.scene.warehouse", "WAREHOUSE_CFG")),
     SceneOption(
         "factory",
@@ -159,32 +104,6 @@ SCENE_OPTIONS = [
         prim_path="/World/Indoor",
     ),
     SceneOption("airs", "AIRS scene", ("EAI_assets.scene.airs", "AIRS_CFG")),
-    SceneOption(
-        "modern_house_nvd",
-        "Modern House NVD benchmark overlay",
-        ("EAI_assets.scene.modern_house_nvd", "MODERN_HOUSE_NVD_CFG"),
-        prim_path="/World/ModernHouseNVD",
-    ),
-    SceneOption(
-        "warehouse_nvd",
-        "Warehouse NVD benchmark overlay",
-        ("EAI_assets.scene.warehouse_nvd", "WAREHOUSE_NVD_CFG"),
-        prim_path="/World/WarehouseNVD",
-    ),
-    SceneOption(
-        "restaurant",
-        "Restaurant authoring scene",
-        ("EAI_assets.scene.restaurant", "RESTAURANT_CFG"),
-        prim_path="/World/Restaurant",
-        robot_spawn_origin=(18.0, 14.0),
-    ),
-    SceneOption(
-        "restaurant_benchmark",
-        "Restaurant benchmark candidate overlay",
-        ("EAI_assets.scene.restaurant_benchmark", "RESTAURANT_BENCHMARK_CFG"),
-        prim_path="/World/RestaurantBenchmark",
-        robot_spawn_origin=(24.875, 20.875),
-    ),
     SceneOption(
         "desert",
         "Desert",
@@ -198,95 +117,29 @@ SCENE_OPTIONS = [
         spawn_pos=HOSPITAL_SCENE_OFFSET,
         robot_spawn_origin=HOSPITAL_ROBOT_SPAWN_ORIGIN,
     ),
-    SceneOption(
-        "rmuc2024",
-        "RMUC 2024",
-        ("EAI_assets.scene.rmuc2024", "RMUC2024_CFG"),
-        prim_path="/World/RMUC2024",
-    ),
-    SceneOption("city", "City", ("EAI_assets.scene.benchmark", "CITY_CFG"), robot_spawn_origin=(3.0, 0.0)),
-    SceneOption(
-        "factory_benchmark", "Factory benchmark", ("EAI_assets.scene.benchmark", "FACTORY_BENCHMARK_CFG"),
-        prim_path="/World/Indoor",
-        robot_spawn_origin=(3.0, 0.0),
-    ),
-    SceneOption(
-        "hssd_room1",
-        "HSSD Room 1 (converted, local)",
-        ("EAI_assets.scene.hssd_room1", "HSSD_ROOM1_CFG"),
-        prim_path="/World/HSSDRoom1",
-        # _spawn_xy offsets the first robot by (-3.0, 0) from this origin, so
-        # (-6.16, 0.35) lands go2 exactly at the verified free spot (-9.16,
-        # 0.35) from the clearance map. Uncompensated origins embed the robot
-        # in the west wall and PhysX ejects it out of the apartment.
-        robot_spawn_origin=(-6.16, 0.35),
-    ),
-    SceneOption(
-        "room_06",
-        "Room 06 multi-level benchmark",
-        ("EAI_assets.scene.room06", "ROOM06_CFG"),
-        prim_path="/World/Room06",
-        # The first generic slot lands at the scene author's verified Go2
-        # start (2.33, 0.17); case packages may override every spawn pose.
-        robot_spawn_origin=(5.33, 0.17),
-        raycast_collision_prim_path=ROOM06_RAYCAST_PROXY_PRIM_PATH,
-    ),
 ]
 
 
 CONTROLLER_CFG_IMPORTS = {
-    "GO2_VELOCITY_RSL_CFG": ("rl/go2_rsl_rl/go2_rsl_rl.py", "GO2_VELOCITY_RSL_CFG"),
     "CARTER_DIFF_CFG": ("traditional/carter_diff/carter_diff.py", "CARTER_DIFF_CFG"),
-    "SIMPLE_CAR_PLANAR_CFG": ("traditional/simple_car_planar/simple_car_planar.py", "SIMPLE_CAR_PLANAR_CFG"),
     "PEPPER_HOLONOMIC_CFG": ("traditional/pepper_holonomic/pepper_holonomic.py", "PEPPER_HOLONOMIC_CFG"),
-    "PEPPER_PICK_PLACE_CFG": ("traditional/pepper_box_transport/controller.py", "PEPPER_PICK_PLACE_CFG"),
-    "GO2_MIXED_STAIRS_CFG": ("rl/go2_mixed_stairs/go2_mixed_stairs.py", "GO2_MIXED_STAIRS_CFG"),
+    "GO2_VELOCITY_RSL_CFG": ("rl/go2_rsl_rl/go2_rsl_rl.py", "GO2_VELOCITY_RSL_CFG"),
     "B2_VELOCITY_RSL_CFG": ("rl/b2_rsl_rl/b2_rsl_rl.py", "B2_VELOCITY_RSL_CFG"),
-    "B2_MIXED_STAIRS_CFG": ("rl/b2_rsl_rl/b2_rsl_rl.py", "B2_MIXED_STAIRS_CFG"),
     "M20_ROUGH_RSL_CFG": ("rl/m20_rough_rsl/m20_rough_rsl.py", "M20_ROUGH_RSL_CFG"),
-    "M20_NAV_RSL_CFG": ("rl/m20_nav_rsl/m20_nav_rsl.py", "M20_NAV_RSL_CFG"),
     "LITE3_VELOCITY_RSL_CFG": ("rl/lite3_rsl_rl/lite3_rsl_rl.py", "LITE3_VELOCITY_RSL_CFG"),
-    "MICRODUCK_VELSTAND_CFG": ("rl/microduck_velstand/microduck_velstand.py", "MICRODUCK_VELSTAND_CFG"),
     "SCOUT_DIFF_CFG": ("traditional/scout_diff/scout_diff.py", "SCOUT_DIFF_CFG"),
     "MUSHR_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py", "MUSHR_ACKERMANN_CFG"),
     "MUSHR_RWD_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py", "MUSHR_RWD_ACKERMANN_CFG"),
     "COCO_ACKERMANN_CFG": ("traditional/coco_ackermann/coco_ackermann.py", "COCO_ACKERMANN_CFG"),
+    "G1_SKRL_CFG": ("rl/g1_skrl/g1_skrl.py", "G1_SKRL_CFG"),
     "QUADCOPTER_GOAL_SKRL_CFG": ("rl/quadcopter_goal_skrl/quadcopter_goal_skrl.py", "QUADCOPTER_GOAL_SKRL_CFG"),
     "PEGASUS_IRIS_POSITION_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_IRIS_POSITION_CFG"),
-    "PEGASUS_IRIS_POSITION_DAMPED_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_IRIS_POSITION_DAMPED_CFG"),
-    "PEGASUS_IRIS_POSITION_CONSERVATIVE_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_IRIS_POSITION_CONSERVATIVE_CFG"),
-    "PEGASUS_IRIS_POSITION_FAST_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_IRIS_POSITION_FAST_CFG"),
     "PEGASUS_IRIS_ROTOR_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_IRIS_ROTOR_CFG"),
     "PEGASUS_X4_POSITION_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_X4_POSITION_CFG"),
     "PEGASUS_X4_ROTOR_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_X4_ROTOR_CFG"),
     "UR5_IK_CFG": ("traditional/ur5_ik/ur5_ik.py", "UR5_IK_CFG"),
     "Z1_IK_CFG": ("traditional/z1_ik/z1_ik.py", "Z1_IK_CFG"),
-    "D1_IK_CFG": ("traditional/d1_ik/d1_ik.py", "D1_IK_CFG"),
 }
-
-# These portable bundles use package-relative imports and therefore cannot be
-# loaded through the legacy file-module loader, whose generated module names
-# have no package context.
-PORTABLE_CONTROLLER_CFGS = {
-    "G1_DWAQ_CFG": G1_DWAQ_CFG,
-    "GO2_EXTREME_PARKOUR_TEACHER_CFG": GO2_EXTREME_PARKOUR_TEACHER_CFG,
-}
-
-
-def _scene_raycast_collision_prim_path(scene: SceneOption) -> str:
-    """Return one scene-owned Plane/Mesh accepted by Isaac Lab's RayCaster."""
-    if scene.key == "factory":
-        # The Factory spawner builds this combined mesh from that scene's
-        # ground, stairs and upper landing. It is valid only for Factory.
-        return FACTORY_RAYCAST_PROXY_PRIM_PATH
-    if scene.raycast_collision_prim_path is not None:
-        return scene.raycast_collision_prim_path
-    raise ValueError(
-        f"DIY scene '{scene.key}' has no collaborator-verified single or combined "
-        "collision Plane/Mesh for a height scanner. Provide the exact scene-owned "
-        "collision prim path or a collaborator-authored combined mesh; the Factory "
-        "raycast proxy cannot be reused for another scene."
-    )
 
 
 ROBOT_OPTIONS = [
@@ -298,30 +151,19 @@ ROBOT_OPTIONS = [
         0.2,
         "Carter/Orsus_chassis_link",
         z1_mount_profile=Z1_MOUNT_PROFILES["carter"],
-        d1_mount_profile=D1_MOUNT_PROFILES["carter"],
-        ur5_mount_profile=UR5_MOUNT_PROFILES["carter"],
         orsus_offset=(0.026, 0.0, 0.418),
         lidar_mount_link="Carter/Orsus_chassis_link",
         lidar_offset=(0.026, 0.0, 0.444862),
-        # C01 复用 Carter 原生雷达挂载（lidar_mount_link/lidar_offset），
-        # 与独立雷达载荷同位装载，无额外衔接结构件。
         # D455 初始外参（待按实车标定）
         realsense_mount_link="Carter/Orsus_chassis_link",
         realsense_offset=(0.11865, 0.0, 0.34329),
         realsense_rot=(1.0, 0.0, 0.0, 0.0),
     ),
     RobotOption(
-        "simple_car",
-        "SimpleCar Gazebo planar base",
-        SIMPLE_CAR_CFG,
-        "SIMPLE_CAR_PLANAR_CFG",
-        0.34,
-    ),
-    RobotOption(
         "pepper",
         "Pepper holonomic base",
         PEPPER_CFG,
-        "PEPPER_PICK_PLACE_CFG",
+        "PEPPER_HOLONOMIC_CFG",
         0.0,
         # Keep the navigation LiDAR fixed to the mobile base rather than the
         # articulated head so its planar TF remains stable while looking.
@@ -336,13 +178,11 @@ ROBOT_OPTIONS = [
         "go2",
         "Unitree Go2",
         GO2_CFG,
-        "GO2_MIXED_STAIRS_CFG",
+        "GO2_VELOCITY_RSL_CFG",
         0.4,
         "base",
-        trunk_link="base",
         ur5_mount_profile=UR5_MOUNT_PROFILES["go2"],
         z1_mount_profile=Z1_MOUNT_PROFILES["go2"],
-        d1_mount_profile=D1_MOUNT_PROFILES["go2"],
         lidar_mount_link="base",
         lidar_offset=(0.22631, -0.003, 0.136534),
         lidar_rot=(1.0, 0.0, 0.0, 0.0),
@@ -354,13 +194,11 @@ ROBOT_OPTIONS = [
         "b2",
         "Unitree B2",
         B2_CFG,
-        "B2_MIXED_STAIRS_CFG",
+        "B2_VELOCITY_RSL_CFG",
         0.58,
         "base_link",
-        trunk_link="base_link",
         ur5_mount_profile=UR5_MOUNT_PROFILES["b2"],
         z1_mount_profile=Z1_MOUNT_PROFILES["b2"],
-        d1_mount_profile=D1_MOUNT_PROFILES["b2"],
         orsus_offset=(0.36723, 0.0, 0.223494),
         lidar_mount_link="base_link",
         lidar_offset=(0.36723, 0.0, 0.2902),
@@ -377,7 +215,6 @@ ROBOT_OPTIONS = [
         orsus_mount_link="base_link",
         ur5_mount_profile=UR5_MOUNT_PROFILES["m20"],
         z1_mount_profile=Z1_MOUNT_PROFILES["m20"],
-        d1_mount_profile=D1_MOUNT_PROFILES["m20"],
         orsus_offset=(0.29718, 0.0, 0.07994),
         lidar_mount_link="base_link",
         lidar_offset=(0.29718, 0.0, 0.121437),
@@ -390,11 +227,10 @@ ROBOT_OPTIONS = [
         "Scout mobile base",
         SCOUT_CFG,
         "SCOUT_DIFF_CFG",
-        SCOUT_CFG.init_state.pos[2],
+        0.2,
         orsus_mount_link="base_link",
         ur5_mount_profile=UR5_MOUNT_PROFILES["scout"],
         z1_mount_profile=Z1_MOUNT_PROFILES["scout"],
-        d1_mount_profile=D1_MOUNT_PROFILES["scout"],
         orsus_offset=(0.24749, 0.0, 0.11309),
         lidar_mount_link="base_link",
         lidar_offset=(0.24749, 0.0, 0.160402),
@@ -435,29 +271,11 @@ ROBOT_OPTIONS = [
     RobotOption(
         "g1",
         "Unitree G1",
-        make_g1_dwaq_robot_cfg(
-            asset_path("robot/g1/g1_29dof_with_inspire_rev_1_0.usd")
-        ),
-        "G1_DWAQ_CFG",
-        0.8,
+        G1_CFG,
+        "G1_SKRL_CFG",
+        0.74,
         lidar_mount_link="pelvis",
         lidar_offset=(0.0, 0.0, 0.72),
-        # Detachable RealSense mount in the recessed forehead camera bay.
-        # Translation follows Unitree's official G1 d435_joint relative to
-        # torso_link. Pitch is a 2026-10-19 user-approved perception
-        # calibration, not the official +47.6 deg down: at the official pitch
-        # the 90.5x90.5 deg asset camera stares into the robot's own head
-        # shell (4.5 cm) and chest (9.7 cm), blocking most of the depth/RGB
-        # frame. At +20 deg down the head and torso fully exit the frustum;
-        # only the hands at the hips remain in the bottom corners, as on the
-        # physical robot. w=cos(10 deg), y=sin(10 deg).
-        realsense_mount_link="torso_link",
-        realsense_offset=(0.0576235, 0.01753, 0.41987),
-        realsense_rot=(0.98480775301, 0.0, 0.17364817767, 0.0),
-        # 2026-10-19 Isaac Sim GUI 手动标定：0.7 倍 D455 外壳落座额头凹槽。
-        realsense_shell_translate=(0.03212, 0.0187, 0.02007),
-        realsense_shell_rotate=(85.5, 0.0, -90.0),
-        realsense_shell_scale=(0.7, 0.7, 0.7),
     ),
     RobotOption(
         "cf2x",
@@ -504,25 +322,12 @@ ROBOT_OPTIONS = [
         orsus_mount_link="TORSO",
         ur5_mount_profile=UR5_MOUNT_PROFILES["lite3"],
         z1_mount_profile=Z1_MOUNT_PROFILES["lite3"],
-        d1_mount_profile=D1_MOUNT_PROFILES["lite3"],
         orsus_offset=(0.16669, 0.0, 0.06773),
         lidar_mount_link="TORSO",
         lidar_offset=(0.16669, 0.0, 0.114523),
         realsense_mount_link="TORSO",
         realsense_offset=(0.20559, 0.0, 0.08015),
         realsense_rot=(1.0, 0.0, 0.0, 0.0),
-    ),
-    RobotOption(
-        # Payload-free biped: the 0.7 kg XL330 walker carries no mounts, so
-        # every sensor/manipulator hook stays unset and the attachment catalog
-        # rejects payloads for it.  default_z 0.125 is the official-adjacent
-        # spawn height; the EAI spawn settles at z≈0.117 (see
-        # EAI_assets.robots.microduck).
-        "microduck",
-        "MicroDuck biped",
-        MICRODUCK_CFG,
-        "MICRODUCK_VELSTAND_CFG",
-        MICRODUCK_INIT_ROOT_Z,
     ),
 ]
 
@@ -589,7 +394,6 @@ def build_interactive_env_cfg_from_selection(selection: InteractiveSelection) ->
     return build_interactive_env_cfg(
         scene,
         [(robot_by_key[item.type], item) for item in selection.robots],
-        scenario_data=interactive_selection_to_dict(selection) if selection.scenario_json else None,
     )
 
 
@@ -618,13 +422,7 @@ def _interactive_after_reset_idx_hook(env, env_ids) -> None:
 def build_interactive_env_cfg(
     scene: SceneOption,
     robot_selections: list[tuple[RobotOption, RobotSelection]],
-    *,
-    scenario_data: dict[str, Any] | None = None,
 ) -> MultiRobotDirectEnvCfg:
-    uses_g1_dwaq = any(
-        selection.controller.cfg == "G1_DWAQ_CFG"
-        for _robot, selection in robot_selections
-    )
     attrs: dict[str, Any] = {"__annotations__": {}}
     controllers: dict[str, Any] = {}
     scene_spawn_cfg = _resolve_import_ref(scene.spawn_cfg)
@@ -672,32 +470,14 @@ def build_interactive_env_cfg(
             default_rotation=(1.0, 0.0, 0.0, 0.0),
         )
 
-        has_ur5 = any(attachment.type in {"ur5", "ur5_bare"} for attachment in selection.attachments)
-        has_ur5_bare = any(attachment.type == "ur5_bare" for attachment in selection.attachments)
+        has_ur5 = any(attachment.type == "ur5" for attachment in selection.attachments)
         has_z1 = any(attachment.type == "z1" for attachment in selection.attachments)
-        has_d1 = any(attachment.type == "d1" for attachment in selection.attachments)
-        if has_ur5:
-            raise ValueError(
-                f"DIY robot '{name}' cannot carry UR5 or ur5_bare. HeteroCoord "
-                "uses UR5 + Robotiq 2F-85 only as a standalone robot."
-            )
         if has_ur5 and has_z1:
             raise ValueError(f"DIY robot '{name}' cannot attach both UR5 and Z1.")
-        if has_z1 and has_d1:
-            raise ValueError(f"DIY robot '{name}' cannot attach both Z1 and D1.")
         has_orsus = any(attachment.type == "orsus" for attachment in selection.attachments)
         has_lidar = any(attachment.type == "lidar" for attachment in selection.attachments)
-        has_octagon = any(
-            attachment.type == "octagon_aio_c01"
-            for attachment in selection.attachments
-        )
         if has_orsus and has_lidar:
             raise ValueError(f"DIY robot '{name}' cannot attach both Orsus and LiDAR.")
-        if has_octagon and (has_orsus or has_lidar):
-            other = "Orsus" if has_orsus else "LiDAR"
-            raise ValueError(
-                f"DIY robot '{name}' cannot attach both OCTAGON-AIO-C01 and {other}."
-            )
         mount_conflict = env_diy_catalog.payload_mount_conflict(
             robot.key,
             [attachment.type for attachment in selection.attachments],
@@ -707,31 +487,23 @@ def build_interactive_env_cfg(
             display_names = {
                 "ur5": "UR5",
                 "z1": "Z1",
-                "d1": "D1",
                 "orsus": "Orsus",
                 "lidar": "LiDAR",
-                "octagon_aio_c01": "OCTAGON-AIO-C01",
             }
             raise ValueError(
                 f"DIY robot '{name}' cannot attach both "
                 f"{display_names[manipulator]} and {display_names[sensor]}."
             )
-        uses_manipulator = uses_manipulator or has_ur5 or has_z1 or has_d1
+        uses_manipulator = uses_manipulator or has_ur5 or has_z1
         if robot.cfg is None:
             raise ValueError(f"DIY robot '{robot.key}' does not have an articulation cfg.")
         if has_ur5 and robot.ur5_mount_profile is None:
             raise ValueError(f"DIY robot '{robot.key}' does not define a UR5 mount profile.")
         if has_z1 and robot.z1_mount_profile is None:
             raise ValueError(f"DIY robot '{robot.key}' does not define a Z1 mount profile.")
-        if has_d1 and robot.d1_mount_profile is None:
-            raise ValueError(f"DIY robot '{robot.key}' does not define a D1 mount profile.")
         selected_robot_cfg = robot.cfg
         if robot.key == "mushr_v2" and selection.controller.cfg == "MUSHR_RWD_ACKERMANN_CFG":
             selected_robot_cfg = MUSHR_V2_RWD_CFG
-        elif robot.key == "go2" and selection.controller.cfg == "GO2_EXTREME_PARKOUR_TEACHER_CFG":
-            selected_robot_cfg = make_go2_extreme_parkour_robot_cfg(
-                asset_path("robot/go2/go2.usd")
-            )
         base_cfg = (
             build_ur5_host_cfg(selected_robot_cfg, robot.ur5_mount_profile)
             if has_ur5 and robot.ur5_mount_profile is not None
@@ -742,93 +514,38 @@ def build_interactive_env_cfg(
         articulation.init_state.rot = rotation
         attrs["__annotations__"][name] = ArticulationCfg
         attrs[name] = articulation
-        if selection.controller.cfg in {
-            "GO2_MIXED_STAIRS_CFG",
-            "B2_MIXED_STAIRS_CFG",
-        }:
-            # Height scan matching robot_lab training: 17x11 grid, 0.1 m
-            # resolution, 1.6x1.0 m around the base, yaw-aligned. Isaac Lab's
-            # RayCaster supports one mesh, so the Factory spawner builds a
-            # validated triangle-only proxy from its ground, stair, and landing
-            # meshes.
-            if robot.trunk_link is None:
-                raise ValueError(
-                    f"DIY robot '{robot.key}' does not define a trunk link for "
-                    "the mixed-stairs height scanner."
-                )
-            raycast_collision_prim_path = _scene_raycast_collision_prim_path(scene)
-            attrs["__annotations__"][f"{name}_height_scanner"] = RayCasterCfg
-            attrs[f"{name}_height_scanner"] = RayCasterCfg(
-                prim_path=f"{{ENV_REGEX_NS}}/{name}/{robot.trunk_link}",
-                offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
-                ray_alignment="yaw",
-                pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
-                debug_vis=False,
-                mesh_prim_paths=[raycast_collision_prim_path],
-            )
-        elif selection.controller.cfg == "GO2_EXTREME_PARKOUR_TEACHER_CFG":
-            if robot.key != "go2":
-                raise ValueError(
-                    "GO2_EXTREME_PARKOUR_TEACHER_CFG can only control a Go2 robot."
-                )
-            raycast_collision_prim_path = _scene_raycast_collision_prim_path(scene)
-            parkour_sensors = make_go2_extreme_parkour_sensor_configs(
-                f"{{ENV_REGEX_NS}}/{name}",
-                (raycast_collision_prim_path,),
-            )
-            for sensor_suffix, sensor_cfg in parkour_sensors.items():
-                sensor_name = f"{name}_{sensor_suffix}"
-                attrs["__annotations__"][sensor_name] = type(sensor_cfg)
-                attrs[sensor_name] = sensor_cfg
 
         base_controller = _resolve_controller(selection.controller, fallback=robot.controller)
         robot_controllers: list[Any] = [base_controller]
 
         if has_ur5 and robot.ur5_mount_profile is not None:
             attrs["__annotations__"][f"{name}_arm"] = ArticulationCfg
-            arm_builder = build_mounted_ur5_bare_asset_cfg if has_ur5_bare else build_mounted_ur5_asset_cfg
-            attrs[f"{name}_arm"] = arm_builder(
+            attrs[f"{name}_arm"] = build_mounted_ur5_asset_cfg(
                 f"{{ENV_REGEX_NS}}/{name}_arm",
-                benchmark_mount_profile(robot.ur5_mount_profile) if scenario_data is not None else robot.ur5_mount_profile,
+                robot.ur5_mount_profile,
             )
-            ur5_attachment = next(
-                attachment for attachment in selection.attachments
-                if attachment.type in {"ur5", "ur5_bare"}
-            )
+            ur5_attachment = next(attachment for attachment in selection.attachments if attachment.type == "ur5")
             robot_controllers.append(_resolve_controller(ur5_attachment.controller, fallback="UR5_IK_CFG"))
         elif has_z1 and robot.z1_mount_profile is not None:
             attrs["__annotations__"][f"{name}_arm"] = ArticulationCfg
             attrs[f"{name}_arm"] = build_mounted_z1_asset_cfg(
                 f"{{ENV_REGEX_NS}}/{name}_arm",
-                benchmark_mount_profile(robot.z1_mount_profile) if scenario_data is not None else robot.z1_mount_profile,
+                robot.z1_mount_profile,
             )
             z1_attachment = next(attachment for attachment in selection.attachments if attachment.type == "z1")
             robot_controllers.append(_resolve_controller(z1_attachment.controller, fallback="Z1_IK_CFG"))
-        elif has_d1 and robot.d1_mount_profile is not None:
-            attrs["__annotations__"][f"{name}_arm"] = ArticulationCfg
-            attrs[f"{name}_arm"] = build_mounted_d1_asset_cfg(
-                f"{{ENV_REGEX_NS}}/{name}_arm",
-                benchmark_mount_profile(robot.d1_mount_profile) if scenario_data is not None else robot.d1_mount_profile,
-            )
-            d1_attachment = next(attachment for attachment in selection.attachments if attachment.type == "d1")
-            robot_controllers.append(_resolve_controller(d1_attachment.controller, fallback="D1_IK_CFG"))
 
         controllers[name] = tuple(robot_controllers) if len(robot_controllers) > 1 else robot_controllers[0]
 
         # Orsus spawn：检查是否有 orsus 硬件 + 是否开启 ROS 通道
         has_orsus = any(attachment.type == "orsus" for attachment in selection.attachments)
-        explicit_realsense = any(
+        has_realsense = any(
             attachment.type == "realsense_d455" for attachment in selection.attachments
         )
-        # In HeteroCoord the camera is part of the robot's default equipment.
-        # Every platform with a registered D455 mount receives it automatically;
-        # an explicitly selected Orsus replaces the default D455 unless D455 was
-        # explicitly requested as well.
-        has_realsense = explicit_realsense or bool(robot.realsense_mount_link and not has_orsus)
         navigation_io_enabled = any(
             attachment.type == "navigation_io" for attachment in selection.attachments
         )
-        camera_enabled = bool(robot.camera_mount_link or has_orsus or has_realsense)
+        camera_enabled = any(attachment.type == "camera" for attachment in selection.attachments)
         cmd_vel_enabled = any(
             attachment.type in {"navigation_io", "keyboard"}
             for attachment in selection.attachments
@@ -882,16 +599,7 @@ def build_interactive_env_cfg(
                 enable_camera_publish=camera_enabled,
                 enable_imu_publish=navigation_io_enabled,
                 disable_physics=True,
-                shell_translate=robot.realsense_shell_translate,
-                shell_rotate_euler=robot.realsense_shell_rotate,
-                shell_scale=robot.realsense_shell_scale,
             )
-
-        if has_octagon:
-            if not robot.lidar_mount_link:
-                raise ValueError(
-                    f"DIY robot '{robot.key}' does not define an OCTAGON-AIO-C01 mount."
-                )
 
         is_aerial_sensor_robot = robot.key in {"cf2x", "iris", "pegasus"}
         is_builtin_camera_robot = robot.key in {"cf2x", "iris", "pegasus"}
@@ -907,21 +615,6 @@ def build_interactive_env_cfg(
                 init_state=AssetBaseCfg.InitialStateCfg(pos=robot.lidar_offset, rot=robot.lidar_rot),
                 ros_namespace=f"/{name}",
                 enable_ros_publish=navigation_io_enabled,
-            )
-
-        # The C01 attachment mounts on the host's native lidar payload mount
-        # (same link, offset, and rotation as the RosLidar payload above);
-        # the sensor suite runtime resolves this spawned prim on the stage.
-        if has_octagon and robot.lidar_mount_link and not is_aerial_sensor_robot:
-            attrs["__annotations__"][f"octagon_aio_c01_{name}"] = AssetBaseCfg
-            attrs[f"octagon_aio_c01_{name}"] = OctagonAioC01Cfg(
-                prim_path=(
-                    f"{{ENV_REGEX_NS}}/{name}/{robot.lidar_mount_link}/OctagonAioC01"
-                ),
-                init_state=AssetBaseCfg.InitialStateCfg(
-                    pos=robot.lidar_offset,
-                    rot=robot.lidar_rot,
-                ),
             )
 
         # Aerial robots always carry their built-in monocular camera; the Camera
@@ -949,38 +642,6 @@ def build_interactive_env_cfg(
                 ),
             )
 
-    if scenario_data is not None:
-        from EAI_hmrs.scenario_builder import add_scenario_entities
-
-        add_scenario_entities(attrs, scenario_data["composition"])
-    # Explicit local collision demonstration used by the GUI smoke run.  The
-    # cubes are ordinary rigid objects with collision enabled; production
-    # scenes are unchanged unless this opt-in environment variable is set.
-    import os
-    if os.environ.get("EAI_DEMO_COLLISION", "").strip() == "1":
-        for cube_name, position, color in (
-            ("demo_cube_a", (1.5, 0.0, 0.35), (0.85, 0.15, 0.1)),
-            ("demo_cube_b", (0.0, 1.5, 0.35), (0.1, 0.25, 0.85)),
-        ):
-            attrs["__annotations__"][cube_name] = RigidObjectCfg
-            attrs[cube_name] = RigidObjectCfg(
-                prim_path=f"{{ENV_REGEX_NS}}/{cube_name}",
-                spawn=sim_utils.CuboidCfg(
-                    size=(0.7, 0.7, 0.7),
-                    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=color),
-                    rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                        rigid_body_enabled=True, kinematic_enabled=False, disable_gravity=False
-                    ),
-                    mass_props=sim_utils.MassPropertiesCfg(mass=2.0),
-                    collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=True),
-                    physics_material=sim_utils.RigidBodyMaterialCfg(
-                        static_friction=0.8, dynamic_friction=0.6,
-                        restitution=0.0, friction_combine_mode="average",
-                        restitution_combine_mode="average",
-                    ),
-                ),
-                init_state=RigidObjectCfg.InitialStateCfg(pos=position),
-            )
     scene_cls = configclass(type("InteractiveEaiSceneCfg", (InteractiveSceneCfg,), attrs))
     env_attrs = {
         "__annotations__": {"scene": scene_cls},
@@ -991,19 +652,6 @@ def build_interactive_env_cfg(
     InteractiveEaiEnvCfg = env_cls
     env_cfg = InteractiveEaiEnvCfg()
     env_cfg.task_name = "EAI-Interactive-v0"
-    if uses_g1_dwaq:
-        # Mixed heterogeneous fleets are first-class HeteroCoord experiments.
-        # The DWAQ checkpoint contract requires a 1 ms physics step and a
-        # 20 ms policy step. Every registered controller here already runs at
-        # a 20 ms policy cadence (0.005 x 4), so a fleet containing G1 keeps
-        # that cadence for everyone and refines the shared physics substep to
-        # 1 ms: non-G1 robots integrate with 20 x 1 ms substeps instead of
-        # 4 x 5 ms, while their policy rate, models and USD assets stay
-        # unchanged. Stability of non-G1 controllers at the refined substep
-        # is requalified per experiment run, not by this builder.
-        env_cfg.sim.dt = 0.001
-        env_cfg.decimation = 20
-        env_cfg.sim.render_interval = env_cfg.decimation
     if uses_manipulator:
         env_cfg.after_reset_idx_hook = _interactive_after_reset_idx_hook
     return env_cfg
@@ -1032,15 +680,8 @@ def _controller_cfg_by_name(name: str) -> Any:
 
 
 def _controller_attr_by_name(name: str, attr_override: str | None = None) -> Any:
-    if name in PORTABLE_CONTROLLER_CFGS:
-        if attr_override is not None:
-            raise ValueError(
-                f"Portable controller cfg '{name}' does not support attribute overrides."
-            )
-        return PORTABLE_CONTROLLER_CFGS[name]
     if name not in CONTROLLER_CFG_IMPORTS:
-        available = (*CONTROLLER_CFG_IMPORTS, *PORTABLE_CONTROLLER_CFGS)
-        raise ValueError(f"Unknown controller cfg '{name}'. Available: {', '.join(available)}")
+        raise ValueError(f"Unknown controller cfg '{name}'. Available: {', '.join(CONTROLLER_CFG_IMPORTS)}")
     relative_path, attr_name = CONTROLLER_CFG_IMPORTS[name]
     return load_controller_attr(relative_path, attr_override or attr_name)
 

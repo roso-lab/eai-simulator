@@ -246,15 +246,17 @@ def load_all_controllers(
         List of controller dictionaries
     """
     controllers = []
-
+    
     if hasattr(env_cfg, 'controllers') and env_cfg.controllers:
         for robot_name, entry in env_cfg.controllers.items():
             primary_cfg, _ = normalize_controller_entry(entry)
-            from .scalar_manipulation_controller import load_scalar_controller
-            controller = load_scalar_controller(primary_cfg, robot_name, task_name, device, env)
+            controller = primary_cfg.load(robot_name, task_name, device, env)
             controllers.append(controller)
-
-    # An empty controllers mapping is a valid scene-only environment; there is
-    # nothing to load in that case.
+    
+    if not controllers:
+        raise ValueError(
+            "No controllers found in env_cfg. "
+        )
+    
     return controllers
 

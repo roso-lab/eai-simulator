@@ -10,20 +10,6 @@ _EXPORTS = {
     "FACTORY_CFG": ("EAI_assets.scene.factory", "FACTORY_CFG"),
     "DESERT_CFG": ("EAI_assets.scene.desert", "DESERT_CFG"),
     "HOSPITAL_CFG": ("EAI_assets.scene.hospital", "HOSPITAL_CFG"),
-    "RMUC2024_CFG": ("EAI_assets.scene.rmuc2024", "RMUC2024_CFG"),
-    "CITY_CFG": ("EAI_assets.scene.benchmark", "CITY_CFG"),
-    "WAREHOUSE_NVD_CFG": ("EAI_assets.scene.warehouse_nvd", "WAREHOUSE_NVD_CFG"),
-    "RESTAURANT_CFG": ("EAI_assets.scene.restaurant", "RESTAURANT_CFG"),
-    "RESTAURANT_BENCHMARK_CFG": (
-        "EAI_assets.scene.restaurant_benchmark",
-        "RESTAURANT_BENCHMARK_CFG",
-    ),
-    "MODERN_HOUSE_NVD_CFG": (
-        "EAI_assets.scene.modern_house_nvd",
-        "MODERN_HOUSE_NVD_CFG",
-    ),
-    "FACTORY_BENCHMARK_CFG": ("EAI_assets.scene.benchmark", "FACTORY_BENCHMARK_CFG"),
-    "ROOM06_CFG": ("EAI_assets.scene.room06", "ROOM06_CFG"),
 }
 
 __all__ = sorted(_EXPORTS)

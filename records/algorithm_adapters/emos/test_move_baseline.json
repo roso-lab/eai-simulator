@@ -1,7 +1,0 @@
-{
-  "existing_test_sha256": {
-    "algorithm/system/coordination/emos/tests/test_benchmark_condition.py": "8bf598d2541134f986115d5d56819b85baa2e6b545efa03b709ffa8248b135e7"
-  },
-  "moved_from": "/home/airs/hetrocoord/tests/test_native_adapter.py",
-  "moved_to": "/home/airs/hetrocoord/algorithm/system/coordination/emos/tests/test_native_adapter.py"
-}

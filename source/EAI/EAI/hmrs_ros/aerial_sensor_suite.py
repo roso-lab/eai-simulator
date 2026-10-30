@@ -21,7 +21,6 @@ from EAI.physics.aerial_sensors import (
     sanitize_ros_component,
     selection_requires_aerial_camera,
 )
-from EAI.keyed_random import keyed_seed
 
 
 class _IsaacAerialSensorGraphRuntime:
@@ -49,7 +48,6 @@ class _IsaacAerialSensorGraphRuntime:
         self._lidar_sensors: dict[str, Any] = {}
         self._lidar_prim_paths: set[str] = set()
         self._lidar_writers: dict[str, Any] = {}
-        self._camera_annotators: dict[str, Any] = {}
 
     @staticmethod
     def _get_stage() -> Any:
@@ -151,9 +149,6 @@ class _IsaacAerialSensorGraphRuntime:
         render_product = rep.create.render_product(camera_prim_path, resolution=(640, 480))
         render_product_path = str(getattr(render_product, "path", render_product))
         self._render_products.append(render_product)
-        rgb_annotator = rep.AnnotatorRegistry.get_annotator("rgb")
-        rgb_annotator.attach([render_product])
-        self._camera_annotators[robot_name] = rgb_annotator
 
         component = sanitize_ros_component(robot_name)
         key = f"{robot_name}:camera"
@@ -197,13 +192,6 @@ class _IsaacAerialSensorGraphRuntime:
         import omni.kit.app
 
         omni.kit.app.get_app().update()
-
-    def capture_camera_frame(self, robot_name: str) -> Any:
-        """Return the latest RGB frame from a configured aerial camera."""
-        annotator = self._camera_annotators.get(robot_name)
-        if annotator is None:
-            return None
-        return annotator.get_data()
 
     def create_aerial_lidar_sensor(
         self,
@@ -339,8 +327,6 @@ class _IsaacAerialSensorGraphRuntime:
         self._lidar_sensors.clear()
         self._lidar_prim_paths.clear()
         self._lidar_writers.clear()
-        camera_annotators = tuple(self._camera_annotators.values())
-        self._camera_annotators.clear()
         self._render_products.clear()
 
         has_resources = bool(graph_paths or lidar_prim_paths or writers or render_products)
@@ -355,11 +341,6 @@ class _IsaacAerialSensorGraphRuntime:
                 detach()
             except Exception as exc:
                 print(f"[AerialSensors] Warning: Failed to detach RTX LiDAR writer: {exc}")
-        for annotator in camera_annotators:
-            try:
-                annotator.detach()
-            except Exception as exc:
-                print(f"[AerialSensors] Warning: Failed to detach camera annotator: {exc}")
 
         for render_product in render_products:
             destroy = getattr(render_product, "destroy", None)
@@ -403,22 +384,15 @@ class AerialSensorSuiteManager:
         *,
         seed: int = 0,
         runtime: Any | None = None,
-        publish_ros: bool = True,
     ) -> None:
         self._env = env
         self._specs = {spec.robot_name: spec for spec in specs}
         self._models = {
-            spec.robot_name: AerialSensorModel(
-                seed=keyed_seed(seed, "aerial_sensor", spec.robot_name)
-            )
-            for spec in specs
+            spec.robot_name: AerialSensorModel(seed=seed + index)
+            for index, spec in enumerate(specs)
         }
         self._registered_robots: tuple[str, ...] = ()
         self._runtime = runtime or _IsaacAerialSensorGraphRuntime()
-        # Independent gates: the physical sensors (LiDAR prim, camera prim)
-        # exist without ROS publishing; ``publish_ros=False`` skips every
-        # ROS2 graph attachment while keeping the physical sensor layer.
-        self._publish_ros = publish_ros
         self._setup()
 
     @property
@@ -429,22 +403,15 @@ class AerialSensorSuiteManager:
     def requires_rendering(self) -> bool:
         return bool(self._specs)
 
-    def capture_camera_frame(self, robot_name: str) -> Any:
-        """Return a live RGB frame for benchmark evidence capture."""
-        capture = getattr(self._runtime, "capture_camera_frame", None)
-        if not callable(capture):
-            return None
-        return capture(robot_name)
-
     def _setup(self) -> None:
         active: list[str] = []
         try:
             for robot_name, spec in self._specs.items():
                 if robot_name not in self._env.scene.articulations:
                     continue
-                if spec.base_sensors and self._publish_ros:
+                if spec.base_sensors:
                     self._runtime.create_sensor_graph(robot_name)
-                if spec.camera and self._publish_ros:
+                if spec.camera:
                     camera_prim_path = (
                         f"/World/envs/env_0/{robot_name}/{spec.camera_mount_link}/Camera"
                     )
@@ -460,16 +427,15 @@ class AerialSensorSuiteManager:
                             f"{robot_name} ({camera_prim_path}); skipping camera graph."
                         )
                 # Only aerial robots carry the native RTX LiDAR; MuSHR uses the
-                # optional RosLidarCfg payload instead.  The physical sensor is
-                # created regardless of the ROS publishing gate.
-                if spec.robot_type in AERIAL_SENSOR_TYPES and spec.lidar:
+                # optional RosLidarCfg payload instead.
+                if spec.robot_type in AERIAL_SENSOR_TYPES:
                     body_prim_path = f"/World/envs/env_0/{robot_name}/body"
                     self._runtime.create_aerial_lidar_sensor(
                         robot_name,
                         body_prim_path,
                         spec.lidar_offset,
                     )
-                    if self._publish_ros:
+                    if spec.lidar:
                         self._runtime.create_aerial_lidar_publisher(robot_name)
                 active.append(robot_name)
         except Exception:
@@ -504,7 +470,6 @@ class AerialSensorSuiteManager:
                 linear_velocity_w=robot.data.root_lin_vel_w[0].detach().cpu().numpy(),
                 angular_velocity_b=robot.data.root_ang_vel_b[0].detach().cpu().numpy(),
                 dt=dt,
-                event_key=("physics_step", int(getattr(self._env, "common_step_counter", 0))),
             )
             self._publish(robot_name, reading, timestamp)
 

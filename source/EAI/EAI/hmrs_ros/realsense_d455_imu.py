@@ -21,7 +21,6 @@ from typing import Any, Mapping
 import numpy as np
 
 from EAI.physics.aerial_sensors import AerialSensorModel, AerialSensorModelConfig
-from EAI.keyed_random import keyed_seed
 
 _IMU_GRAPH_SUFFIX = "/Graphs/ROS2_publish_IMU/ros2_publish_imu"
 _IMU_INPUTS = (
@@ -58,14 +57,11 @@ class RealSenseD455ImuManager:
         self._instances: dict[str, str] = {}
         self._models: dict[str, AerialSensorModel] = {}
         self._write_failed: set[str] = set()
-        for path, robot_name in dict(instances).items():
+        for index, (path, robot_name) in enumerate(dict(instances).items()):
             if not path or not robot_name:
                 continue
             self._instances[path] = robot_name
-            self._models[path] = AerialSensorModel(
-                AerialSensorModelConfig(),
-                seed=keyed_seed(seed, "realsense_imu", robot_name),
-            )
+            self._models[path] = AerialSensorModel(AerialSensorModelConfig(), seed=seed + index)
 
     @property
     def registered_instances(self) -> tuple[str, ...]:
@@ -109,7 +105,6 @@ class RealSenseD455ImuManager:
                 linear_velocity_w=root_lin_vel.astype(np.float64),
                 angular_velocity_b=root_ang_vel.astype(np.float64),
                 dt=dt,
-                event_key=("physics_step", int(getattr(self._env, "common_step_counter", 0))),
             )
             try:
                 self._set_values(

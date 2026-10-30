@@ -1,6 +1,0 @@
-# Small dependencies installed only in the method venv. The documented venv
-# reuses this host's torch 2.9.1+cu128 / numpy 1.23.5 via system-site-packages.
-gymnasium==0.29.1
-setproctitle==1.3.7
-tensorboardX==2.6.4
-absl-py==2.3.1

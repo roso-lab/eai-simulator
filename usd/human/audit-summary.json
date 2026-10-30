@@ -1,0 +1,1592 @@
+{
+  "accepted": [
+    {
+      "id": "bike-man",
+      "source": "assets/pedestrians/special_agents/BikeMan.fbx.gltf",
+      "status": "accepted",
+      "target": "activities/cyclist/bike-man/character.usd"
+    },
+    {
+      "id": "bow",
+      "source": "assets/pedestrians/motions_yup/2023_09_04T16_30_39-greeting-09-certificate-kawaguchi-fps_30.gltf",
+      "status": "accepted",
+      "target": "motions/sources/bow.usd"
+    },
+    {
+      "id": "dance",
+      "source": "assets/pedestrians/motions_yup/2023_09_04T16_44_42-120_04-fps_30.gltf",
+      "status": "accepted",
+      "target": "motions/sources/motion_120_04.usd"
+    },
+    {
+      "id": "escooter-woman",
+      "source": "assets/pedestrians/special_agents/eScooterWoman.fbx.gltf",
+      "status": "accepted",
+      "target": "activities/scooter_rider/escooter-woman/character.usd"
+    },
+    {
+      "id": "forward_dive",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_012_yup_t_motion.gltf",
+      "status": "accepted",
+      "target": "motions/rpm/forward_dive.usd"
+    },
+    {
+      "id": "hit_reaction_retreat",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_011_yup_t_motion.gltf",
+      "status": "accepted",
+      "target": "motions/rpm/hit_reaction_retreat.usd"
+    },
+    {
+      "id": "jog",
+      "source": "assets/pedestrians/motions_yup/synbody_jog426.fbx.gltf",
+      "status": "accepted",
+      "target": "motions/sources/jog.usd"
+    },
+    {
+      "id": "long_stride_walk",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_008_yup_t_motion.gltf",
+      "status": "accepted",
+      "target": "motions/rpm/long_stride_walk.usd"
+    },
+    {
+      "id": "phone_call",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_aaron_rigged_001_motion.gltf",
+      "status": "accepted",
+      "target": "motions/rpm/phone_call.usd"
+    },
+    {
+      "id": "rp-aaron-rigged-001",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_aaron_rigged_001_model.gltf",
+      "status": "accepted",
+      "target": "characters/rpm/rp-aaron-rigged-001/character.usd"
+    },
+    {
+      "id": "rp-amit-rigged-008-yup-t",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_008_yup_t_model.gltf",
+      "status": "accepted",
+      "target": "characters/rpm/rp-amit-rigged-008-yup-t/character.usd"
+    },
+    {
+      "id": "rp-amit-rigged-009-yup-t",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_009_yup_t_model.gltf",
+      "status": "accepted",
+      "target": "characters/rpm/rp-amit-rigged-009-yup-t/character.usd"
+    },
+    {
+      "id": "rp-amit-rigged-010-yup-t",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_010_yup_t_model.gltf",
+      "status": "accepted",
+      "target": "characters/rpm/rp-amit-rigged-010-yup-t/character.usd"
+    },
+    {
+      "id": "rp-amit-rigged-011-yup-t",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_011_yup_t_model.gltf",
+      "status": "accepted",
+      "target": "characters/rpm/rp-amit-rigged-011-yup-t/character.usd"
+    },
+    {
+      "id": "rp-amit-rigged-012-yup-t",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_012_yup_t_model.gltf",
+      "status": "accepted",
+      "target": "characters/rpm/rp-amit-rigged-012-yup-t/character.usd"
+    },
+    {
+      "id": "skateboard-man-1",
+      "source": "assets/pedestrians/special_agents/skateboardMan1.fbx.gltf",
+      "status": "accepted",
+      "target": "activities/skateboarder/skateboard-man-1/character.usd"
+    },
+    {
+      "id": "stagger_walk",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_010_yup_t_motion.gltf",
+      "status": "accepted",
+      "target": "motions/rpm/stagger_walk.usd"
+    },
+    {
+      "id": "static-biker-d165593433754d2283f655e2b3cc8dc1",
+      "source": "assets/objects/static biker-d165593433754d2283f655e2b3cc8dc1.glb",
+      "status": "accepted",
+      "target": "activities/static_biker/static-biker-d165593433754d2283f655e2b3cc8dc1/character.usd"
+    },
+    {
+      "id": "synbody-0000001",
+      "source": "assets/peds/Collected_0000001/0000001.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000001/character.usd"
+    },
+    {
+      "id": "synbody-0000020",
+      "source": "assets/peds/Collected_0000020/0000020.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000020/character.usd"
+    },
+    {
+      "id": "synbody-0000024",
+      "source": "assets/peds/Collected_0000024/0000024.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000024/character.usd"
+    },
+    {
+      "id": "synbody-0000045",
+      "source": "assets/peds/Collected_0000045/0000045.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000045/character.usd"
+    },
+    {
+      "id": "synbody-0000064",
+      "source": "assets/peds/Collected_0000064/0000064.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000064/character.usd"
+    },
+    {
+      "id": "synbody-0000065",
+      "source": "assets/peds/Collected_0000065/0000065.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000065/character.usd"
+    },
+    {
+      "id": "synbody-0000083",
+      "source": "assets/peds/Collected_0000083/0000083.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000083/character.usd"
+    },
+    {
+      "id": "synbody-0000117",
+      "source": "assets/peds/Collected_0000117/0000117.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000117/character.usd"
+    },
+    {
+      "id": "synbody-0000235",
+      "source": "assets/peds/Collected_0000235/0000235.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000235/character.usd"
+    },
+    {
+      "id": "synbody-0000297",
+      "source": "assets/peds/Collected_0000297/0000297.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000297/character.usd"
+    },
+    {
+      "id": "synbody-0000305",
+      "source": "assets/peds/Collected_0000305/0000305.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000305/character.usd"
+    },
+    {
+      "id": "synbody-0000490",
+      "source": "assets/peds/Collected_0000490/0000490.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0000490/character.usd"
+    },
+    {
+      "id": "synbody-0006062",
+      "source": "assets/peds/Collected_0006062/0006062.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006062/character.usd"
+    },
+    {
+      "id": "synbody-0006071",
+      "source": "assets/peds/Collected_0006071/0006071.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006071/character.usd"
+    },
+    {
+      "id": "synbody-0006092",
+      "source": "assets/peds/Collected_0006092/0006092.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006092/character.usd"
+    },
+    {
+      "id": "synbody-0006108",
+      "source": "assets/peds/Collected_0006108/0006108.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006108/character.usd"
+    },
+    {
+      "id": "synbody-0006180",
+      "source": "assets/peds/Collected_0006180/0006180.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006180/character.usd"
+    },
+    {
+      "id": "synbody-0006295",
+      "source": "assets/peds/Collected_0006295/0006295.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006295/character.usd"
+    },
+    {
+      "id": "synbody-0006320",
+      "source": "assets/peds/Collected_0006320/0006320.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006320/character.usd"
+    },
+    {
+      "id": "synbody-0006323",
+      "source": "assets/peds/Collected_0006323/0006323.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006323/character.usd"
+    },
+    {
+      "id": "synbody-0006330",
+      "source": "assets/peds/Collected_0006330/0006330.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006330/character.usd"
+    },
+    {
+      "id": "synbody-0006443",
+      "source": "assets/peds/Collected_0006443/0006443.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006443/character.usd"
+    },
+    {
+      "id": "synbody-0006696",
+      "source": "assets/peds/Collected_0006696/0006696.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006696/character.usd"
+    },
+    {
+      "id": "synbody-0006805",
+      "source": "assets/peds/Collected_0006805/0006805.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0006805/character.usd"
+    },
+    {
+      "id": "synbody-0007327",
+      "source": "assets/peds/Collected_0007327/0007327.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0007327/character.usd"
+    },
+    {
+      "id": "synbody-0007369",
+      "source": "assets/peds/Collected_0007369/0007369.usd",
+      "status": "accepted",
+      "target": "characters/synbody/0007369/character.usd"
+    },
+    {
+      "id": "synbody-gltf-0000002",
+      "source": "assets/pedestrians/characters_yup/0000002.gltf",
+      "status": "accepted",
+      "target": "characters/synbody_gltf/0000002/character.usd"
+    },
+    {
+      "id": "synbody-gltf-0000006",
+      "source": "assets/pedestrians/characters_yup/0000006.gltf",
+      "status": "accepted",
+      "target": "characters/synbody_gltf/0000006/character.usd"
+    },
+    {
+      "id": "synbody-gltf-0000007",
+      "source": "assets/pedestrians/characters_yup/0000007.gltf",
+      "status": "accepted",
+      "target": "characters/synbody_gltf/0000007/character.usd"
+    },
+    {
+      "id": "synbody-gltf-0000010",
+      "source": "assets/pedestrians/characters_yup/0000010.gltf",
+      "status": "accepted",
+      "target": "characters/synbody_gltf/0000010/character.usd"
+    },
+    {
+      "id": "synbody-gltf-0000027",
+      "source": "assets/pedestrians/characters_yup/0000027.gltf",
+      "status": "accepted",
+      "target": "characters/synbody_gltf/0000027/character.usd"
+    },
+    {
+      "id": "synbody-gltf-0000403",
+      "source": "assets/pedestrians/characters_yup/0000403_people_baked.gltf",
+      "status": "accepted",
+      "target": "characters/synbody_gltf/0000403/character.usd"
+    },
+    {
+      "id": "synbody-gltf-0009203",
+      "source": "assets/pedestrians/characters_yup/0009203_people_baked.gltf",
+      "status": "accepted",
+      "target": "characters/synbody_gltf/0009203/character.usd"
+    },
+    {
+      "id": "walk",
+      "source": "assets/ped_actions/synbody_walking426.fbx/synbody_walking426.fbx.usd",
+      "status": "accepted",
+      "target": "motions/sources/walk.usd"
+    },
+    {
+      "id": "walk_and_look",
+      "source": "assets/pedestrians/motions_yup/2023_09_04T16_40_16-15_01-fps_30.gltf",
+      "status": "accepted",
+      "target": "motions/sources/motion_15_01.usd"
+    },
+    {
+      "id": "walk_and_text",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_009_yup_t_motion.gltf",
+      "status": "accepted",
+      "target": "motions/rpm/walk_and_text.usd"
+    },
+    {
+      "id": "walk_backward",
+      "source": "assets/pedestrians/motions_yup/2023_09_04T16_48_11-B4_-_stand_to_walk_back-fps_30.gltf",
+      "status": "accepted",
+      "target": "motions/sources/stand_to_walk_back.usd"
+    },
+    {
+      "id": "wheelchair-rider",
+      "source": "assets/pedestrians/special_agents/free3DVersion.gltf",
+      "status": "accepted",
+      "target": "activities/wheelchair/wheelchair-rider/character.usd"
+    }
+  ],
+  "candidates": [
+    {
+      "activity_type": "cyclist",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 2,
+        "skeleton_joint_counts": [
+          2
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 4,
+          "reason": "texture mappings verified",
+          "source_count": 4
+        }
+      },
+      "id": "bike-man",
+      "output": "activities/cyclist/bike-man/character.usd",
+      "profile": "rigid_1",
+      "source": "assets/pedestrians/special_agents/BikeMan.fbx.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rigid_activity"
+    },
+    {
+      "activity_type": "scooter_rider",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 2,
+        "skeleton_joint_counts": [
+          2
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 3,
+          "reason": "texture mappings verified",
+          "source_count": 3
+        }
+      },
+      "id": "escooter-woman",
+      "output": "activities/scooter_rider/escooter-woman/character.usd",
+      "profile": "rigid_1",
+      "source": "assets/pedestrians/special_agents/eScooterWoman.fbx.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rigid_activity"
+    },
+    {
+      "activity_type": "skateboarder",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 2,
+        "skeleton_joint_counts": [
+          2
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 2,
+          "reason": "texture mappings verified",
+          "source_count": 2
+        }
+      },
+      "id": "skateboard-man-1",
+      "output": "activities/skateboarder/skateboard-man-1/character.usd",
+      "profile": "rigid_1",
+      "source": "assets/pedestrians/special_agents/skateboardMan1.fbx.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rigid_activity"
+    },
+    {
+      "activity_type": "static_biker",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 13,
+        "skeleton_joint_counts": [],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 0,
+          "reason": "texture mappings verified",
+          "source_count": 0
+        }
+      },
+      "id": "static-biker-d165593433754d2283f655e2b3cc8dc1",
+      "output": "activities/static_biker/static-biker-d165593433754d2283f655e2b3cc8dc1/character.usd",
+      "profile": "rigid_1",
+      "source": "assets/objects/static biker-d165593433754d2283f655e2b3cc8dc1.glb",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rigid_activity"
+    },
+    {
+      "activity_type": "wheelchair",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          2
+        ],
+        "texture_fidelity": {
+          "collisions": [
+            "Image"
+          ],
+          "enabled": false,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 9,
+          "reason": "texture collision: merged logical names ['Image']",
+          "source_count": 10
+        }
+      },
+      "id": "wheelchair-rider",
+      "output": "activities/wheelchair/wheelchair-rider/character.usd",
+      "profile": "rigid_1",
+      "source": "assets/pedestrians/special_agents/free3DVersion.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rigid_activity"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        }
+      },
+      "id": "rp-aaron-rigged-001",
+      "output": "characters/rpm/rp-aaron-rigged-001/character.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_aaron_rigged_001_model.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_character"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        }
+      },
+      "id": "rp-amit-rigged-008-yup-t",
+      "output": "characters/rpm/rp-amit-rigged-008-yup-t/character.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_008_yup_t_model.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_character"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        }
+      },
+      "id": "rp-amit-rigged-009-yup-t",
+      "output": "characters/rpm/rp-amit-rigged-009-yup-t/character.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_009_yup_t_model.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_character"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        }
+      },
+      "id": "rp-amit-rigged-010-yup-t",
+      "output": "characters/rpm/rp-amit-rigged-010-yup-t/character.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_010_yup_t_model.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_character"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        }
+      },
+      "id": "rp-amit-rigged-011-yup-t",
+      "output": "characters/rpm/rp-amit-rigged-011-yup-t/character.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_011_yup_t_model.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_character"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        }
+      },
+      "id": "rp-amit-rigged-012-yup-t",
+      "output": "characters/rpm/rp-amit-rigged-012-yup-t/character.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_012_yup_t_model.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_character"
+    },
+    {
+      "activity_type": null,
+      "details": {
+        "animation_count": 1,
+        "duration": 2.625,
+        "mesh_count": 1,
+        "sample_end": 62,
+        "sample_start": 0,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        },
+        "time_codes_per_second": 24
+      },
+      "id": "forward_dive",
+      "output": "motions/rpm/forward_dive.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_012_yup_t_motion.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_motion"
+    },
+    {
+      "activity_type": null,
+      "details": {
+        "animation_count": 1,
+        "duration": 3.2083333333333335,
+        "mesh_count": 1,
+        "sample_end": 76,
+        "sample_start": 0,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        },
+        "time_codes_per_second": 24
+      },
+      "id": "hit_reaction_retreat",
+      "output": "motions/rpm/hit_reaction_retreat.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_011_yup_t_motion.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_motion"
+    },
+    {
+      "activity_type": null,
+      "details": {
+        "animation_count": 1,
+        "duration": 1.125,
+        "mesh_count": 1,
+        "sample_end": 26,
+        "sample_start": 0,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        },
+        "time_codes_per_second": 24
+      },
+      "id": "long_stride_walk",
+      "output": "motions/rpm/long_stride_walk.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_008_yup_t_motion.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_motion"
+    },
+    {
+      "activity_type": null,
+      "details": {
+        "animation_count": 1,
+        "duration": 38.916666666666664,
+        "mesh_count": 1,
+        "sample_end": 933,
+        "sample_start": 0,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        },
+        "time_codes_per_second": 24
+      },
+      "id": "phone_call",
+      "output": "motions/rpm/phone_call.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_aaron_rigged_001_motion.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_motion"
+    },
+    {
+      "activity_type": null,
+      "details": {
+        "animation_count": 1,
+        "duration": 3.0833333333333335,
+        "mesh_count": 1,
+        "sample_end": 73,
+        "sample_start": 0,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        },
+        "time_codes_per_second": 24
+      },
+      "id": "stagger_walk",
+      "output": "motions/rpm/stagger_walk.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_010_yup_t_motion.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_motion"
+    },
+    {
+      "activity_type": null,
+      "details": {
+        "animation_count": 1,
+        "duration": 4.083333333333333,
+        "mesh_count": 1,
+        "sample_end": 97,
+        "sample_start": 0,
+        "skeleton_joint_counts": [
+          87
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 1,
+          "reason": "texture mappings verified",
+          "source_count": 1
+        },
+        "time_codes_per_second": 24
+      },
+      "id": "walk_and_text",
+      "output": "motions/rpm/walk_and_text.usd",
+      "profile": "rpm_87",
+      "source": "assets/pedestrians/RPtest_GLTF/rp_amit_rigged_009_yup_t_motion.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "rpm_motion"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          55
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 6,
+          "reason": "texture mappings verified",
+          "source_count": 6
+        }
+      },
+      "id": "synbody-gltf-0000002",
+      "output": "characters/synbody_gltf/0000002/character.usd",
+      "profile": "synbody_55",
+      "source": "assets/pedestrians/characters_yup/0000002.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_character"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          55
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 6,
+          "reason": "texture mappings verified",
+          "source_count": 6
+        }
+      },
+      "id": "synbody-gltf-0000006",
+      "output": "characters/synbody_gltf/0000006/character.usd",
+      "profile": "synbody_55",
+      "source": "assets/pedestrians/characters_yup/0000006.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_character"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          55
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 7,
+          "reason": "texture mappings verified",
+          "source_count": 7
+        }
+      },
+      "id": "synbody-gltf-0000007",
+      "output": "characters/synbody_gltf/0000007/character.usd",
+      "profile": "synbody_55",
+      "source": "assets/pedestrians/characters_yup/0000007.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_character"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          55
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 7,
+          "reason": "texture mappings verified",
+          "source_count": 7
+        }
+      },
+      "id": "synbody-gltf-0000010",
+      "output": "characters/synbody_gltf/0000010/character.usd",
+      "profile": "synbody_55",
+      "source": "assets/pedestrians/characters_yup/0000010.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_character"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 1,
+        "skeleton_joint_counts": [
+          55
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 6,
+          "reason": "texture mappings verified",
+          "source_count": 6
+        }
+      },
+      "id": "synbody-gltf-0000027",
+      "output": "characters/synbody_gltf/0000027/character.usd",
+      "profile": "synbody_55",
+      "source": "assets/pedestrians/characters_yup/0000027.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_character"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 6,
+        "skeleton_joint_counts": [
+          70
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 4,
+          "reason": "texture mappings verified",
+          "source_count": 4
+        }
+      },
+      "id": "synbody-gltf-0000403",
+      "output": "characters/synbody_gltf/0000403/character.usd",
+      "profile": "smplx_70",
+      "source": "assets/pedestrians/characters_yup/0000403_people_baked.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_character"
+    },
+    {
+      "activity_type": "pedestrian",
+      "details": {
+        "animation_count": 0,
+        "mesh_count": 5,
+        "skeleton_joint_counts": [
+          70
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 4,
+          "reason": "texture mappings verified",
+          "source_count": 4
+        }
+      },
+      "id": "synbody-gltf-0009203",
+      "output": "characters/synbody_gltf/0009203/character.usd",
+      "profile": "smplx_70",
+      "source": "assets/pedestrians/characters_yup/0009203_people_baked.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_character"
+    },
+    {
+      "activity_type": null,
+      "details": {
+        "animation_count": 1,
+        "duration": 19.541666666666668,
+        "mesh_count": 0,
+        "sample_end": 468,
+        "sample_start": 0,
+        "skeleton_joint_counts": [
+          70
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 0,
+          "reason": "texture mappings verified",
+          "source_count": 0
+        },
+        "time_codes_per_second": 24
+      },
+      "id": "bow",
+      "output": "motions/sources/bow.usd",
+      "profile": "smplx_70",
+      "source": "assets/pedestrians/motions_yup/2023_09_04T16_30_39-greeting-09-certificate-kawaguchi-fps_30.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_motion"
+    },
+    {
+      "activity_type": null,
+      "details": {
+        "animation_count": 1,
+        "duration": 54.25,
+        "mesh_count": 0,
+        "sample_end": 1301,
+        "sample_start": 0,
+        "skeleton_joint_counts": [
+          70
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 0,
+          "reason": "texture mappings verified",
+          "source_count": 0
+        },
+        "time_codes_per_second": 24
+      },
+      "id": "dance",
+      "output": "motions/sources/motion_120_04.usd",
+      "profile": "smplx_70",
+      "source": "assets/pedestrians/motions_yup/2023_09_04T16_44_42-120_04-fps_30.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_motion"
+    },
+    {
+      "activity_type": null,
+      "details": {
+        "animation_count": 1,
+        "duration": 0.8333333333333334,
+        "mesh_count": 1,
+        "sample_end": 19,
+        "sample_start": 0,
+        "skeleton_joint_counts": [
+          70
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 0,
+          "reason": "texture mappings verified",
+          "source_count": 0
+        },
+        "time_codes_per_second": 24
+      },
+      "id": "jog",
+      "output": "motions/sources/jog.usd",
+      "profile": "smplx_70",
+      "source": "assets/pedestrians/motions_yup/synbody_jog426.fbx.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_motion"
+    },
+    {
+      "activity_type": null,
+      "details": {
+        "animation_count": 1,
+        "duration": 46.125,
+        "mesh_count": 0,
+        "sample_end": 1106,
+        "sample_start": 0,
+        "skeleton_joint_counts": [
+          70
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 0,
+          "reason": "texture mappings verified",
+          "source_count": 0
+        },
+        "time_codes_per_second": 24
+      },
+      "id": "walk_and_look",
+      "output": "motions/sources/motion_15_01.usd",
+      "profile": "smplx_70",
+      "source": "assets/pedestrians/motions_yup/2023_09_04T16_40_16-15_01-fps_30.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_motion"
+    },
+    {
+      "activity_type": null,
+      "details": {
+        "animation_count": 1,
+        "duration": 7.625,
+        "mesh_count": 0,
+        "sample_end": 182,
+        "sample_start": 0,
+        "skeleton_joint_counts": [
+          70
+        ],
+        "texture_fidelity": {
+          "collisions": [],
+          "enabled": true,
+          "extra": [],
+          "mismatched": [],
+          "missing": [],
+          "output_count": 0,
+          "reason": "texture mappings verified",
+          "source_count": 0
+        },
+        "time_codes_per_second": 24
+      },
+      "id": "walk_backward",
+      "output": "motions/sources/stand_to_walk_back.usd",
+      "profile": "smplx_70",
+      "source": "assets/pedestrians/motions_yup/2023_09_04T16_48_11-B4_-_stand_to_walk_back-fps_30.gltf",
+      "status": "accepted",
+      "technically_validated": true,
+      "type": "synbody_motion"
+    }
+  ],
+  "conversion_report_errors": [],
+  "counts": {
+    "accepted": 56,
+    "asset_records": 44,
+    "candidate_records": 29,
+    "canonical_unique_assets": 44,
+    "disabled": 0,
+    "disabled_assets": 0,
+    "enabled_assets": 44,
+    "enabled_motions": 12,
+    "motion_records": 12,
+    "ready_assets": 26,
+    "ready_motions": 1,
+    "rejected": 14,
+    "technically_validated_candidates": 29
+  },
+  "disabled": [],
+  "duplicates": [],
+  "provenance": {
+    "conversion_report": "usd/human/conversion-report.json",
+    "generator": "tools/human_assets/migrate_assets.py",
+    "source_root": "urban-sim",
+    "target_root": "usd/human"
+  },
+  "rejected": [
+    {
+      "reason": "credential files are never migrated",
+      "source": "assets/pedestrians/RP_actor/client_secrets.json",
+      "status": "rejected"
+    },
+    {
+      "reason": "credential files are never migrated",
+      "source": "assets/pedestrians/RP_actor/token.json",
+      "status": "rejected"
+    },
+    {
+      "reason": "credential files are never migrated",
+      "source": "assets/pedestrians/SynBody_actor/client_secrets.json",
+      "status": "rejected"
+    },
+    {
+      "reason": "not an allowlisted human activity asset",
+      "source": "assets/pedestrians/special_agents/EDog_ReScale_color1.fbx.gltf",
+      "status": "rejected"
+    },
+    {
+      "reason": "not an allowlisted human activity asset",
+      "source": "assets/pedestrians/special_agents/EDog_ReScale_color2.fbx.gltf",
+      "status": "rejected"
+    },
+    {
+      "reason": "not an allowlisted human activity asset",
+      "source": "assets/pedestrians/special_agents/EDog_ReScale_color3.fbx.gltf",
+      "status": "rejected"
+    },
+    {
+      "reason": "not an allowlisted human activity asset",
+      "source": "assets/pedestrians/special_agents/EDog_ReScale_motion.fbx.gltf",
+      "status": "rejected"
+    },
+    {
+      "reason": "not an allowlisted human activity asset",
+      "source": "assets/pedestrians/special_agents/EDog_ReScale_motion1.fbx.gltf",
+      "status": "rejected"
+    },
+    {
+      "reason": "not an allowlisted human activity asset",
+      "source": "assets/pedestrians/special_agents/agility_animation2.fbx.gltf",
+      "status": "rejected"
+    },
+    {
+      "reason": "not an allowlisted human activity asset",
+      "source": "assets/pedestrians/special_agents/agility_animation3.fbx.gltf",
+      "status": "rejected"
+    },
+    {
+      "reason": "not an allowlisted human activity asset",
+      "source": "assets/pedestrians/special_agents/agility_model2.fbx.gltf",
+      "status": "rejected"
+    },
+    {
+      "reason": "not an allowlisted human activity asset",
+      "source": "assets/pedestrians/special_agents/agility_model3.fbx.gltf",
+      "status": "rejected"
+    },
+    {
+      "reason": "not an allowlisted human activity asset",
+      "source": "assets/pedestrians/special_agents/agility_model4.fbx.gltf",
+      "status": "rejected"
+    },
+    {
+      "reason": "not an allowlisted human activity asset",
+      "source": "assets/pedestrians/special_agents/skateboardMan.gltf",
+      "status": "rejected"
+    }
+  ],
+  "schema": "eai-human-asset-audit",
+  "source_root": "urban-sim",
+  "target_root": "usd/human",
+  "texture_fidelity": [
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "bike-man",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 4,
+      "reason": "texture mappings verified",
+      "source_count": 4
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "escooter-woman",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 3,
+      "reason": "texture mappings verified",
+      "source_count": 3
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "skateboard-man-1",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 2,
+      "reason": "texture mappings verified",
+      "source_count": 2
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "static-biker-d165593433754d2283f655e2b3cc8dc1",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 0,
+      "reason": "texture mappings verified",
+      "source_count": 0
+    },
+    {
+      "collisions": [
+        "Image"
+      ],
+      "enabled": false,
+      "extra": [],
+      "id": "wheelchair-rider",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 9,
+      "reason": "texture collision: merged logical names ['Image']",
+      "source_count": 10
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "rp-aaron-rigged-001",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "rp-amit-rigged-008-yup-t",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "rp-amit-rigged-009-yup-t",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "rp-amit-rigged-010-yup-t",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "rp-amit-rigged-011-yup-t",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "rp-amit-rigged-012-yup-t",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "forward_dive",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "hit_reaction_retreat",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "long_stride_walk",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "phone_call",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "stagger_walk",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "walk_and_text",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 1,
+      "reason": "texture mappings verified",
+      "source_count": 1
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "synbody-gltf-0000002",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 6,
+      "reason": "texture mappings verified",
+      "source_count": 6
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "synbody-gltf-0000006",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 6,
+      "reason": "texture mappings verified",
+      "source_count": 6
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "synbody-gltf-0000007",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 7,
+      "reason": "texture mappings verified",
+      "source_count": 7
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "synbody-gltf-0000010",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 7,
+      "reason": "texture mappings verified",
+      "source_count": 7
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "synbody-gltf-0000027",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 6,
+      "reason": "texture mappings verified",
+      "source_count": 6
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "synbody-gltf-0000403",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 4,
+      "reason": "texture mappings verified",
+      "source_count": 4
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "synbody-gltf-0009203",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 4,
+      "reason": "texture mappings verified",
+      "source_count": 4
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "bow",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 0,
+      "reason": "texture mappings verified",
+      "source_count": 0
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "dance",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 0,
+      "reason": "texture mappings verified",
+      "source_count": 0
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "jog",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 0,
+      "reason": "texture mappings verified",
+      "source_count": 0
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "walk_and_look",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 0,
+      "reason": "texture mappings verified",
+      "source_count": 0
+    },
+    {
+      "collisions": [],
+      "enabled": true,
+      "extra": [],
+      "id": "walk_backward",
+      "mismatched": [],
+      "missing": [],
+      "output_count": 0,
+      "reason": "texture mappings verified",
+      "source_count": 0
+    }
+  ],
+  "version": 2
+}

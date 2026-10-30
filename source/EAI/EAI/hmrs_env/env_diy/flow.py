@@ -16,7 +16,7 @@ UR5_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("ur5").supported_robot
 Z1_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("z1").supported_robots)
 LIDAR_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("lidar").supported_robots)
 CAMERA_SUPPORTED_ROBOTS = frozenset(catalog.tool_catalog()["camera"].supported_robots)
-TERMINAL_CONTROLLER_STEP = 11
+TERMINAL_CONTROLLER_STEP = 10
 SCENE_CHOICES = catalog.SCENE_CHOICES
 ROBOT_LABELS = catalog.ROBOT_LABELS
 _TERMINAL_RULE = "-" * 72
@@ -69,7 +69,7 @@ def _print_selection_summary(
     print_func("\n配置预览")
     print_func(_TERMINAL_RULE)
     print_func(f"  Scene    {scene_label} ({scene_key})")
-    print_func(f"  Robots   {len(robots)}" + ("" if robots else "（仅运行场景）"))
+    print_func(f"  Robots   {len(robots)}")
     for index, robot in enumerate(robots, start=1):
         payloads = ", ".join(
             catalog.tool_label(item.type)
@@ -108,15 +108,10 @@ class InteractiveSelection:
     scene_key: str
     robots: tuple[RobotSelection, ...]
     task_name: str | None = None
-    # Canonical JSON keeps the new contract intact without exposing mutable state.
-    scenario_json: str | None = None
 
 
 def is_back_token(value: str) -> bool:
     return value.strip().lower() in {"b", "back"}
-
-
-NO_ROBOT_TOKENS = frozenset({"0", "none", "no-robot", "scene-only"})
 
 
 def parse_robot_digit_selection(raw: str, *, robot_keys: tuple[str, ...] = ROBOT_KEYS) -> tuple[str, ...]:
@@ -126,9 +121,6 @@ def parse_robot_digit_selection(raw: str, *, robot_keys: tuple[str, ...] = ROBOT
     keys_by_name = {key.lower(): key for key in robot_keys}
     if text.lower() in keys_by_name:
         return (keys_by_name[text.lower()],)
-    if text.lower() in NO_ROBOT_TOKENS:
-        # Explicit scene-only selection: run the scene without any robot.
-        return ()
     selected: list[str] = []
     for token in text.split():
         if not token.isdigit():
@@ -144,10 +136,6 @@ def parse_robot_digit_selection(raw: str, *, robot_keys: tuple[str, ...] = ROBOT
 
 def controller_cfg_names() -> tuple[str, ...]:
     return catalog.controller_cfg_names()
-
-
-def controller_cfgs_for_robot(robot_type: str) -> tuple[str, ...]:
-    return catalog.controller_cfgs_for_robot(robot_type)
 
 
 def default_controller_cfg(robot_type: str) -> str | None:
@@ -291,21 +279,6 @@ def choose_terminal_interactive_selection(
             continue
 
         if step == 7:
-            updated = _choose_attachments(
-                "OCTAGON-AIO-C01",
-                "octagon_aio_c01",
-                robots,
-                input_func=input_func,
-                print_func=print_func,
-            )
-            if updated is None:
-                step = 6
-                continue
-            robots = updated
-            step = 8
-            continue
-
-        if step == 8:
             _print_terminal_step(
                 print_func,
                 4,
@@ -320,13 +293,13 @@ def choose_terminal_interactive_selection(
                 print_func=print_func,
             )
             if updated is None:
-                step = 7
+                step = 6
                 continue
             robots = updated
-            step = 9
+            step = 8
             continue
 
-        if step == 9:
+        if step == 8:
             updated = _choose_attachments(
                 "Camera tool",
                 "camera",
@@ -335,13 +308,13 @@ def choose_terminal_interactive_selection(
                 print_func=print_func,
             )
             if updated is None:
-                step = 8
+                step = 7
                 continue
             robots = updated
-            step = 10
+            step = 9
             continue
 
-        if step == 10:
+        if step == 9:
             updated = _choose_attachments(
                 "Keyboard tool",
                 "keyboard",
@@ -350,7 +323,7 @@ def choose_terminal_interactive_selection(
                 print_func=print_func,
             )
             if updated is None:
-                step = 10
+                step = 9
                 continue
             robots = updated
             before_controller_override = list(robots)
@@ -369,7 +342,7 @@ def choose_terminal_interactive_selection(
             print_func=print_func,
         )
         if updated is None:
-            step = 10
+            step = 9
             continue
         if scene_key is None:
             raise RuntimeError("Scene was not selected.")
@@ -413,7 +386,7 @@ def _choose_robot_digits(*, input_func, print_func) -> tuple[str, ...] | None:
     )
     _print_choice_grid(options, print_func=print_func)
     while True:
-        raw = input_func("\n选择机器人 (例如 1 11，默认 1；输入 0 不添加机器人，仅运行场景): ").strip()
+        raw = input_func("\n选择机器人 (例如 1 11，默认 1): ").strip()
         if not raw:
             raw = "1"
         if is_back_token(raw):
@@ -449,8 +422,8 @@ def _choose_attachments(
             and not any(item.type in {"orsus", "realsense_d455"} for item in robot.attachments)
         )
         and not (
-            attachment_type in catalog.MANIPULATOR_TYPES
-            and any(item.type in catalog.MANIPULATOR_TYPES for item in robot.attachments)
+            attachment_type in {"ur5", "z1"}
+            and any(item.type in {"ur5", "z1"} for item in robot.attachments)
         )
         and not (
             attachment_type in {"orsus", "lidar"}
@@ -555,10 +528,9 @@ def _maybe_override_controllers(
         _print_terminal_subsection(print_func, "可修改的对象")
         display_index = 1
         for robot_index, robot in enumerate(updated):
-            robot_cfgs = controller_cfgs_for_robot(robot.type)
             print_func(
                 f"    [{display_index:>2}] {robot.type}_{robot_index + 1} base "
-                f"({robot.controller.cfg})  可用: {', '.join(robot_cfgs)}"
+                f"({robot.controller.cfg})"
             )
             options.append(("robot", robot_index, None))
             display_index += 1
@@ -586,16 +558,11 @@ def _maybe_override_controllers(
         cfg_name = input_func("输入新的 cfg 名称: ").strip()
         if is_back_token(cfg_name):
             continue
+        if cfg_name not in controller_cfg_names():
+            print_func(f"  ! 未知 cfg: {cfg_name}")
+            continue
         kind, robot_index, attachment_type = options[target - 1]
         robot = updated[robot_index]
-        if kind == "robot":
-            allowed_cfgs = controller_cfgs_for_robot(robot.type)
-        else:
-            attachment = next(item for item in robot.attachments if item.type == attachment_type)
-            allowed_cfgs = (attachment.controller.cfg,) if attachment.controller else ()
-        if cfg_name not in allowed_cfgs:
-            print_func(f"  ! {robot.type} 不支持 cfg: {cfg_name}；可用: {', '.join(allowed_cfgs)}")
-            continue
         if kind == "robot":
             updated[robot_index] = RobotSelection(
                 robot.type,
@@ -645,12 +612,7 @@ def _ask_yes_no_or_back(prompt: str, *, default: bool, input_func, print_func) -
 
 
 def interactive_selection_to_dict(selection: InteractiveSelection) -> dict[str, Any]:
-    if selection.scenario_json is not None:
-        from EAI.scenario_spec.validation import parse_scenario
-
-        return parse_scenario(selection.scenario_json)
     data = asdict(selection)
-    data.pop("scenario_json", None)
     robots = []
     for robot in data["robots"]:
         normalized = {
@@ -673,15 +635,6 @@ def interactive_selection_to_dict(selection: InteractiveSelection) -> dict[str, 
 
 
 def interactive_selection_from_dict(data: dict[str, Any]) -> InteractiveSelection:
-    scenario_json = None
-    if data.get("version", 1) == 2:
-        import json
-        from EAI.scenario_spec import validate_scenario
-
-        data = validate_scenario(data)
-        scenario_json = json.dumps(data, allow_nan=False, sort_keys=True)
-    elif data.get("version", 1) != 1:
-        raise ValueError("Unsupported environment version")
     scene_key = str(data["scene_key"]).strip().lower()
     if scene_key not in {key for key, _label in SCENE_CHOICES}:
         raise ValueError(f"Unknown scene '{scene_key}'.")
@@ -706,10 +659,10 @@ def interactive_selection_from_dict(data: dict[str, Any]) -> InteractiveSelectio
         for attachment_type in attachment_types:
             attachment = attachment_data_by_type[attachment_type]
             attachment_controller = None
-            if attachment_type in catalog.MANIPULATOR_TYPES:
+            if attachment_type in {"ur5", "z1"}:
                 attachment_controller = _controller_from_dict(
                     attachment.get("controller"),
-                    default_cfg="UR5_IK_CFG" if attachment_type in {"ur5", "ur5_bare"} else "Z1_IK_CFG" if attachment_type == "z1" else "D1_IK_CFG",
+                    default_cfg="UR5_IK_CFG" if attachment_type == "ur5" else "Z1_IK_CFG",
                 )
             attachments.append(AttachmentSelection(attachment_type, attachment_controller))
         robots.append(
@@ -728,7 +681,6 @@ def interactive_selection_from_dict(data: dict[str, Any]) -> InteractiveSelectio
         scene_key=scene_key,
         robots=tuple(robots),
         task_name=data.get("task_name"),
-        scenario_json=scenario_json,
     )
 
 

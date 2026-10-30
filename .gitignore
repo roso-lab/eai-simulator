@@ -87,7 +87,6 @@ docker/artifacts/
 /.worktrees/
 /.superpowers/
 /docs/superpowers/
-.vscode/
 
 # Local agent and personal memory state
 /.agents/
@@ -130,14 +129,6 @@ tests/
 .isaac-lab-docker-history
 ros2_cmd_vel.json
 *.json
-!/benchmark/fixtures/
-!/benchmark/fixtures/*.json
-!/benchmark/fixtures/**/
-!/benchmark/fixtures/**/*.json
-!/demo/benchmark/task_coverage_matrix.json
-!/demo/benchmark/modality_matrix.json
-!/demo/benchmark/second_mission_weights.json
-!/demo/benchmark/tests/
 !/source/EAI_hmrs/EAI_hmrs/envs/*.json
 /source/EAI_hmrs/EAI_hmrs/envs/test*.json
 /source/EAI_hmrs/EAI_hmrs/envs/n.json
@@ -176,35 +167,6 @@ ros2_cmd_vel.json
 
 # Runtime assets and tests are maintained outside the source repository.
 /usd/*
-!/usd/scene/
-/usd/scene/*
-!/usd/scene/factory/
-/usd/scene/factory/*
-!/usd/scene/factory/goal_props/
-/usd/scene/factory/goal_props/*
-!/usd/scene/factory/goal_props/anomaly_marker_v1.usda
-!/usd/scene/factory/goal_props/service_cart_v1.usda
-!/usd/scene/factory/goal_props/anomaly_marker_v2.usda
-!/usd/scene/factory/goal_props/service_cart_v2.usda
-# Restaurant service props copied from the Modern House NVD pack for the
-# order-and-delivery task. The rest of the restaurant scene stays ignored.
-!/usd/scene/restaurant/
-/usd/scene/restaurant/*
-!/usd/scene/restaurant/Assets/
-/usd/scene/restaurant/Assets/*
-!/usd/scene/restaurant/Assets/ServiceProps/
-!/usd/scene/restaurant/Assets/ServiceProps/**
-# Maintained 2D occupancy maps used by benchmark planning and tests.
-!/usd/scene/factory/factory_map.yaml
-!/usd/scene/factory/factory_map.png
-!/usd/scene/warehouse_nvd/
-/usd/scene/warehouse_nvd/*
-!/usd/scene/warehouse_nvd/ground_map_0.6m.yaml
-!/usd/scene/warehouse_nvd/ground_map_0.6m.png
-!/usd/scene/modern_house_nvd/
-/usd/scene/modern_house_nvd/*
-!/usd/scene/modern_house_nvd/ground_map_0.6m.yaml
-!/usd/scene/modern_house_nvd/ground_map_0.6m.png
 !/usd/picture/
 !/usd/picture/**
 /source/EAI_assets/EAI_assets/controller/
@@ -212,32 +174,9 @@ ros2_cmd_vel.json
 /docs/test-reports/
 test_*.py
 *_test.py
-!/tools/tests/
-!/tools/tests/test_run_tests.py
-!/benchmark/tests/
-!/benchmark/tests/**
-/benchmark/tests/__pycache__/
-!/tools/validation/test_topology_multilevel_authoring.py
-!/tools/validation/test_topology_surfaces.py
-!/tools/validation/test_topology_pose_ui.py
-!/tools/validation/test_isaac_bridge.py
-!/tools/validation/test_topology_editing_project.py
-!/tools/validation/test_semantic_points_project.py
-!/tools/validation/test_topology_domain_navigation.py
-!/tools/validation/test_topology_editing_clients.py
-!/tools/validation/test_web_isaac_overlay.py
-!/tools/validation/test_web_isaac_overlay_link.py
-/usd/scene/**/semantic_map/.write.lock
-!/source/EAI/test/test_restaurant_products.py
-!/source/EAI/test/test_restaurant_runtime_scene.py
-!/source/EAI/test/test_restaurant_candidate_admission.py
-!/source/EAI/test/test_restaurant_route_admission.py
-!/source/EAI/test/test_restaurant_algorithm_episode.py
-!/source/EAI/test/test_asset_layout_local.py
 
 # Tracked lightweight tests for the asset-library showcase tool.
 !/tools/test_asset_library_showcase.py
-!/demo/benchmark/tests/test_measurement_contract.py
 !/tools/ros2/
 !/tools/ros2/tests/
 !/algorithm/nav2/tests/test_*.py
@@ -247,8 +186,7 @@ test_*.py
 !/tools/ros2/tests/test_send_manipulator_command.py
 !/tools/ros2/tests/test_send_cmd_vel.py
 
-# Tracked city-demo tests.
-!/demo/test_city_fire_accident.py
+# Tracked city-traffic bridge test.
 !/source/EAI/test/test_city_traffic_human_bridge.py
 !/source/EAI/test/test_runtime_snapshot_cleanup.py
 !/source/EAI/test/test_orsus_odometry_relationship.py
@@ -260,28 +198,10 @@ test_*.py
 !/source/EAI/test/test_lidar_navigation_io_gate.py
 !/source/EAI/test/test_interface_attachment_exclusion.py
 !/source/EAI/test/test_env_diy_camera_provider_detach.py
-!/source/EAI/test/test_physical_calibration.py
-!/source/EAI/test/test_scenario_batch_execution.py
-!/source/EAI/test/test_scenario_benchmark_protocol.py
-!/demo/factory_benchmark/scenarios/*.json
-!/demo/factory_benchmark/evaluator/*.json
-!/demo/warehouse_benchmark/scenarios/*.json
-!/demo/modern_house_benchmark/scenarios/*.json
-!/source/EAI/test/test_benchmark_*.py
-!/source/EAI/test/test_scene_challenge_reuse.py
-!/source/EAI/test/test_configuration_microtest.py
-!/source/EAI/test/test_configuration_smoke.py
-!/source/EAI/test/test_env_diy_scene_only.py
-!/source/EAI/test/test_scenario_execution.py
-!/source/EAI/test/test_scenario_benchmark_contract.py
-!/source/EAI/test/test_scenario_evaluation.py
-!/source/EAI/test/test_scenario_family.py
-!/source/EAI/test/test_scenario_ideal_grasp.py
-!/source/EAI/test/test_scenario_oracle.py
-!/source/EAI/test/test_scenario_spec.py
-!/source/EAI/test/test_factory_*.py
-!/source/EAI/test/test_capability_profile.py
-!/source/EAI/test/test_runtime_evidence.py
+!/algorithm/nav2/tests/
+!/algorithm/nav2/tests/test_nav2_layout.py
+!/algorithm/nav2/tests/test_send_goal.py
+
 # Human registry metadata, runtime foundation, tests, and tools are maintained here.
 !/usd/human/
 /usd/human/*
@@ -296,129 +216,6 @@ test_*.py
 !/tools/human_assets/
 !/tools/human_assets/**
 /tools/human_assets/**/__pycache__/
+!/algorithm/multi_robot_navigation/test_plugin.py
 !/demo/fire_rescue/tests/
 !/demo/fire_rescue/tests/test_llm_preset_privacy.py
-!/demo/fire_rescue/tests/test_task_checkpoints.py
-!/demo/fire_rescue/tests/test_assignment_policy.py
-!/demo/fire_rescue/tests/test_parallel_replay.py
-!/tools/physics_replay/tests/
-!/tools/physics_replay/tests/test_live.py
-!/tools/physics_replay/tests/test_native_isaac.py
-!/tools/physics_replay/tests/test_runtime_resources.py
-!/tools/physics_replay/tests/test_physics_trace.py
-!/tools/physics_replay/tests/test_reconstruction_isaac.py
-!/tools/physics_replay/tests/test_reconstruction.py
-!/tools/validation/test_ur5_grasp_checks.py
-!/tools/validation/test_ground_support.py
-!/tools/validation/test_runtime_mount_physics.py
-!/tools/validation/test_kinova_mount_smoke.py
-!/tools/validation/test_kinova_physics.py
-!/tools/validation/test_kinova_inertials.py
-!/tools/validation/test_kinova_urdf_usd_audit.py
-!/source/EAI/test/test_usd_closure.py
-!/source/EAI/test/test_benchmark_demos.py
-!/demo/factory_benchmark/scenarios/navigation_smoke.json
-!/demo/warehouse_benchmark/scenarios/navigation_smoke.json
-!/demo/modern_house_benchmark/scenarios/navigation_smoke.json
-!/tools/assets/benchmark_asset_repairs.json
-!/source/EAI_assets/EAI_assets/scenario_props.json
-!/source/EAI/test/test_benchmark_authoring.py
-!/source/EAI/test/test_benchmark_interventions.py
-!/source/EAI/test/test_native_nvd_prop_spawn_checks.py
-
-# HeteroCoord algorithm/task contract tests are maintained source. The broad
-# ``tests/`` rule above is kept for runtime/test artifacts elsewhere.
-!/algorithm/system/coordination/emos/tests/
-!/algorithm/system/coordination/emos/tests/**
-!/algorithm/system/coordination/TeamWeaver/tests/
-!/algorithm/system/coordination/TeamWeaver/tests/**
-!/algorithm/system/coordination/coherent/tests/
-!/algorithm/system/coordination/coherent/tests/**
-!/algorithm/system/coordination/fmc_ata/tests/
-!/algorithm/system/coordination/fmc_ata/tests/**
-!/algorithm/system/coordination/dcmrta/tests/
-!/algorithm/system/coordination/dcmrta/tests/**
-!/algorithm/system/coordination/heteromrta/tests/
-!/algorithm/system/coordination/heteromrta/tests/**
-!/algorithm/system/coordination/hybrid_susd/tests/
-!/algorithm/system/coordination/hybrid_susd/tests/**
-!/algorithm/system/coordination/mrta_heuristic/tests/
-!/algorithm/system/coordination/mrta_heuristic/tests/**
-!/algorithm/system/coordination/bt_capabilities/tests/
-!/algorithm/system/coordination/bt_capabilities/tests/**
-!/algorithm/skills/tests/
-!/algorithm/skills/tests/**
-!/algorithm/common_coordination/tests/
-!/algorithm/common_coordination/tests/**
-!/algorithm/heterocoord/tests/
-!/algorithm/heterocoord/tests/**
-!/task/tests/
-!/task/tests/**
-# Keep generated bytecode ignored even inside the maintained test trees.
-/algorithm/system/coordination/**/__pycache__/
-/algorithm/skills/tests/__pycache__/
-/algorithm/common_coordination/tests/__pycache__/
-/algorithm/heterocoord/tests/__pycache__/
-/task/tests/__pycache__/
-
-!/source/EAI/test/test_second_mission_admission.py
-!/source/EAI/test/test_second_mission_agent_parameterization.py
-!/source/EAI/test/test_second_mission_allocation_matrix.py
-
-# HeteroCoord branch: keep the USD directory layout only. Production assets,
-# textures, manifests, and downloaded scene files remain local/provider-managed.
-/usd/*
-!/usd/
-!/usd/human/
-!/usd/human/.gitkeep
-!/usd/payloads/
-!/usd/payloads/.gitkeep
-!/usd/robot/
-!/usd/robot/.gitkeep
-!/usd/scene/
-!/usd/scene/.gitkeep
-!/usd/picture/
-!/usd/picture/.gitkeep
-# Ignore every nested USD asset as well; only the six top-level layout
-# placeholders above are eligible for tracking.
-/usd/**
-!/usd/
-!/usd/*/
-!/usd/*/.gitkeep
-
-# Editable, scene-local semantic map packages are maintained source data.  The
-# enclosing USD assets stay ignored; only each scene's semantic_map subtree is
-# versioned so collaborators receive maps without multi-gigabyte geometry.
-!/usd/scene/**/
-!/usd/scene/**/semantic_map/
-!/usd/scene/**/semantic_map/**
-/usd/scene/**/semantic_map/.write.lock
-/usd/scene/**/semantic_map/.pending-*
-/usd/scene/**/semantic_map/.save-transaction.json
-
-# Local Codex planning state is never source.
-/.zcode/
-
-# Maintained experiment-analysis conformance tests, not generated datasets.
-!/tools/experiment_analysis/tests/
-!/tools/experiment_analysis/tests/**
-/tools/experiment_analysis/tests/__pycache__/
-
-# Calibrated G1 grasp profiles are runtime source data.
-!/task/executors/g1_manipulation/inspire_grips.json
-!/tools/validation/test_topology_current_storage.py
-
-# Maintained Cartesian manipulation regression tests.
-!/source/EAI/test/test_idealized_manipulation_cartesian.py
-!/tools/validation/test_pick_place_clearance.py
-
-# Frozen native benchmark source register and maintained adapter tests/examples.
-!/algorithm/heterocoord/paper_algorithms.json
-!/algorithm/system/coordination/harl/tests/
-!/algorithm/system/coordination/harl/tests/*.py
-!/algorithm/system/coordination/sadcher/tests/
-!/algorithm/system/coordination/sadcher/tests/*.py
-!/algorithm/system/coordination/emos/configs/
-!/algorithm/system/coordination/emos/configs/*.json
-!/tools/algorithm_adapters/examples/
-!/tools/algorithm_adapters/examples/*.json

@@ -12,7 +12,6 @@ from enum import Enum
 from typing import Any, Iterable, Mapping
 
 from EAI_assets.scene_maps import SCENE_MAP_PATHS
-from EAI_assets.room06_asset import ROOM06_USD_RELATIVE_PATH
 
 
 class RequirementState(str, Enum):
@@ -31,7 +30,6 @@ class RequirementKind(str, Enum):
     SENSOR = "sensor"
     TOOL = "tool"
     CONTROLLER = "controller"
-    SCENARIO_OBJECT = "scenario_object"
 
 
 @dataclass(frozen=True)
@@ -64,60 +62,10 @@ _SCENE_PATHS = {
         "scene/hospital/Bed_local.usda",
         *SCENE_MAP_PATHS["hospital"],
     ),
-    "rmuc2024": (
-        "scene/rmuc2024/rmuc2024.usda",
-        "scene/rmuc2024/rmuc2024_mesh.usd",
-        "scene/rmuc2024/source.json",
-        "scene/rmuc2024/LICENSE.Apache-2.0.txt",
-        *SCENE_MAP_PATHS["rmuc2024"],
-    ),
-    # NVD overlay is tracked in-repo (tiny edit layer); requirements are local
-    # files only, so no provider download is declared for it.
-    "warehouse_nvd": (
-        "scene/warehouse_nvd/warehouse_nvd_bench.usd",
-        "assets/nvd/XR_Content_NVD@10010/Assets/XR/Stages/Indoor/Warehouse/Warehouse_XR.usd",
-        *SCENE_MAP_PATHS["warehouse_nvd"],
-    ),
-    "modern_house_nvd": (
-        "scene/modern_house_nvd/modern_house_nvd_bench.usd",
-        "assets/nvd/XR_Content_NVD@10010/Assets/XR/Stages/Indoor/Modern_House_XR.usd",
-        *SCENE_MAP_PATHS["modern_house_nvd"],
-    ),
-    "city": ("scene/city/city_static.usd",),
-    "restaurant": (
-        "scene/restaurant/Restaurant_Only.usda",
-        "scene/restaurant/Assemblies/assembly_Restaurant.usd",
-        "scene/restaurant/World_RestaurantDemopack.usd",
-    ),
-    # The local candidate is selected through EAI_RESTAURANT_BENCHMARK_ROOT.
-    "restaurant_benchmark": (),
-    "factory_benchmark": (
-        "scene/factory_benchmark/factory.usd", *SCENE_MAP_PATHS["factory_benchmark"],
-    ),
-    # Converted HSSD room lives outside the provider tree by absolute local
-    # path; no provider download is declared for it.
-    "hssd_room1": (),
-    "room_06": (ROOM06_USD_RELATIVE_PATH,),
 }
 
 _ROBOT_PATHS = {
     "carter": ("robot/carter/carter.usd",),
-    "simple_car": (
-        "robot/simple_car/simple_car.usda",
-        "robot/simple_car/gshub_core.usd",
-        "robot/simple_car/configuration/gshub_core_base.usd",
-        "robot/simple_car/configuration/gshub_core_physics.usd",
-        "robot/simple_car/configuration/gshub_core_robot.usd",
-        "robot/simple_car/configuration/gshub_core_sensor.usd",
-        "robot/simple_car/simple_car.urdf",
-        "robot/simple_car/source.json",
-        # The robot layer references the shared C01 payload visual for its
-        # built-in suite; the sensor profiles below cover both lidar variants.
-        "payloads/sensors/octagon_aio_c01/octagon_aio_c01_visual.usda",
-        "payloads/sensors/octagon_aio_c01/octagon_aio_c01.usd",
-        "payloads/sensors/octagon_aio_c01/OCTAGON_AIO_C01.json",
-        "payloads/sensors/mid360/MID360.json",
-    ),
     "pepper": ("robot/pepper/pepper.usd",),
     "go2": ("robot/go2/go2.usd", "robot/go2/Props/instanceable_meshes.usd"),
     "b2": ("robot/b2/b2_canonical.usdc",),
@@ -161,26 +109,11 @@ _ROBOT_PATHS = {
         "robot/lite3/configuration/Lite3_robot.usd",
         "robot/lite3/configuration/Lite3_sensor.usd",
     ),
-    # PhysX-native MJCF conversion only; the archived Newton USDs
-    # (microduck_walk.usd / microduck_allcollisions.usd) are reference files
-    # and are not required at runtime.  The runnable velstand.onnx lives in
-    # the controller requirement below.
-    "microduck": (
-        "robot/microduck/microduck_mjcf.usd",
-        "robot/microduck/manifest.json",
-        "robot/microduck/LICENSE",
-        "robot/microduck/ATTRIBUTION.txt",
-    ),
 }
 
 _PAYLOAD_PATHS = {
-    "ur5": (
-        "payloads/manipulators/ur5/ur5-noroot.usd",
-        "payloads/grippers/robotiq_2f85/Robotiq_2F_85_edit.usd",
-    ),
-    "ur5_bare": ("payloads/manipulators/ur5/ur5-noroot.usd",),
+    "ur5": ("payloads/manipulators/ur5/ur5-noroot.usd",),
     "z1": ("payloads/manipulators/z1/z1_description.usda",),
-    "d1": ("payloads/manipulators/d1/d1.usd",),
     "orsus": (
         "payloads/sensors/orsus/Orsus_fix_type.usd",
         "payloads/sensors/orsus/orsus_mid360_rtx.usda",
@@ -190,12 +123,6 @@ _PAYLOAD_PATHS = {
         "payloads/sensors/realsense_d455/rsd455.usd",
     ),
     "lidar": ("payloads/sensors/lidar/ros_lidar.usda",),
-    "octagon_aio_c01": (
-        "payloads/sensors/octagon_aio_c01/octagon_aio_c01_visual.usda",
-        "payloads/sensors/octagon_aio_c01/octagon_aio_c01.usd",
-        "payloads/sensors/octagon_aio_c01/OCTAGON_AIO_C01.json",
-        "payloads/sensors/octagon_aio_c01/source.json",
-    ),
 }
 
 _CONTROLLER_PATHS = {
@@ -203,10 +130,6 @@ _CONTROLLER_PATHS = {
     "CARTER_DIFF_CFG": (
         "traditional/carter_diff/__init__.py",
         "traditional/carter_diff/carter_diff.py",
-    ),
-    "SIMPLE_CAR_PLANAR_CFG": (
-        "traditional/simple_car_planar/__init__.py",
-        "traditional/simple_car_planar/simple_car_planar.py",
     ),
     "PEPPER_HOLONOMIC_CFG": (
         "traditional/pepper_holonomic/__init__.py",
@@ -267,22 +190,11 @@ _CONTROLLER_PATHS = {
         "traditional/z1_ik/__init__.py",
         "traditional/z1_ik/z1_ik.py",
     ),
-    "D1_IK_CFG": (
-        "traditional/manipulator_ik/__init__.py",
-        "traditional/manipulator_ik/manipulator_ik.py",
-        "traditional/d1_ik/__init__.py",
-        "traditional/d1_ik/d1_ik.py",
-    ),
     # ── RSL (ONNX) controllers ───────────────────────────────────────────
     "GO2_VELOCITY_RSL_CFG": (
         "rl/go2_rsl_rl/__init__.py",
         "rl/go2_rsl_rl/go2_rsl_rl.py",
         "rl/go2_rsl_rl/model/policy.onnx",
-    ),
-    "GO2_MIXED_STAIRS_CFG": (
-        "rl/go2_mixed_stairs/__init__.py",
-        "rl/go2_mixed_stairs/go2_mixed_stairs.py",
-        "rl/go2_mixed_stairs/model/policy.onnx",
     ),
     "B2_VELOCITY_RSL_CFG": (
         "rl/b2_rsl_rl/__init__.py",
@@ -290,32 +202,15 @@ _CONTROLLER_PATHS = {
         "rl/b2_rsl_rl/model/policy.onnx",
         "rl/b2_rsl_rl/model/policy.pt",
     ),
-    "B2_MIXED_STAIRS_CFG": (
-        "rl/b2_rsl_rl/__init__.py",
-        "rl/b2_rsl_rl/b2_rsl_rl.py",
-        "rl/b2_rsl_rl/model/policy.mixed_stairs.onnx",
-    ),
     "M20_ROUGH_RSL_CFG": (
         "rl/m20_rough_rsl/__init__.py",
         "rl/m20_rough_rsl/m20_rough_rsl.py",
         "rl/m20_rough_rsl/model/m20_rough.onnx",
     ),
-    "M20_NAV_RSL_CFG": (
-        "rl/m20_nav_rsl/__init__.py",
-        "rl/m20_nav_rsl/m20_nav_rsl.py",
-        "rl/m20_nav_rsl/model/nav.onnx",
-        "rl/m20_nav_rsl/model/controller.onnx",
-    ),
     "LITE3_VELOCITY_RSL_CFG": (
         "rl/lite3_rsl_rl/__init__.py",
         "rl/lite3_rsl_rl/lite3_rsl_rl.py",
         "rl/lite3_rsl_rl/model/policy.onnx",
-    ),
-    "MICRODUCK_VELSTAND_CFG": (
-        "rl/microduck_velstand/__init__.py",
-        "rl/microduck_velstand/microduck_velstand.py",
-        "rl/microduck_velstand/model/velstand.onnx",
-        "rl/microduck_velstand/model/manifest.json",
     ),
     # ── SKRL controllers ─────────────────────────────────────────────────
     "G1_SKRL_CFG": (
@@ -325,42 +220,6 @@ _CONTROLLER_PATHS = {
         "rl/rl_cfg/__init__.py",
         "rl/rl_cfg/g1_skrl_flat_ppo_cfg.yaml",
     ),
-    "G1_BOX_GRASP_CFG": (
-        "traditional/g1_box_grasp/__init__.py",
-        "traditional/g1_box_grasp/skill.py",
-        "traditional/g1_box_grasp/controller.py",
-    ),
-    "PEPPER_BOX_GRASP_CFG": (
-        "traditional/pepper_box_grasp/__init__.py",
-        "traditional/pepper_box_grasp/controller.py",
-        # Pepper reuses the shared IK/runtime adapter from the G1 skill.
-        "traditional/g1_box_grasp/__init__.py",
-        "traditional/g1_box_grasp/skill.py",
-        "traditional/g1_box_grasp/controller.py",
-    ),
-    "G1_BOX_TRANSPORT_CFG": (
-        "traditional/g1_box_transport/__init__.py",
-        "traditional/g1_box_transport/controller.py",
-        "traditional/g1_box_grasp/__init__.py",
-        "traditional/g1_box_grasp/skill.py",
-        "traditional/g1_box_grasp/controller.py",
-        "rl/g1_skrl/__init__.py",
-        "rl/g1_skrl/g1_skrl.py",
-        "rl/g1_skrl/model/g1.pt",
-        "rl/rl_cfg/__init__.py",
-        "rl/rl_cfg/g1_skrl_flat_ppo_cfg.yaml",
-    ),
-    "PEPPER_PICK_PLACE_CFG": (
-        "traditional/pepper_box_transport/__init__.py",
-        "traditional/pepper_box_transport/controller.py",
-        "traditional/pepper_holonomic/__init__.py",
-        "traditional/pepper_holonomic/pepper_holonomic.py",
-        "traditional/pepper_box_grasp/__init__.py",
-        "traditional/pepper_box_grasp/controller.py",
-        "traditional/g1_box_grasp/__init__.py",
-        "traditional/g1_box_grasp/skill.py",
-        "traditional/g1_box_grasp/controller.py",
-    ),
     "QUADCOPTER_GOAL_SKRL_CFG": (
         "rl/quadcopter_goal_skrl/__init__.py",
         "rl/quadcopter_goal_skrl/quadcopter_goal_skrl.py",
@@ -369,8 +228,6 @@ _CONTROLLER_PATHS = {
         "rl/rl_cfg/quadcopter_goal_skrl_ppo_cfg.yaml",
     ),
 }
-
-
 
 
 def _add(
@@ -435,10 +292,6 @@ def resolve_selection(selection: Mapping[str, Any], *, catalog_module=None) -> R
 
     if not isinstance(selection, Mapping):
         raise TypeError("selection must be a mapping")
-    if selection.get("version") == 2:
-        from EAI.scenario_spec import validate_scenario
-
-        selection = validate_scenario(selection)
     catalog_module = _catalog_module(catalog_module)
     entries: dict[str, AssetRequirement] = {}
     scene_key = str(selection.get("scene_key") or "").strip().lower()
@@ -453,22 +306,6 @@ def resolve_selection(selection: Mapping[str, Any], *, catalog_module=None) -> R
             relative_paths=_SCENE_PATHS[scene_key],
         ),
     )
-
-    if selection.get("version") == 2:
-        from EAI_assets.scenario_assets import DECLARED_ASSETS, resolve_usd_path
-
-        for entity in selection["composition"]["entities"]:
-            # Validation admits the audited declaration even when the local
-            # provider root is absent.  Keep the requirement visible so the
-            # resolver can fail or fetch it at the normal asset boundary.
-            asset = DECLARED_ASSETS[entity["asset_key"]]
-            if asset.relative_paths and resolve_usd_path(asset.key) is not None:
-                # NVD-backed prop: resolved locally via EAI_NVD_ASSET_ROOT;
-                # nothing to download from the asset provider.
-                continue
-            _add(entries, AssetRequirement(id=f"scenario_object:{asset.key}", label=asset.description,
-                                          kind=RequirementKind.SCENARIO_OBJECT,
-                                          relative_paths=asset.relative_paths))
 
     for robot in selection.get("robots", ()):
         if not isinstance(robot, Mapping):

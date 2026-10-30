@@ -14,7 +14,6 @@ UR5_JOINT_NAMES = (
     "wrist_2_joint",
     "wrist_3_joint",
 )
-UR5_GRIPPER_JOINT_NAME = "finger_joint"
 
 
 @dataclass
@@ -27,12 +26,6 @@ class Ur5ModelSpec:
 
 UR5_MODEL_SPEC = Ur5ModelSpec(
     model="ur5",
-    joint_names=UR5_JOINT_NAMES,
-    ee_body_names=("wrist_3_link", "ee_link", "tool0"),
-    gripper_joint_name=UR5_GRIPPER_JOINT_NAME,
-)
-UR5_BARE_MODEL_SPEC = Ur5ModelSpec(
-    model="ur5_bare",
     joint_names=UR5_JOINT_NAMES,
     ee_body_names=("wrist_3_link", "ee_link", "tool0"),
 )
