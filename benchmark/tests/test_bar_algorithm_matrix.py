@@ -225,3 +225,12 @@ def test_fresh_branch_rejects_a_different_channel_condition_checkpoint():
     cp=a.runtime(tier=1,communication='C0').checkpoint()
     with pytest.raises(ValueError,match='communication condition mismatch'):
         a.runtime(tier=1,communication='C1').fresh_branch(cp,algorithm=BarGoalAlgorithm())
+
+
+@pytest.mark.parametrize('tier,condition', [(2,None),(3,'availability_loss'),(4,'availability_loss')])
+def test_two_manipulators_and_unarmed_monitor_have_a_feasible_schedule(tier,condition):
+    result=BarScenarioAdapter().run_generic(tier=tier,condition_id=condition,
+        variant_id='bar_roster_m20_carter_b2',seed=17)
+    assert result['success'] and result['replay_equivalent']
+    if condition:
+        assert result['availability_events'][0]['removed_capabilities']==['handoff_receive']

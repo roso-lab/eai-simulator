@@ -451,16 +451,16 @@ class BarRuntime(DiagnosticRuntime):
             self.events.append({'tick': self.tick, 'kind': 'stair_exit_release', 'task_id': task_id,
                                 'robot_id': robot.spec.robot_id})
         if trigger and not self.availability_events:
-            choices = [s for s in self.robot_states.values() if not s.load_id and s.status == 'idle']
+            choices = [s for s in self.robot_states.values() if not s.load_id and s.status == 'idle' and 'handoff_receive' in s.active_capabilities]
             if choices:
                 self.mark('cp_fault_pre_event')
                 victim = sorted(choices, key=lambda s: s.spec.robot_id)[0]
-                removed = victim.active_capabilities & {'manipulator', 'loader', 'handoff_receive'}
+                removed = victim.active_capabilities & {'handoff_receive'}
                 victim.active_capabilities -= removed
                 self.lost_robots.add(victim.spec.robot_id)
                 affected = [t.task_id for t in self.episode.tasks if self.tasks.status[t.task_id] != 'completed']
                 event = {'tick': self.tick, 'kind': 'availability_loss', 'robot_id': victim.spec.robot_id,
-                         'lost_function': 'manipulation', 'removed_capabilities': sorted(removed),
+                         'lost_function': 'handoff_receive', 'removed_capabilities': sorted(removed),
                          'trigger_task': self.config['availability_loss_task'], 'persistent': True,
                          'affected_work': affected, 'pre_event_digest': _digest(self.snapshot())}
                 self.availability_events.append(event); self.events.append(event)

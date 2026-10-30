@@ -27,7 +27,7 @@ Bar runtime 通过五字段逻辑对象定义共享同一账本，使用 graph-c
 
 运行生成真实状态快照：cp_00_spawn_valid、cp_01_material_ready、cp_02_pre_handoff、cp_03_handoff_complete、cp_04_delivery_complete、cp_05_closeout。包含对象、机器人、任务、资源、通信、能量、服务和联合动作状态。`fork/replay` 是本地确定性调试，包含算法状态。`fresh_branch` 校验外部固定 checkpoint digest，只恢复评价器状态，使用新算法对象并从公开观测重新 initialize；不恢复旧算法私有状态。此 API 尚不认证独立进程隔离。
 
-`availability_loss` 在第一单放置确认后隐藏触发，持续移除一台空手机器人的操作/接收能力，保留导航。受影响工作在事件时冻结，发送状态消息，发布服务替补义务，让算法选择新的服务者和执行分工。保留失败行，不能把通知或重分配计数直接当 D4 得分。事件前另存 cp_fault_pre_event。resource_contention 条件登记一笔外部背景订单在前 20 s 占用工作台，正常订单必须经过同一 FIFO 资源账本等待；它不增加本 episode 的目标订单数量、不改变容量。
+`availability_loss` 在第一单放置确认后隐藏触发，持续移除一台空手机器人的 handoff_receive 功能，保留它的其他真实能力。故障只禁用一个执行功能，不同时删除制备、装载和接收三项能力。受影响工作在事件时冻结，发送状态消息，发布服务替补义务，让算法选择新的服务者和执行分工。保留失败行，不能把通知或重分配计数直接当 D4 得分。事件前另存 cp_fault_pre_event。resource_contention 条件登记一笔外部背景订单在前 20 s 占用工作台，正常订单必须经过同一 FIFO 资源账本等待；它不增加本 episode 的目标订单数量、不改变容量。
 
 命令：
 

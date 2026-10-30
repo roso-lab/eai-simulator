@@ -11,13 +11,16 @@ class BarGoalAlgorithm(LivingHouseGoalAlgorithm):
         used = set(); result = {}
         for goal in sorted(goals, key=lambda g: (0 if g.get('kind') == 'service_cover' else 1,
                 0 if g.get('object_action') == 'handoff_receive' else 1, len(g.get('eligible_robots', ())), g['task_id'])):
-            if goal.get('kind') == 'material_acquire' and len(available) - len(used) < 2:
-                continue
+            if goal.get('kind') == 'material_acquire':
+                free_manipulators = [rid for rid,r in available.items() if rid not in used
+                    and 'manipulator' in r.get('active_capabilities', ())]
+                if len(free_manipulators) < 2:
+                    continue
             choices = set(goal.get('eligible_robots', available)) & set(goal.get('reachable_robots', available))
             choices &= set(available)
             choices -= used
             if choices:
-                rid = min(choices, key=lambda r: (len(available[r].get('active_capabilities', ())) if goal.get('kind') == 'service_cover' else 0, available[r].get('distance', 0), r))
+                rid = min(choices, key=lambda r: (len(available[r].get('active_capabilities', ())) if goal.get('kind') == 'service_cover' else (int('handoff_receive' in available[r].get('active_capabilities', ())) if goal.get('kind') == 'material_acquire' else 0), available[r].get('distance', 0), r))
                 result[rid] = goal['goal_key']; used.add(rid)
         return result
 
