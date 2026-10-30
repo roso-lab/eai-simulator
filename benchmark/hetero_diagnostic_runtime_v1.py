@@ -925,8 +925,9 @@ class DiagnosticRuntime:
                                 "delay_ticks": frame.delivered_tick - frame.submitted_tick})
             self._complete_report(robot)
 
-    def _assign(self) -> None:
-        decision = self.algorithm.decide(self._observation())
+    def _assign(self, decision=None) -> None:
+        if decision is None:
+            decision = self.algorithm.decide(self._observation())
         for robot_id, goal_key in sorted(dict(decision).items()):
             if robot_id not in self.robot_states or self.robot_states[robot_id].status != "idle":
                 continue

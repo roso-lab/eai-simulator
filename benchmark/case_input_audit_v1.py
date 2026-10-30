@@ -138,6 +138,7 @@ def _navigation_nodes(
     scene_key: str,
     frame: Any,
     failures: list[str],
+    allow_empty_domains: frozenset[str] = frozenset(),
 ) -> dict[str, set[str]]:
     """Load every declared navigation product and return its authored node IDs."""
 
@@ -166,6 +167,9 @@ def _navigation_nodes(
             failures.append(f"{domain} topology domain mismatch")
         nodes = topology.get("nodes")
         edges = topology.get("edges")
+        if domain in allow_empty_domains and nodes == [] and edges == []:
+            result[domain] = set()
+            continue
         if not isinstance(nodes, list) or not nodes:
             failures.append(f"{domain} topology.nodes is empty")
             nodes = []
@@ -190,6 +194,7 @@ def audit_semantic_map(
     semantic_requirements: Mapping[str, Iterable[str]] | None = None,
     require_task_entities: bool = False,
     require_interaction_poses: bool = False,
+    allow_empty_domains: Iterable[str] = (),
 ) -> dict[str, Any]:
     """Audit one ``eai.semantic_map.revision`` bundle without mutating it.
 
@@ -283,7 +288,7 @@ def audit_semantic_map(
     ):
         failures.append("semantic binding digest chain mismatch")
 
-    navigation_nodes = _navigation_nodes(root_path, manifest, scene_key, frame, failures)
+    navigation_nodes = _navigation_nodes(root_path, manifest, scene_key, frame, failures, frozenset(allow_empty_domains))
     semantics = footprints.get("semantics")
     if not isinstance(semantics, Mapping):
         failures.append("semantic footprints have no semantics object")

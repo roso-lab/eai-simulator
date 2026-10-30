@@ -5,44 +5,325 @@
   "scenario_id": "bar",
   "task_family": "bar_drink_delivery_v1",
   "task_contract_version": "bar.final.v2",
-  "logic_clock": {"dt_s": 0.02, "distance_unit": "m", "battery_unit": "normalized_fraction"},
-  "semantic_map": {"root": "usd/scene/Production and logistics/bar/semantic_map/current", "revision": "754f3e1731ca464a83455132375279a0", "semantic_binding_digest": "c85daa9af0b9c3d9e1daec654d6e1adedf743583f938e4adf853df6db7e8e999", "ground_nodes": 59, "ground_edges": 59, "aerial_nodes": 0, "aerial_edges": 0, "robot_validated": false},
+  "logic_clock": {
+    "dt_s": 0.02,
+    "distance_unit": "m",
+    "battery_unit": "percent"
+  },
+  "semantic_map": {
+    "root": "usd/scene/Production and logistics/bar/semantic_map/current",
+    "revision": "754f3e1731ca464a83455132375279a0",
+    "semantic_binding_digest": "c85daa9af0b9c3d9e1daec654d6e1adedf743583f938e4adf853df6db7e8e999",
+    "ground_nodes": 59,
+    "ground_edges": 59,
+    "aerial_nodes": 0,
+    "aerial_edges": 0,
+    "robot_validated": false
+  },
   "robot_roster": [
-    {"robot_id":"carter_d1","model":"Carter+D1","capabilities":["navigation","manipulator","loader","handoff_receive","ground","stair_capable"],"speed_mps":1.0},
-    {"robot_id":"m20_d1","model":"M20+D1","capabilities":["navigation","manipulator","loader","handoff_receive","ground","stair_capable"],"speed_mps":1.0},
-    {"robot_id":"b2_z1","model":"B2+Z1","capabilities":["navigation","manipulator","loader","handoff_receive","ground","stair_capable"],"speed_mps":1.0},
-    {"robot_id":"m20","model":"M20","capabilities":["navigation","loader","ground","stair_capable"],"speed_mps":1.0},
-    {"robot_id":"g1","model":"G1","capabilities":["navigation","manipulator","loader","handoff_receive","ground"],"speed_mps":1.0},
-    {"robot_id":"pepper","model":"Pepper","capabilities":["navigation","manipulator","loader","handoff_receive","ground"],"speed_mps":1.0}
+    {
+      "robot_id": "carter_d1",
+      "model": "Carter+D1",
+      "capabilities": [
+        "navigation",
+        "manipulator",
+        "loader",
+        "handoff_receive",
+        "ground",
+        "stair_capable"
+      ],
+      "speed_mps": 1.0
+    },
+    {
+      "robot_id": "m20_d1",
+      "model": "M20+D1",
+      "capabilities": [
+        "navigation",
+        "manipulator",
+        "loader",
+        "handoff_receive",
+        "ground",
+        "stair_capable"
+      ],
+      "speed_mps": 1.0
+    },
+    {
+      "robot_id": "b2_z1",
+      "model": "B2+Z1",
+      "capabilities": [
+        "navigation",
+        "manipulator",
+        "loader",
+        "handoff_receive",
+        "ground",
+        "stair_capable"
+      ],
+      "speed_mps": 1.0
+    },
+    {
+      "robot_id": "m20",
+      "model": "M20",
+      "capabilities": [
+        "navigation",
+        "loader",
+        "ground",
+        "stair_capable"
+      ],
+      "speed_mps": 1.0
+    },
+    {
+      "robot_id": "g1",
+      "model": "G1",
+      "capabilities": [
+        "navigation",
+        "manipulator",
+        "loader",
+        "handoff_receive",
+        "ground"
+      ],
+      "speed_mps": 1.0
+    },
+    {
+      "robot_id": "pepper",
+      "model": "Pepper",
+      "capabilities": [
+        "navigation",
+        "manipulator",
+        "loader",
+        "handoff_receive",
+        "ground"
+      ],
+      "speed_mps": 1.0
+    }
   ],
   "roster_variants": [
-    {"variant_id":"bar_roster_carter_m20_b2","robots":["carter_d1","m20_d1","b2_z1"]},
-    {"variant_id":"bar_roster_m20_carter_b2","robots":["m20","carter_d1","b2_z1"]},
-    {"variant_id":"bar_roster_g1_pepper_carter","robots":["g1","pepper","carter_d1"]},
-    {"variant_id":"bar_roster_g1_pepper_m20d1","robots":["g1","pepper","m20_d1"]}
+    {
+      "variant_id": "bar_roster_carter_m20_b2",
+      "robots": [
+        "carter_d1",
+        "m20_d1",
+        "b2_z1"
+      ]
+    },
+    {
+      "variant_id": "bar_roster_m20_carter_b2",
+      "robots": [
+        "m20",
+        "carter_d1",
+        "b2_z1"
+      ]
+    },
+    {
+      "variant_id": "bar_roster_g1_pepper_carter",
+      "robots": [
+        "g1",
+        "pepper",
+        "carter_d1"
+      ]
+    },
+    {
+      "variant_id": "bar_roster_g1_pepper_m20d1",
+      "robots": [
+        "g1",
+        "pepper",
+        "m20_d1"
+      ]
+    }
   ],
-  "spawn_points": {"storage":"node:0004","production":"node:0063","reserve":"node:0066"},
+  "spawn_points": {
+    "storage": "node:0004",
+    "production": "node:0063",
+    "reserve": "node:0066"
+  },
   "difficulty_tiers": [
-    {"difficulty_tier":1,"task_id":"bar_delivery_t1","default_condition":"nominal_no_battery","relation_signature":["P1","P2"]},
-    {"difficulty_tier":2,"task_id":"bar_delivery_t2","default_condition":"nominal_no_battery","relation_signature":["P1","P2","P4"]},
-    {"difficulty_tier":3,"task_id":"bar_service_t3","default_condition":"battery_hard","relation_signature":["P1","P2","P3-S","P4"]},
-    {"difficulty_tier":4,"task_id":"bar_crossfloor_t4","default_condition":"battery_very_hard","relation_signature":["P1","P2","P3-J","P3-S","P4"]}
+    {
+      "difficulty_tier": 1,
+      "task_id": "bar_delivery_t1",
+      "default_condition": "nominal_no_battery",
+      "relation_signature": [
+        "P1",
+        "P2"
+      ]
+    },
+    {
+      "difficulty_tier": 2,
+      "task_id": "bar_delivery_t2",
+      "default_condition": "nominal_no_battery",
+      "relation_signature": [
+        "P1",
+        "P2",
+        "P4"
+      ]
+    },
+    {
+      "difficulty_tier": 3,
+      "task_id": "bar_service_t3",
+      "default_condition": "battery_hard",
+      "relation_signature": [
+        "P1",
+        "P2",
+        "P3-S",
+        "P4"
+      ]
+    },
+    {
+      "difficulty_tier": 4,
+      "task_id": "bar_crossfloor_t4",
+      "default_condition": "battery_very_hard",
+      "relation_signature": [
+        "P1",
+        "P2",
+        "P3-J",
+        "P3-S",
+        "P4"
+      ]
+    }
   ],
   "conditions": [
-    {"condition_id":"nominal_no_battery","communication":"C0","battery_enabled":false,"battery_capacity":null,"battery_per_meter":0.0,"battery_reserve":0.0,"charge_wait_s":0.0},
-    {"condition_id":"battery_hard","communication":"C0","battery_enabled":true,"battery_capacity":100.0,"battery_per_meter":0.03,"battery_reserve":15.0,"charge_wait_s":0.0},
-    {"condition_id":"battery_very_hard","communication":"C0","battery_enabled":true,"battery_capacity":100.0,"battery_per_meter":0.03,"battery_reserve":15.0,"charge_wait_s":4.0},
-    {"condition_id":"communication_stress","communication":"C3","battery_enabled":false,"battery_capacity":null,"battery_per_meter":0.0,"battery_reserve":0.0,"charge_wait_s":0.0},
-    {"condition_id":"availability_loss","communication":"C0","battery_enabled":false,"battery_capacity":null,"battery_per_meter":0.0,"battery_reserve":0.0,"charge_wait_s":0.0,"availability_loss_task":"order_2_handoff"},
-    {"condition_id":"resource_contention","communication":"C0","battery_enabled":false,"battery_capacity":null,"battery_per_meter":0.0,"battery_reserve":0.0,"charge_wait_s":0.0}
+    {
+      "condition_id": "nominal_no_battery",
+      "communication": "C0",
+      "battery_enabled": false,
+      "battery_capacity": null,
+      "battery_per_meter": 0.0,
+      "battery_reserve": 0.0,
+      "charge_wait_s": 0.0
+    },
+    {
+      "condition_id": "battery_hard",
+      "communication": "C0",
+      "battery_enabled": true,
+      "battery_capacity": 100.0,
+      "battery_per_meter": 0,
+      "battery_reserve": 15.0,
+      "charge_wait_s": 0.0,
+      "initial_battery": 60.0,
+      "drain_per_s": 0.5
+    },
+    {
+      "condition_id": "battery_very_hard",
+      "communication": "C0",
+      "battery_enabled": true,
+      "battery_capacity": 100.0,
+      "battery_per_meter": 0,
+      "battery_reserve": 15.0,
+      "charge_wait_s": 4.0,
+      "initial_battery": 60.0,
+      "drain_per_s": 0.5
+    },
+    {
+      "condition_id": "communication_stress",
+      "communication": "C3",
+      "battery_enabled": false,
+      "battery_capacity": null,
+      "battery_per_meter": 0.0,
+      "battery_reserve": 0.0,
+      "charge_wait_s": 0.0
+    },
+    {
+      "condition_id": "availability_loss",
+      "communication": "C0",
+      "battery_enabled": false,
+      "battery_capacity": null,
+      "battery_per_meter": 0.0,
+      "battery_reserve": 0.0,
+      "charge_wait_s": 0.0,
+      "availability_loss_task": "order_1_place"
+    },
+    {
+      "condition_id": "resource_contention",
+      "communication": "C0",
+      "battery_enabled": false,
+      "battery_capacity": null,
+      "battery_per_meter": 0.0,
+      "battery_reserve": 0.0,
+      "charge_wait_s": 0.0
+    }
   ],
   "resources": [
-    {"resource_id":"workbench_mutex","semantic_label":"workbench-1","capacity":1,"service_s":0.4},
-    {"resource_id":"handoff_window","semantic_label":"floor1-bar_counter-1-inner","capacity":1,"service_s":1.0},
-    {"resource_id":"stair_mutex","semantic_label":"floor1-bar_counter-1-external","capacity":1,"service_s":0.5},
-    {"resource_id":"charging_point","semantic_label":"floor1-charging_point","capacity":1,"service_s":0.02,"recharges":true}
+    {
+      "resource_id": "workbench_mutex",
+      "semantic_label": "workbench-1",
+      "capacity": 1,
+      "service_s": 0.4
+    },
+    {
+      "resource_id": "handoff_window",
+      "semantic_label": "floor1-bar_counter-1-inner",
+      "capacity": 1,
+      "service_s": 1.0
+    },
+    {
+      "resource_id": "stair_mutex",
+      "semantic_label": "stair_entry",
+      "capacity": 1,
+      "service_s": 0.5
+    },
+    {
+      "resource_id": "charging_point",
+      "semantic_label": "floor1-charging_point",
+      "capacity": 1,
+      "service_s": 0.02,
+      "recharges": true
+    },
+    {
+      "resource_id": "refrigerator_mutex",
+      "semantic_label": "refrigerator",
+      "capacity": 1,
+      "service_s": 0.2
+    }
   ],
-  "checkpoint_policy":{"schema":"eai.bar.checkpoint-policy.v1","checkpoints":["cp_00_spawn_valid","cp_01_material_ready","cp_02_pre_handoff","cp_03_handoff_complete","cp_04_delivery_complete","cp_05_closeout"],"branch_rule":"all paired conditions start from the same cp_02_pre_handoff digest","evidence":["robot_state","battery_state","active_obligations","resource_ledger","communication_queue","event_state","semantic_map_digest","checkpoint_digest"]},
-  "hard_deadline_ticks":{"t1":12000,"t2":24000,"t3":36000,"t4":60000},
-  "release_gates":{"robot_validated":false,"physical_qualified":false,"paper_score_eligible":false}
+  "checkpoint_policy": {
+    "schema": "eai.bar.checkpoint-policy.v1",
+    "checkpoints": [
+      "cp_00_spawn_valid",
+      "cp_01_material_ready",
+      "cp_02_pre_handoff",
+      "cp_03_handoff_complete",
+      "cp_04_delivery_complete",
+      "cp_05_closeout"
+    ],
+    "branch_rule": "all paired conditions start from the same cp_02_pre_handoff digest",
+    "evidence": [
+      "robot_state",
+      "battery_state",
+      "active_obligations",
+      "resource_ledger",
+      "communication_queue",
+      "event_state",
+      "semantic_map_digest",
+      "checkpoint_digest"
+    ]
+  },
+  "hard_deadline_ticks": {
+    "t1": 12000,
+    "t2": 24000,
+    "t3": 36000,
+    "t4": 60000
+  },
+  "release_gates": {
+    "robot_validated": false,
+    "physical_qualified": false,
+    "paper_score_eligible": false
+  },
+  "service_policy": {
+    "minimum_coverage": 0.5,
+    "maximum_gap_s": 90.0
+  },
+  "parameter_status": "logical_candidate_requires_independent_timing_and_service_calibration",
+  "communication_capacity_bits_per_tick": {
+    "C0": 1000000000,
+    "C1": 1000000,
+    "C2": 10000,
+    "C3": 256
+  },
+  "implementation_bindings": {
+    "version": "bar.logical.v2",
+    "task_object_model": "heterocoord.logical-task-objects.v1",
+    "skill_provider_version": "2.0.0",
+    "joint_action": "two_distinct_robots_synchronized_stair_entry_handoff_then_one_carrier",
+    "joint_sync_window_ticks": 1500,
+    "service_interruptions": "charging_or_registered_fault_reallocation_only_with_max_gap_and_coverage_gates",
+    "authored_task_design_changed": false
+  }
 }

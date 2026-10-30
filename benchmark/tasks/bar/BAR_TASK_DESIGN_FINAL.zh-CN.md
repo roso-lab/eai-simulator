@@ -1,6 +1,6 @@
 # bar 任务设计定稿（Isaac-free 逻辑轨道）
 
-版本：`bar_drink_delivery_v1`。本文件把 `production_bar` 的饮品生产、吧台交接、桌边配送和楼梯跨层任务冻结为可审计的逻辑轨道，逻辑时钟固定为 `0.02 s`。它用于算法内部比较，不替代 Isaac Sim 的碰撞、传感器、控制器或真机证据。当前 `robot_validated=false`、`paper_score_eligible=false`，状态为设计冻结、运行时绑定待完成。
+版本：`bar_drink_delivery_v1`。本文件把 `production_bar` 的饮品生产、吧台交接、桌边配送和楼梯跨层任务冻结为可审计的逻辑轨道，逻辑时钟固定为 `0.02 s`。它用于算法内部比较，不替代 Isaac Sim 的碰撞、传感器、控制器或真机证据。当前 `robot_validated=false`、`paper_score_eligible=false`，状态为任务设计冻结，逻辑工程适配见 `BAR_ENGINEERING_ACCEPTANCE.zh-CN.md`；正式论文资格仍待认证。
 
 ## 1. 地图绑定与机器人池
 
@@ -48,7 +48,7 @@
 | `floor2-dining_table-1/2` | `node:0053` / `node:0054` | 跨层配送目标，待楼层绑定验证 |
 | `floor1-charging_point` | `node:0066` | 补能和安全回充资源 |
 
-楼梯边为 `edge:0048`（`node:0046→node:0047`）和 `edge:0052`（`node:0050→node:0051`），两者 `traversal_mode=stairs` 且要求 `stair_capable`。当前 aerial topology 为空，不能把空中接力写成 bar 的合法替代路线。`semantic-footprints.json` 的 objects、regions、interaction_poses 和 routes 为空；订单、杯子、瓶子、冰块、托盘和交付终端只能作为逻辑对象，必须在 runtime adapter 中绑定 USD prim、质量、抓取姿态、放置容差和外部成功谓词。
+楼梯边为 `edge:0048`（`node:0046→node:0047`）和 `edge:0052`（`node:0050→node:0051`），两者 `traversal_mode=stairs` 且要求 `stair_capable`。当前 aerial topology 为空，不能把空中接力写成 bar 的合法替代路线。`semantic-footprints.json` 的 objects、regions、interaction_poses 和 routes 为空；订单、杯子、瓶子、冰块、托盘和交付终端作为宿主逻辑对象登记身份、品类、数量、质量元数据、操作点和外部成功谓词；遵循新版全局对象模型，不为任务物体绑定 USD 刚体或模拟抓取接触。机器人自身操作控制仍需独立验证。
 
 ## 2. 基础饮品制备与订单配送
 
@@ -195,3 +195,6 @@ handoff
 诊断指标包括：订单和物料绑定正确率、制备成功率、品类/数量保持率、release/accept 完整度、首次交接和交付时间、楼梯进入等待、楼梯运输成功率、联合同步窗口、工作台和交接窗口排队、连续服务覆盖率、平均/最小剩余电量、低电量触发次数、回充次数、回充路线距离、充电点排队时间、困难模式即时充满延迟、非常困难模式 `charge_wait_s`、充电点互斥违反、电量耗尽次数、回充造成的 handoff/service 间隙、资源互斥违反、订单版本冲突、重复事件抑制、通信延迟/丢包/重试、safe-stop 延迟、路径距离、makespan、电量条件下的订单成功保持率以及 checkpoint/replay 等价性。
 
 当前文档只定义 Isaac-free 逻辑轨道，不宣称物理执行认证。`runtime_oracle_bound=false`、route/stair witness 未完成、robot validation 未完成、battery condition witness 未完成、checkpoint runtime readback 未完成；在 semantic binding、三机能力绑定、楼梯和放置 witness、runtime oracle、battery state readback、checkpoint readback 及必要的跨场景配对目录全部完成前，`paper_score_eligible=false`。
+
+
+工程适配说明：原 T1–T4 与语义路线保留；动作接口、参数候选、服务谓词、资源账本和诊断结果边界以 [BAR_ENGINEERING_ACCEPTANCE.zh-CN.md](BAR_ENGINEERING_ACCEPTANCE.zh-CN.md) 为接入说明。论文 D2 按任务起点配对；原 cp_02_pre_handoff 用于已登记的局部因子实验，不能替代任务起点的 D2 对照。

@@ -1,21 +1,15 @@
-"""Reusable scene adapters for the diagnostic runtime."""
+"""Lazy scene exports; optional scene dependencies fail at their own import."""
+from importlib import import_module
 
-try:
-    from .city_01 import City01ScenarioAdapter
-except ModuleNotFoundError:
-    City01ScenarioAdapter = None
-try:
-    from .city_02 import City02ScenarioAdapter
-except ModuleNotFoundError:
-    City02ScenarioAdapter = None
-try:
-    from .candy_shop import CandyShopScenarioAdapter
-except ModuleNotFoundError:
-    CandyShopScenarioAdapter = None
-try:
-    from .room_06 import Room06ScenarioAdapter
-except ModuleNotFoundError:
-    Room06ScenarioAdapter = None
-from .bar import BarScenarioAdapter
+_MODULES = {'City01ScenarioAdapter': 'city_01', 'City02ScenarioAdapter': 'city_02',
+            'CandyShopScenarioAdapter': 'candy_shop', 'Room06ScenarioAdapter': 'room_06',
+            'LivingHouseScenarioAdapter': 'living_house', 'BarScenarioAdapter': 'bar'}
+__all__ = list(_MODULES)
 
-__all__ = ["City01ScenarioAdapter", "City02ScenarioAdapter", "CandyShopScenarioAdapter", "Room06ScenarioAdapter", "BarScenarioAdapter"]
+
+def __getattr__(name):
+    if name not in _MODULES:
+        raise AttributeError(name)
+    value = getattr(import_module('.' + _MODULES[name], __name__), name)
+    globals()[name] = value
+    return value

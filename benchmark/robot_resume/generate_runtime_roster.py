@@ -42,7 +42,7 @@ ARM_MODULES = {
 }
 SKILL_VERSIONS = {
     "eai.navigation.node_route": {"provider_version": "2.0", "schema_version": "simulator.skill.v1"},
-    "eai.manipulation.pick_place": {"provider_version": "1.0.0", "schema_version": "simulator.skill.v1"},
+    "eai.manipulation.pick_place": {"provider_version": "2.0.0", "schema_version": "simulator.skill.v1"},
 }
 
 

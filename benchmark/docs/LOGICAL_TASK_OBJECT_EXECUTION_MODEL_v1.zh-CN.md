@@ -22,7 +22,7 @@
 
 `PickPlaceExecutor` 默认只走逻辑运行时，无运行时就失败，不调用 native backend 兜底；单凭旧 `idealized_semantics=True` 不再制造成功。旧原生操作代码作为独立物理实验兼容实现保留，只有宿主 `physical_object_experiment_authorization` 才能选择。
 
-公开 `eai.manipulation.pick_place` schema/provider 采用 `operation/object_ref/semantic_point`，可选 `robot_ids` 表示系统自主选择的联合会话成员，必须唯一且包含请求机器人；省略则单机调用。公开入口拒绝目标几何、物体质量覆盖及成功声明，宿主观测才具有裁决效力。物理诊断编译器不再使用公开逻辑 schema，也不能通过请求参数启用。
+新版（4959e104）公开 `eai.manipulation.pick_place` schema/provider 只接受 `operation=pick|place`、`object_ref` 和可选 `timeout_s`。导航单独调用；语义点由宿主解析，不能在请求中传入 `semantic_point` 或 `robot_ids`。`receive/join/leave` 属于独立的宿主逻辑对象/协同运输接口。旧快速逻辑仿真器的 `TaskSpec.object_action` 是内部事件协议，不是公共 PickPlace 请求，不能直接发送给该 schema。
 
 ## 联合持有、oracle 与失败
 

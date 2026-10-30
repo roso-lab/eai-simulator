@@ -4,4 +4,6 @@ bar 采用 Isaac-free 逻辑轨道，地图 revision 为 `754f3e1731ca464a834551
 
 T1/T2 是无电量基线；T3 使用 `battery_hard`，T4 使用 `battery_very_hard`。电量归一化为 `[0,100]`，按逻辑 tick 扣减；低于安全阈值必须前往 `floor1-charging_point/node:0066`。困难模式到达并占用后立即充满，非常困难模式在容量 1 的充电点等待固定 `charge_wait_s` 后充满。耗尽、不可达或资源冲突均保留 safe-stop 和 failure ledger 证据。
 
-正式关系以 P1/P2/P3/P4 合同为准；电量与充电用于 D1、D2、D3、D4 和 D6 诊断。paired condition 从共同 `cp_02_pre_handoff` 开始，并共享三机 variant、订单版本、电量参数、地图 digest 和随机种子摘要。所有结果仅为逻辑诊断，不能升级论文资格。
+正式关系以 P1/P2/P3/P4 合同为准；电量与充电用于 D1、D2、D3、D4 和 D6 诊断。局部交接因子从共同 `cp_02_pre_handoff` 开始；论文 D2 必须从任务起点 cp_00 重新开始，并共享三机 variant、订单版本、电量参数、地图 digest 和随机种子摘要。所有结果仅为逻辑诊断，不能升级论文资格。
+
+本次审阅论文 0ffd470f 的 sec/5_evaluation_protocol.tex 与 sec/X_suppl.tex：P2/P3-J/P3-S/P4 的逐义务证据由 bar_evaluator_v1 输出；D1/D2/D4/D6 只提供诊断输入，不生成缺少认证支持或独立校准的正式分数。参见 BAR_ENGINEERING_ACCEPTANCE.zh-CN.md 与 benchmark/docs/SCENE_SKILL_COMPATIBILITY_20261030.zh-CN.md。
