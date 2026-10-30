@@ -47,6 +47,9 @@ def jobs(seeds):
                     if tier == 4 and any(r in {'g1', 'lite3'} for r in v['robots']):
                         continue  # Excluded by the authored T4 pool, not an algorithm failure.
                     for c in manifest['conditions']:
+                        default = next(t['default_condition'] for t in manifest['difficulty_tiers'] if t['difficulty_tier'] == tier)
+                        if c['condition_id'] not in {default,'communication_stress','availability_loss','resource_contention'}:
+                            continue
                         result.append((alg, v['variant_id'], tier, c['condition_id'], None, seed))
                     for comm in ('C1', 'C2'):
                         result.append((alg, v['variant_id'], tier, None, comm, seed))

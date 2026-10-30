@@ -138,12 +138,14 @@ class BarScenarioAdapter:
                 for role in ('carrier', 'support'):
                     task(prefix+'_joint_'+role, 'synchronized_handoff', 'stair_entry', pre=(prefix+'_accept',),
                          continuation=prefix+'_carrier' if role == 'carrier' else None,
-                         caps=('manipulator', 'stair_capable'), cooperative_group=group,
+                         caps=('manipulator', 'stair_capable') if role == 'carrier' else ('manipulator', 'loader'), cooperative_group=group,
                          distinct_group=group, service=25)
                 joint = (prefix+'_joint_carrier', prefix+'_joint_support')
                 task(prefix+'_stair', 'stair_transport', destination, pre=joint, caps=('manipulator', 'stair_capable'),
                      continuation=prefix+'_carrier', service=25)
-                place_pre = [prefix+'_stair']
+                task(prefix+'_floor2_accept', 'floor2_accept', destination, pre=(prefix+'_stair',),
+                     continuation=prefix+'_carrier', service=1)
+                place_pre = [prefix+'_floor2_accept']
             elif i > 1:
                 place_pre.append(f'order_{i-1}_place')
             task(prefix+'_place', 'delivery', destination, pre=place_pre, continuation=prefix+'_carrier',
@@ -183,7 +185,7 @@ class BarScenarioAdapter:
         cp = runtime.checkpoint(); result = runtime.run()
         result['scenario'] = self.contract(tier=tier, condition_id=condition_id, variant_id=variant_id)
         result['checkpoint'] = cp
-        result['paired_state_digest'] = _digest({k:v for k,v in cp['snapshot'].items() if k not in {'algorithm', 'transport'}})
+        result['paired_state_digest'] = _digest({k:v for k,v in cp['snapshot'].items() if k != 'algorithm'})
         result['checkpoints'] = runtime.checkpoints
         result['replay_equivalent'] = runtime.replay(cp)['replay_equivalent']
         from benchmark.bar_evaluator_v1 import evaluate_bar

@@ -166,3 +166,45 @@ def test_coordinator_cannot_replan_before_state_delivery():
     assert not any(e['kind']=='allocation_proposal' for e in rt.events)
     assert not rt.tasks.assigned
     assert any(e['kind']=='coordination_state_submitted' for e in rt.events)
+
+
+def test_checkpoint_restores_the_active_bar_resource_ledger_and_queue():
+    rt=BarScenarioAdapter().runtime(tier=4)
+    assert rt.resources.request('charging_point','carter_d1','lease-a',rt.tick,200)
+    assert not rt.resources.request('charging_point','m20_d1','lease-b',rt.tick,200)
+    cp=rt.checkpoint()
+    clone=rt.fork(cp)
+    assert clone.resources.snapshot()==rt.resources.snapshot()
+    assert len(clone.resources.active['charging_point'])==1
+    assert len(clone.resources.queues['charging_point'])==1
+    fresh=rt.fresh_branch(cp,algorithm=BarGoalAlgorithm())
+    assert fresh.resources.snapshot()==rt.resources.snapshot()
+    clone.resources.release('charging_point','carter_d1','lease-a',rt.tick)
+    assert fresh.resources.active['charging_point'][0]['robot_id']=='carter_d1'
+
+
+def test_fresh_algorithm_is_initialized_once_on_restored_public_observation():
+    class Once(BarGoalAlgorithm):
+        def __init__(self): self.count=0
+        def initialize(self, observation):
+            self.count+=1
+            assert self.count==1
+            super().initialize(observation)
+    rt=BarScenarioAdapter().runtime(tier=1)
+    alg=Once(); clone=rt.fresh_branch(rt.checkpoint(),algorithm=alg)
+    assert alg.count==1 and clone.run()['success']
+
+
+def test_p2_requires_release_endpoint_and_owner_evidence():
+    from benchmark.bar_evaluator_v1 import evaluate_bar
+    a=BarScenarioAdapter(); result=a.run_generic(tier=1)
+    assert next(r['q'] for r in result['evaluation']['records'] if r['primitive']=='P2')==1
+    result['events']=[e for e in result['events'] if e['kind']!='handoff_release_ready']
+    evaluation=evaluate_bar(result,a.build_episode(tier=1))
+    assert next(r['q'] for r in evaluation['records'] if r['primitive']=='P2')==0
+
+
+def test_authored_matrix_does_not_enable_battery_for_t1_t2():
+    from benchmark.run_bar_matrix import jobs
+    assert len(jobs((17,18,19)))==504
+    assert not any(tier in (1,2) and c in ('battery_hard','battery_very_hard') for _,_,tier,c,_,_ in jobs((17,)))

@@ -38,7 +38,6 @@ class BarRuntime(DiagnosticRuntime):
         super().__init__(episode, algorithm)
         self.communication = CommunicationModel(episode.communication_condition, seed=episode.seed,
             bits_per_tick=config['communication_capacity'], max_queue_bits=1048576)
-        self.resources = BarResourceLedger(episode.resources)
         if config['condition_id'] == 'resource_contention':
             self.resources.request('workbench_mutex', '__external__order', '__external__order', 0, 1000)
             self.events.append({'tick':0, 'kind':'external_resource_demand', 'resource_id':'workbench_mutex',
@@ -54,6 +53,7 @@ class BarRuntime(DiagnosticRuntime):
         self.mark('cp_01_material_ready')
 
     def _build_registry(self):
+        self.resources = BarResourceLedger(tuple(self.resources.specs.values()))
         registry = super()._build_registry()
         self.logical = LogicalObjectRuntime(
             scene_id='production_bar',
@@ -151,6 +151,9 @@ class BarRuntime(DiagnosticRuntime):
                 obj = self.logical.object_state(task.object_id)
                 if obj['holders'] != [robot.spec.robot_id]:
                     self._fail('invalid_handoff_owner:' + task.task_id); return
+                self.object_state[task.object_id]['location'] = robot.target_key
+                self.events.append({'tick':self.tick, 'kind':'handoff_release_ready', 'object_id':task.object_id,
+                    'owner':robot.spec.robot_id, 'target':robot.target_key, 'task_id':task.task_id})
             else:
                 operation = {'handoff_receive': 'receive', 'pick': 'pick', 'place': 'place'}[action]
                 self._skill_zone = {}
@@ -184,7 +187,8 @@ class BarRuntime(DiagnosticRuntime):
                     location=obj['semantic_point'] or robot.target_key)
                 self.events.append({'tick': self.tick, 'kind': {'pick': 'object_picked', 'receive': 'handoff_accept',
                     'place': 'object_placed'}[operation], 'robot_id': robot.spec.robot_id,
-                    'object_id': task.object_id, 'target': robot.target_key})
+                    'object_id': task.object_id, 'target': robot.target_key,
+                    'previous_holders':holders if operation == 'receive' else [], 'holders':list(obj['holders'])})
             # Let the shared runtime handle reports/holds, not a second object mutation.
             self.tasks.specs[task.task_id] = replace(task, object_action=None)
             try:
@@ -202,6 +206,11 @@ class BarRuntime(DiagnosticRuntime):
             allowed = set(goal.get('eligible_robots', ()))
             if obj:
                 if goal.get('object_action') == 'handoff_receive':
+                    receive_task = self.tasks.specs[goal['task_id']]
+                    release = self.tasks.specs[receive_task.prerequisites[0]]
+                    owner = self.robot_states[obj['held_by']]
+                    if owner.node_id not in self.episode.graph.resolve(release.targets[0], 'ground') or owner.edge_progress_m != 0:
+                        allowed = set()
                     allowed.discard(obj.get('held_by'))
                     allowed = {rid for rid in allowed if not self.robot_states[rid].load_id}
                 if goal.get('object_action') == 'pick':
@@ -248,6 +257,7 @@ class BarRuntime(DiagnosticRuntime):
             if (frame.kind == 'coordination_state' and self.coordinator_pending
                     and frame.message_id in self.coordinator_pending['frame_ids']):
                 self.coordinator_pending['delivered'] = True
+                self.coordinator_pending['observation'] = deepcopy(frame.payload)
                 self.events.append({'tick': self.tick, 'kind': 'coordination_state_delivered',
                                     'message_id': frame.message_id})
         super()._process_reports(frames)
@@ -272,7 +282,7 @@ class BarRuntime(DiagnosticRuntime):
                 self._message_counter += 1
                 message_id = 'coordination-' + str(self._message_counter)
                 frame = self.communication.send(message_id=message_id, sender_id='team', receiver_id='coordinator',
-                    kind='coordination_state', payload={k:v for k,v in packet['observation'].items() if k != 'scene_description'}, tick=self.tick)
+                    kind='coordination_state', payload=packet['observation'], tick=self.tick)
                 packet['frame_ids'].append(message_id); packet['attempts'] += 1
                 packet['next_tick'] = self.tick + self.episode.report_retry_interval_ticks + (frame.bits + self.config['communication_capacity'] - 1) // self.config['communication_capacity']
                 self.events.append({'tick': self.tick, 'kind': 'coordination_state_submitted',
@@ -284,6 +294,16 @@ class BarRuntime(DiagnosticRuntime):
         admitted = dict(decision)
         for rid, goal in decision.items():
             robot = self.robot_states.get(rid)
+            task = self.tasks.specs.get(goal.split(':',1)[0])
+            if task and task.object_action == 'handoff_receive':
+                owner = self.robot_states[self.object_state[task.object_id]['held_by']]
+                release = self.tasks.specs[task.prerequisites[0]]
+                if owner.node_id not in self.episode.graph.resolve(release.targets[0], 'ground') or owner.edge_progress_m != 0:
+                    self.events.append({'tick':self.tick, 'kind':'assignment_deferred', 'robot_id':rid,
+                                        'task_id':task.task_id, 'reason':'handoff_owner_away'})
+                    admitted.pop(rid); continue
+            if task and robot and not set(task.required_capabilities).issubset(robot.active_capabilities):
+                continue  # Keep invalid capability proposals for the normal evaluator.
             if robot is None or robot.battery is None or robot.status != 'idle':
                 continue
             try:
@@ -353,7 +373,9 @@ class BarRuntime(DiagnosticRuntime):
                 except ValueError:
                     self._fail('charging_point_unreachable:' + robot.spec.robot_id); return
                 return_budget = distance_home / robot.spec.speed_mps * self.config['drain_per_s']
-                if (robot.spec.robot_id not in self.charge_resume
+                protected_handoff = robot.load_id and any(t.object_id == robot.load_id and t.object_action == 'handoff_receive'
+                    and self.tasks.status[t.task_id] == 'running' for t in self.episode.tasks)
+                if (not protected_handoff and robot.spec.robot_id not in self.charge_resume
                     and robot.battery <= robot.spec.battery_reserve_m + return_budget
                     and robot.edge_progress_m == 0 and robot.status in {'idle', 'moving', 'hold', 'cooperative_wait'}):
                     self._begin_charge(robot)
@@ -373,7 +395,7 @@ class BarRuntime(DiagnosticRuntime):
                 at_entry = self.episode.graph.resolve('stair_entry', 'ground')[0]
                 valid = (len({r.spec.robot_id for _, r in members}) == 2 and
                     all(r.node_id == at_entry and r.edge_progress_m == 0 and 'manipulator' in r.active_capabilities
-                        and 'stair_capable' in r.active_capabilities for _, r in members) and
+                        and set(t.required_capabilities).issubset(r.active_capabilities) for t, r in members) and
                     len(self.logical.object_state(obj_id)['holders']) == 1)
                 self.joint_evidence[group]['samples'] += 1
                 self.joint_evidence[group]['valid'] &= valid
@@ -495,11 +517,19 @@ class BarRuntime(DiagnosticRuntime):
             raise ValueError('checkpoint task/roster/condition contract mismatch')
         if checkpoint['digest'] != _digest(checkpoint['snapshot']):
             raise ValueError('checkpoint digest mismatch')
-        clone = type(self)(self.episode, algorithm=algorithm, config=self.config)
+        class Bootstrap:
+            uses_distance = False
+            def initialize(self, observation): pass
+            def decide(self, observation): return {}
+            def snapshot(self): return {}
+            def restore(self, state): pass
+        clone = type(self)(self.episode, algorithm=Bootstrap(), config=self.config)
         state = deepcopy(checkpoint['snapshot'])
         state['algorithm'] = clone.snapshot()['algorithm']
         clone.restore(state)
+        clone.algorithm = algorithm
         clone.algorithm.initialize(clone._observation())
+        clone._initial_snapshot = clone.snapshot()
         clone.checkpoints = []
         return clone
 

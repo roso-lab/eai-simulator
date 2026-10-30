@@ -10,8 +10,13 @@ def evaluate_bar(result, episode):
         prefix = obj['object_id']
         ids = [prefix + suffix for suffix in ('_acquire', '_prepare', '_release', '_accept')]
         accept = next((e for e in events if e['kind']=='handoff_accept' and e['object_id']==prefix), None)
+        ready = next((e for e in events if e['kind']=='handoff_release_ready' and e['object_id']==prefix),None)
+        release_task = next(t for t in episode.tasks if t.task_id==prefix+'_release')
+        owner_valid = bool(ready and ready['target']==release_task.targets[0] and accept
+            and accept['previous_holders']==[ready['owner']] and accept['robot_id']!=ready['owner']
+            and accept['holders']==[accept['robot_id']] and ready['tick']<=accept['tick'])
         reached = all(t in done for t in ids)
-        correct = reached and accept is not None and all(done[a]<=done[b] for a,b in zip(ids,ids[1:]))
+        correct = reached and owner_valid and accept is not None and all(done[a]<=done[b] for a,b in zip(ids,ids[1:]))
         records.append({'obligation_id':prefix+'_handoff', 'primitive':'P2', 'q':int(correct),
                         'status':'satisfied' if correct else 'violated' if accept else 'unreached',
                         'endpoint_tick':done.get(ids[-1])})
@@ -27,15 +32,23 @@ def evaluate_bar(result, episode):
         records.append({'obligation_id':'continuous_service','primitive':'P3-S','q':int(valid),
                         'status':'satisfied' if valid else 'violated' if trace else 'unreached'})
     for resource in episode.resources:
-        requested=any(e.get('resource_id')==resource.resource_id for e in events if e['kind'] in
-            {'resource_request','handoff_window_request','stair_entry_acquire'})
-        # Custom paired leases have fixed resource identities.
-        if resource.resource_id=='handoff_window': requested=any(e['kind']=='handoff_window_request' for e in events)
-        if resource.resource_id=='stair_mutex': requested=any(e['kind']=='stair_entry_acquire' for e in events)
+        required = [t.task_id for t in episode.tasks if t.resource_id == resource.resource_id]
+        if resource.resource_id=='handoff_window':
+            required=[t.task_id for t in episode.tasks if t.task_id.endswith('_accept') and t.kind=='handoff_receive']
+        if resource.resource_id=='stair_mutex':
+            required=[t.task_id for t in episode.tasks if t.kind=='stair_transport']
+        if resource.resource_id=='charging_point':
+            lows=[e for e in events if e['kind']=='low_battery']
+            fulfilled=bool(lows) and result['charge_services']==len(lows)
+            applicable=bool(lows)
+        else:
+            applicable=bool(required)
+            fulfilled=all(t in done for t in required)
         released=not result['resource_state']['active'][resource.resource_id] and not result['resource_state']['queues'][resource.resource_id]
-        records.append({'obligation_id':resource.resource_id, 'primitive':'P4',
-            'q':int(requested and released and result['success']),
-            'status':'satisfied' if requested and released and result['success'] else 'unreached'})
+        violation=result['resource_peak_occupancy'].get(resource.resource_id,0)>resource.capacity
+        q=int(fulfilled and released and not violation) if applicable else None
+        records.append({'obligation_id':resource.resource_id, 'primitive':'P4','applicable':applicable,
+            'q':q,'status':'NA' if not applicable else 'satisfied' if q else 'violated' if violation else 'unreached'})
     return {'schema':'heterocoord.bar.obligations.v1','paper_commit':'0ffd470f','records':records,
         'dimensions':{'D1':'pending_first_full_committed_plan_and_certified_infeasible_support',
                       'D2':'diagnostic_C0_C3_rows_available_capacity_calibration_pending',
