@@ -1,0 +1,77 @@
+{
+  "schema": "heterocoord.warehouse.task_manifest.v1",
+  "version": 1,
+  "scenario_id": "warehouse",
+  "scene_key": "production_warehouse",
+  "task_family": "warehouse_order_pick_workspace_v1",
+  "task_status": "logic_runtime_ready_physical_pending",
+  "semantic_map": {
+    "path": "usd/scene/Production and logistics/warehouse/semantic_map/current",
+    "revision": "4174a7c1c4ca456ea39569e066a0de35",
+    "semantic_binding_digest": "3401830b10261f695da0e0aa5453dc75cffe34d6c7f96bd97f074ce289a12b37",
+    "ground_nodes": 317,
+    "ground_edges": 449,
+    "aerial_nodes": 157,
+    "aerial_edges": 212,
+    "manifest_declared_levels": ["1F"],
+    "task_levels": ["1F", "2F", "3F"],
+    "robot_validated": false
+  },
+  "logic_clock": {"dt_s": 0.02, "battery_unit": "normalized_fraction", "battery_model": "runtime_condition"},
+  "robot_pool": [
+    {"profile": "go2_d1", "model": "Go2+D1", "domain": "ground", "capabilities": ["navigation", "manipulator", "payload_transport", "joint_carry", "stair_capable", "battery_charge"]},
+    {"profile": "carter_d1", "model": "Carter+D1", "domain": "ground", "capabilities": ["navigation", "manipulator", "payload_transport", "joint_carry", "stair_capable", "battery_charge"]},
+    {"profile": "m20", "model": "M20", "domain": "ground", "capabilities": ["navigation", "payload_transport", "joint_carry", "battery_charge"]},
+    {"profile": "b2_z1", "model": "B2+Z1", "domain": "ground", "capabilities": ["navigation", "manipulator", "payload_transport", "joint_carry", "stair_capable", "battery_charge"]},
+    {"profile": "pegasus", "model": "Pegasus", "domain": "aerial", "capabilities": ["navigation", "aerial", "payload_transport", "joint_carry", "battery_charge"]},
+    {"profile": "iris", "model": "Iris", "domain": "aerial", "capabilities": ["navigation", "aerial", "payload_transport", "battery_charge"]}
+  ],
+  "spawn_points": {
+    "ground_workspace_1": {"semantic_label": "workspace", "domain": "ground", "node_id": "node:0341"},
+    "ground_workspace_2": {"semantic_label": "workspace", "domain": "ground", "node_id": "node:0344"},
+    "aerial_workspace_1": {"semantic_label": "workspace", "domain": "aerial", "node_id": "node:0161"},
+    "aerial_workspace_2": {"semantic_label": "workspace", "domain": "aerial", "node_id": "node:0164"}
+  },
+  "roster_variants": [
+    {"variant_id": "warehouse_ground_pair", "profiles": ["go2_d1", "carter_d1"]},
+    {"variant_id": "warehouse_aerial_pair", "profiles": ["pegasus", "iris"]},
+    {"variant_id": "warehouse_go2_pegasus", "profiles": ["go2_d1", "pegasus"]},
+    {"variant_id": "warehouse_carter_iris", "profiles": ["carter_d1", "iris"]},
+    {"variant_id": "warehouse_ground2_aerial1", "profiles": ["go2_d1", "carter_d1", "pegasus"]},
+    {"variant_id": "warehouse_ground1_aerial2", "profiles": ["carter_d1", "pegasus", "iris"]},
+    {"variant_id": "warehouse_mixed_four", "profiles": ["go2_d1", "carter_d1", "pegasus", "iris"]}
+  ],
+  "difficulty_tiers": [
+    {"difficulty_tier": 1, "task_id": "warehouse_known_pick_t1", "default_condition": "nominal_no_battery", "relation_signature": ["P1", "P2"], "orders": 1, "search_required": false, "heavy_required": false},
+    {"difficulty_tier": 2, "task_id": "warehouse_search_pick_t2", "default_condition": "nominal_no_battery", "relation_signature": ["P1", "P2", "P4"], "orders": 2, "search_required": true, "heavy_required": false},
+    {"difficulty_tier": 3, "task_id": "warehouse_joint_batch_t3", "default_condition": "battery_hard", "relation_signature": ["P1", "P2", "P3-J", "P4"], "orders": 3, "search_required": true, "heavy_required": true},
+    {"difficulty_tier": 4, "task_id": "warehouse_peak_multifloor_t4", "default_condition": "battery_very_hard", "relation_signature": ["P1", "P2", "P3-J", "P3-S", "P4"], "orders": 4, "search_required": true, "heavy_required": true}
+  ],
+  "conditions": [
+    {"condition_id": "nominal_no_battery", "communication": "C0", "battery_enabled": false, "availability_loss": false, "charge_wait_s": 0.0},
+    {"condition_id": "battery_hard", "communication": "C0", "battery_enabled": true, "initial_battery": 100.0, "drain_per_s": 0.05, "safe_threshold": 20.0, "charge_wait_s": 0.02},
+    {"condition_id": "battery_very_hard", "communication": "C1", "battery_enabled": true, "initial_battery": 100.0, "drain_per_s": 0.05, "safe_threshold": 20.0, "charge_wait_s": 4.0},
+    {"condition_id": "communication_stress", "communication": "C3", "battery_enabled": false, "availability_loss": false, "charge_wait_s": 0.0},
+    {"condition_id": "availability_loss", "communication": "C1", "battery_enabled": false, "availability_loss": true, "availability_loss_task": "order_2_pick" , "charge_wait_s": 0.0},
+    {"condition_id": "resource_contention", "communication": "C0", "battery_enabled": false, "availability_loss": false, "charge_wait_s": 0.0}
+  ],
+  "resources": [
+    {"resource_id": "workspace_charger", "semantic_label": "workspace", "domain": "ground", "capacity": 1, "nominal_service_s": 0.02, "very_hard_service_s": 4.0, "recharges": true},
+    {"resource_id": "workspace_mutex", "semantic_label": "workspace", "domain": "ground", "capacity": 1, "nominal_service_s": 0.2, "recharges": false},
+    {"resource_id": "joint_carry_mutex", "semantic_label": "workspace", "domain": "ground", "capacity": 1, "nominal_service_s": 1.0, "recharges": false}
+  ],
+  "checkpoint_policy": {
+    "clock_dt_s": 0.02,
+    "labels": ["cp_00_spawn_valid", "cp_01_order_bound", "cp_02_region_observed", "cp_03_shelf_resolved", "cp_04_items_verified", "cp_05_joint_carry_ready", "cp_06_workspace_delivery", "cp_07_charge_complete", "cp_08_order_closeout"],
+    "supports": ["checkpoint", "restore", "fork", "branch", "replay"],
+    "paired_branch_rule": "paired conditions share roster, order version, battery parameters, map digest and pre-factor checkpoint"
+  },
+  "infeasible_tasks": [
+    {"task_id": "warehouse_infeasible_no_domain_capability", "certificate": "source_workspace_domain_intersection_empty", "status": "team-state-infeasible"},
+    {"task_id": "warehouse_infeasible_workspace_domain_unreachable", "certificate": "no_route_for_bound_domain", "status": "team-state-infeasible"},
+    {"task_id": "warehouse_infeasible_insufficient_inventory", "certificate": "inventory_quantity_below_order_quantity", "status": "team-state-infeasible"},
+    {"task_id": "warehouse_infeasible_deadline_under_search_or_reallocation", "certificate": "lower_bound_exceeds_deadline", "status": "team-state-infeasible"}
+  ],
+  "release_gates": {"robot_validated": false, "physical_qualified": false, "runtime_oracle_bound": false, "paper_score_eligible": false},
+  "d1_cases": "benchmark/tasks/warehouse/warehouse_d1_cases.v1.json"
+}

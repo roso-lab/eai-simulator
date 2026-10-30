@@ -1,0 +1,78 @@
+{
+  "schema": "heterocoord.coffee_shop.d1-cases.v1",
+  "parameter_status": "logical_probe_candidates_pending_independent_certification",
+  "submission_deadline_tick": 100,
+  "assessment_deadline_tick": 200,
+  "cases": [
+    {
+      "case_id": "coffee_infeasible_no_manipulator",
+      "proof_type": "capability_empty_set",
+      "roster": [
+        {
+          "robot_id": "g1",
+          "model_ref": "g1",
+          "start_role": "welcome"
+        },
+        {
+          "robot_id": "go2",
+          "model_ref": "go2",
+          "start_role": "ordering"
+        },
+        {
+          "robot_id": "lite_base",
+          "model_ref": "lite_base",
+          "start_role": "production"
+        }
+      ],
+      "required_capabilities": [
+        "manipulator",
+        "pick_place"
+      ],
+      "required_recipe_actions": [
+        "pick_cup",
+        "recipe_acquire",
+        "delivery"
+      ],
+      "certificate": "selected roster capability intersection is empty for required recipe manipulation"
+    },
+    {
+      "case_id": "coffee_infeasible_rest_capacity",
+      "proof_type": "capacity_empty_set",
+      "rest_resources": [
+        "rest_area_1",
+        "rest_area_2"
+      ],
+      "capacity": 8,
+      "customer_count": 9,
+      "wait_policy": "forbidden_by_probe",
+      "certificate": "customer_count exceeds simultaneous rest capacity and no admissible queue release exists"
+    },
+    {
+      "case_id": "coffee_infeasible_recipe_resource",
+      "proof_type": "recipe_resource_empty_set",
+      "recipe_id": "menu_item_requires_shaker",
+      "required_resource": "shaker_mutex",
+      "required_semantic_point": "shaker",
+      "resource_capacity": 0,
+      "certificate": "recipe graph requires a zero-capacity or unavailable fixed processing resource"
+    },
+    {
+      "case_id": "coffee_infeasible_dual_entry_conflict",
+      "proof_type": "entry_state_conflict",
+      "entry_resources": [
+        "gate_mutex",
+        "side_door_mutex"
+      ],
+      "simultaneous_customer_count": 2,
+      "available_gate_operators": 0,
+      "required_state_sequence": [
+        "approach",
+        "open_command",
+        "open_verified",
+        "customer_entered",
+        "close_or_release"
+      ],
+      "certificate": "both entry obligations are released while no registered gate operator can establish either verified-open state"
+    }
+  ]
+}
