@@ -17,6 +17,6 @@ def run_matrix():
 def write_results(rows):
  JSON.write_text(json.dumps({'schema':'heterocoord.coffee_shop.logic_matrix.v1','scenario':'coffee_shop','clock_dt_s':0.02,'row_count':len(rows),'success_count':sum(x['success'] for x in rows),'paper_score_eligible':False,'rows':rows},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
  with CSV.open('w',newline='',encoding='utf-8') as f:
-  w=csv.DictWriter(f,fieldnames=list(rows[0]),lineterminator='\n');w.writeheader();w.writerows(rows)
+  w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
 if __name__=='__main__':
  rows=run_matrix();write_results(rows);print(json.dumps({'rows':len(rows),'success':sum(x['success'] for x in rows)}))

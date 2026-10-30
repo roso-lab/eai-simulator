@@ -304,11 +304,5 @@
     "runtime_oracle_bound": false,
     "paper_score_eligible": false
   },
-  "d1_cases": "benchmark/tasks/coffee_shop/coffee_shop_d1_cases.v1.json",
-  "communication_policy": {
-    "report_retry_limit": 8,
-    "report_retry_interval_ticks": 30,
-    "scope": "logical_diagnostic_transport",
-    "rationale": "Bounded C3 FIFO report retries wait 0.6 s to avoid retry bursts; retry budget and channel policy remain unchanged."
-  }
+  "d1_cases": "benchmark/tasks/coffee_shop/coffee_shop_d1_cases.v1.json"
 }
