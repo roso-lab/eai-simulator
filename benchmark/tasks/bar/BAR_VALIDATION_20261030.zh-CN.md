@@ -18,3 +18,5 @@ PYTHONPATH=. /home/pupil/miniconda3/envs/env_isaaclab/bin/python -m benchmark.ru
 两个兼容类均为同一个确定性参考策略，标记 native_algorithm=false。全通过仅是逻辑可解性运行证据，不是原生 EMOS/TeamWeaver 的得分，不应解读为题目容易或算法满分。
 
 原任务故事、订单数、语义目标、顺序交付、楼梯入口双参与者同步动作、服务和资源关系保持。初始电量/连续耗电率/同步窗口/服务容差等原文未数值化参数仅登记逻辑候选；四种不可行任务的正式独立证书、完整首计划、八维需求数值审计、独立时间/通信校准及原生控制器证据仍待后续资格流程。正式 D1–D6、rankable、physical_qualified、paper_score_eligible 均未升级。
+
+续验增加独立的 D1 合同审计：`PYTHONPATH=. /home/pupil/miniconda3/envs/env_isaaclab/bin/python -m benchmark.bar_d1`。产物 `benchmark/results/bar_d1_contract_audit.v1.json` 保存四个三机候选负例的可复算逻辑证明、正常任务的未认证登记状态和源码 SHA-256；不包含真实被测算法得分。D1 专项 44 项与通用评估 21 项通过，bar 专项、D1 和共享 skill/逻辑回归合计 157 项通过。正常任务仍由原 manifest 驱动。

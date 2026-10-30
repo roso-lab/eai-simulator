@@ -170,6 +170,17 @@ class BarScenarioAdapter:
             map_revision=m['semantic_map']['revision'], semantic_binding_digest=m['semantic_map']['semantic_binding_digest'],
             digest=_digest({'manifest': m, 'tier': tier, 'condition': c, 'variant': v}), paper_score_eligible=False)
 
+    def d1_infeasible_certificates(self) -> tuple[dict, ...]:
+        """Independent logical proofs for the four registered D1 probes."""
+        from benchmark.bar_d1 import bar_d1_certificates
+        return bar_d1_certificates(self)
+
+    def d1_infeasible_certificate(self, case_id: str) -> dict:
+        matches = [row for row in self.d1_infeasible_certificates() if row['case_id'] == case_id]
+        if not matches:
+            raise KeyError(case_id)
+        return matches[0]
+
     def runtime(self, *, tier=4, condition_id=None, variant_id=None, communication=None, algorithm=None, seed=0):
         from benchmark.bar_algorithms import BarGoalAlgorithm
         c = self._condition(condition_id, tier)

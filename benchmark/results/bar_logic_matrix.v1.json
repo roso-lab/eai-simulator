@@ -13,7 +13,7 @@
   "paper_score_eligible": false,
   "source_hashes": {
     "benchmark/bar_runtime_v1.py": "1cacb371ee5901bd1fdbf44dcd5a4ca836cde6be3481d4381f8abeca00f0be6e",
-    "benchmark/scenarios/bar.py": "ee4cfbf6225044a9891aefed0112e668884aa872cd279a9e2d0e0a7b9fbe579f",
+    "benchmark/scenarios/bar.py": "ab4b415846990a6a6c99e461ea1d99d3ac0a6821b3efd3de688b63f15b57b4d2",
     "benchmark/bar_algorithms.py": "41ef0151d4ae5af95042554f834c3912a30665d3c07be314ae86225c6c099113",
     "benchmark/bar_evaluator_v1.py": "57601950ca9dd3c9650f99c11ac7dbb59c230d92587816aaec1631b6083779e8",
     "benchmark/tasks/bar/bar_task_manifest.v1.json": "20feb7b0bb4139d1a4426ad36d2d07dbed9190591a6584fac1e498bd6a9165a8",

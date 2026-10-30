@@ -40,3 +40,11 @@ PYTHONPATH=. /home/pupil/miniconda3/envs/env_isaaclab/bin/python -m benchmark.ru
 现有 `EmosBarAlgorithm` / `TeamWeaverBarAlgorithm` 仅保留兼容名称，它们使用同一个确定性可行性策略，输出明确标注 `native_algorithm=false`、`algorithm_scope=deterministic_contract_witness`；不可作为真实 EMOS/TeamWeaver 比较结果。
 
 D1 缺初始完整计划与正式不可行样本集；D2 缺容量校准/正式配对目录；D3 有逻辑 obligation 数据但缺认证支持集；D4 有持续故障和受影响工作数据但缺正式配对评价；D5 无认证跨场景适配单元，NA；D6 有序列化 bits 和逻辑时间但缺独立 B0/T0。所有 `D*_eligible` 和 `paper_score_eligible` 保持 false。机器人与路径的物理证据仅涉及本体控制，不要求恢复已取消的任务物体刚体仿真。
+
+## 2026-10-30 D1 逻辑证据续验
+
+新增 `bar_d1_cases.v1.json` 独立候选负例登记表，补实原设计第 3 节的四类空可行集：三台不具楼梯能力的机器人到二层无合法路线；三台中只有一台同时具操作/载荷能力；工作台容量 1 的两段 20 tick 制备无法满足 30 tick 时间窗；完整地图叠加公开的内侧访问权限后无合格路径。每项保持三台不同机器人实例，证书绑定 roster、地图、任务 manifest、完整负例登记表及证明数据。载荷限额与时间窗为独立的逻辑候选输入，不宣称机型额定载荷或正式阈值认证。正常 T1–T4 manifest、机器人池与订单图不变。
+
+`benchmark.bar_d1.BarD1Journal` 保存候选计划、所有正式提交、声明和派发记录；独立检查必须绑定首个正式计划，后续修复不能覆盖首次成绩。安全停止读取评价器的机器人及资源账本：运动中、携物、未结束任务、锁未释放、等待队列非空、队伍不符、位置偏离初始点、距离非零、已有执行事件或运行时已终止时均不通过。评估器拒绝没有对应 `BarD1Journal` 和导出证据的手工 `OrganizationRunV3`；调用方须完整接入所有派发记录。当前桥接未认证进程隔离，接口不接受被测系统自报的 `safe_stop=True`。
+
+四个负例只证明逻辑合同不可行；`bar_d1_deployable_spec` 对正常任务保持 `feasibility_unverified`，不会凭参考策略成功升级成已认证可解实例。首次计划的完整内容验证、逐义务检查冻结、正式 D1 支持集与真实算法试验仍未完成。可运行 `python -m benchmark.bar_d1` 生成 `bar_d1_contract_audit.v1.json`，该文件记录证书与输入哈希，不包含被测算法分数。

@@ -1,0 +1,66 @@
+{
+  "schema": "heterocoord.bar.d1-cases.v1",
+  "parameter_status": "logical_probe_candidates_pending_independent_certification",
+  "payload_note": "The 0.5 kg limit is a logical admission contract for this probe, not a manufacturer or robot-validation claim; the current BarRuntime order object has mass_kg=0.5.",
+  "submission_deadline_tick": 100,
+  "assessment_deadline_tick": 200,
+  "cases": [
+    {
+      "case_id": "bar_infeasible_no_stair_capability",
+      "proof_type": "no_stair_route",
+      "roster": [
+        {"robot_id": "g1", "model_ref": "g1", "start_role": "storage"},
+        {"robot_id": "pepper_1", "model_ref": "pepper", "start_role": "production"},
+        {"robot_id": "pepper_2", "model_ref": "pepper", "start_role": "reserve"}
+      ],
+      "targets": ["floor2-dining_table-1", "floor2-dining_table-2"],
+      "stair_edges": ["edge:0048", "edge:0052"],
+      "required_capabilities": ["stair_capable"],
+      "required_distinct_holders": 1
+    },
+    {
+      "case_id": "bar_infeasible_insufficient_joint_manipulators",
+      "proof_type": "joint_cardinality",
+      "roster": [
+        {"robot_id": "m20_1", "model_ref": "m20", "start_role": "storage", "logical_payload_limit_kg": 0.5},
+        {"robot_id": "pepper_1", "model_ref": "pepper", "start_role": "production", "logical_payload_limit_kg": 0.5},
+        {"robot_id": "m20_2", "model_ref": "m20", "start_role": "reserve", "logical_payload_limit_kg": 0.5}
+      ],
+      "target": "stair_entry",
+      "required_capabilities": ["manipulator", "loader"],
+      "required_distinct_holders": 2,
+      "minimum_payload_kg": 0.5,
+      "joint_sync_window_ticks": 1500
+    },
+    {
+      "case_id": "bar_infeasible_workbench_time_window",
+      "proof_type": "serial_time_window",
+      "roster": [
+        {"robot_id": "carter_d1", "model_ref": "carter_d1", "start_role": "storage"},
+        {"robot_id": "m20_d1", "model_ref": "m20_d1", "start_role": "production"},
+        {"robot_id": "b2_z1", "model_ref": "b2_z1", "start_role": "reserve"}
+      ],
+      "resource_id": "workbench_mutex",
+      "resource_capacity": 1,
+      "jobs": [
+        {"job_id": "order_1_prepare", "point": "workbench-1", "duration_ticks": [20, 20], "release_tick": 0, "deadline_tick": 30},
+        {"job_id": "order_2_prepare", "point": "workbench-2", "duration_ticks": [20, 20], "release_tick": 0, "deadline_tick": 30}
+      ],
+      "precedence": [["order_1_prepare", "order_2_prepare"]],
+      "max_lag_ticks": 30,
+      "deadline_tick": 30
+    },
+    {
+      "case_id": "bar_infeasible_unreachable_inner_handoff",
+      "proof_type": "restricted_reachability",
+      "roster": [
+        {"robot_id": "carter_d1", "model_ref": "carter_d1", "start_role": "storage"},
+        {"robot_id": "m20_d1", "model_ref": "m20_d1", "start_role": "production"},
+        {"robot_id": "b2_z1", "model_ref": "b2_z1", "start_role": "reserve"}
+      ],
+      "target": "floor1-bar_counter-1-inner",
+      "non_substitutable_external_point": "floor1-bar_counter-1-external",
+      "edge_permissions": [{"edge_id": "edge:0067", "required_capability": "inner_counter_access"}]
+    }
+  ]
+}

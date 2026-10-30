@@ -7,3 +7,5 @@ T1/T2 是无电量基线；T3 使用 `battery_hard`，T4 使用 `battery_very_ha
 正式关系以 P1/P2/P3/P4 合同为准；电量与充电用于 D1、D2、D3、D4 和 D6 诊断。局部交接因子从共同 `cp_02_pre_handoff` 开始；论文 D2 必须从任务起点 cp_00 重新开始，并共享三机 variant、订单版本、电量参数、地图 digest 和随机种子摘要。所有结果仅为逻辑诊断，不能升级论文资格。
 
 本次审阅论文 0ffd470f 的 sec/5_evaluation_protocol.tex 与 sec/X_suppl.tex：P2/P3-J/P3-S/P4 的逐义务证据由 bar_evaluator_v1 输出；D1/D2/D4/D6 只提供诊断输入，不生成缺少认证支持或独立校准的正式分数。参见 BAR_ENGINEERING_ACCEPTANCE.zh-CN.md 与 benchmark/docs/SCENE_SKILL_COMPATIBILITY_20261030.zh-CN.md。
+
+续验新增独立 D1 候选负例登记表和 `BarD1Journal`，直接复用论文对应的 `organization_v3` 首次提交评估器。四类不可行证明由公开合同、三机能力、全图可达性/访问权限和资源工作量下界计算，禁用从算法成功率反推证书。正常任务仅保留七类检查登记骨架，未获独立可解性认证，仍排除在正式 D1 支持集外。验证过的安全停止与零派发只构成逻辑诊断证据；未将原生算法、物理或论文资格升级。
