@@ -19,4 +19,4 @@ PYTHONPATH=. /home/pupil/miniconda3/envs/env_isaaclab/bin/python -m benchmark.ru
 
 原任务故事、订单数、语义目标、顺序交付、楼梯入口双参与者同步动作、服务和资源关系保持。初始电量/连续耗电率/同步窗口/服务容差等原文未数值化参数仅登记逻辑候选；四种不可行任务的正式独立证书、完整首计划、八维需求数值审计、独立时间/通信校准及原生控制器证据仍待后续资格流程。正式 D1–D6、rankable、physical_qualified、paper_score_eligible 均未升级。
 
-续验增加独立的 D1 合同审计：`PYTHONPATH=. /home/pupil/miniconda3/envs/env_isaaclab/bin/python -m benchmark.bar_d1`。产物 `benchmark/results/bar_d1_contract_audit.v1.json` 保存四个三机候选负例的可复算逻辑证明、正常任务的未认证登记状态和源码 SHA-256；不包含真实被测算法得分。D1 专项 44 项与通用评估 21 项通过，bar 专项、D1 和共享 skill/逻辑回归合计 157 项通过。正常任务仍由原 manifest 驱动。
+续验增加独立的 D1 合同审计：`PYTHONPATH=. /home/pupil/miniconda3/envs/env_isaaclab/bin/python -m benchmark.bar_d1`。产物 `benchmark/results/bar_d1_contract_audit.v1.json` 保存四个三机候选负例的可复算逻辑证明、正常任务的未认证登记状态和源码 SHA-256；不包含真实被测算法得分。D1 专项 23 项、通用评估 21 项和 bar 专项 29 项合计 73 项通过；另有共享 runtime、对象账本、skill 和 city02/factory/candy_shop/living_house/room06 共 125 项回归通过。正常任务仍由原 manifest 驱动。R2 独立审查已确认三项 P1 关闭：手工 run 绕过、已执行状态冒充 safe-stop、空目标/错误楼梯见证认证。
